@@ -1,0 +1,14 @@
+------AAAAAA--- code/abbreviation of the material, character string
+      METAL0
+---ddddd.ddd--- constant potential [V]
+     100.000
+---ddddd.ddd--- amplitude of potential oscillations [V]
+       0.000
+---ddddd.ddd--- frequency [MHz]
+       0.000
+---ddddd.ddd--- phase [deg] for sin(omega*t+phase)
+       0.000
+----dddd------- number of electron macroparticles injected each timestep, constant [dim-less]
+       0
+-------d.ddd--- temperature of emitted electrons [eV]
+       0.000

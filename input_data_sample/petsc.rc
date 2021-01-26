@@ -1,0 +1,11 @@
+# -help 
+#-vec_view ascii:vector.dat
+#-mat_view ascii:matrix.dat
+-pc_type hypre
+-ksp_type gmres
+-ksp_rtol 1.e-9
+-pc_monitor
+-ksp_monitor
+#-log_exclude snes
+-log_view
+# -on_error_attach_debugger gdb
