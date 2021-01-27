@@ -4,7 +4,7 @@ SUBROUTINE PREPARE_EXTERNAL_FIELDS
 
   USE ParallelOperationValues
   USE ExternalFields
-  USE CurrentProblemValues, ONLY : E_scale_Vm, B_scale_T, delta_x_m, global_maximal_j
+  USE CurrentProblemValues, ONLY : E_scale_Vm, B_scale_T, delta_x_m, global_maximal_j, pi, mu_0_Hm
   USE IonParticles, ONLY : ions_sense_magnetic_field, ions_sense_EZ
 
   IMPLICIT NONE
@@ -20,6 +20,9 @@ SUBROUTINE PREPARE_EXTERNAL_FIELDS
   CHARACTER(1) buf
   INTEGER ions_sense_magnetic_field_flag, ions_sense_EZ_flag
   INTEGER j
+
+  INTEGER ALLOC_ERR
+  INTEGER n
 
 ! functions
   REAL(8) Bx, By, Bz, Ez
@@ -70,6 +73,38 @@ SUBROUTINE PREPARE_EXTERNAL_FIELDS
      
      PRINT '(2x,"Process ",i5," : ERROR : init_extfields.dat not found. Program terminated")', Rank_of_process
      STOP
+
+  END IF
+
+  N_JZ_wires = 0
+
+  INQUIRE (FILE = 'init_extmagfieldsBxBy.dat', EXIST = exists)
+  CALL MPI_BARRIER(MPI_COMM_WORLD, ierr)
+
+  IF (exists) THEN
+     
+     OPEN (9, FILE = 'init_extmagfieldsBxBy.dat')
+
+     READ (9, '(A1)') buf !"---dd--- number of wires with the electric current along the Z-direction")')
+     READ (9, '(3x,i2)') N_JZ_wires
+
+     IF (N_JZ_wires.GT.0) THEN
+        ALLOCATE(JZwire_X(1:N_JZ_wires), STAT=ALLOC_ERR)   ! x-coordinate of the wire in the laboratory CS
+        ALLOCATE(JZwire_Y(1:N_JZ_wires), STAT=ALLOC_ERR)   ! y-coordinate
+        ALLOCATE(JZwire_JZ(1:N_JZ_wires), STAT=ALLOC_ERR)   ! electric current (JZ) 
+     END IF
+     READ (9, '(A1)') buf !"--- provide below for each wire its X coordinate [mm] Y coordinate [mm] and electric current JZ [A]")')
+     READ (9, '(A1)') buf !"---ddddd.ddd---ddddd.ddd---ddddd.ddd---")')
+
+     DO n = 1, N_JZ_wires
+        READ (9, '(3(3x,f9.3))') JZwire_X(n), JZwire_Y(n), JZwire_JZ(n) 
+! make values dimensionless
+        JZwire_X(n) = JZwire_X(n) * 0.001_8 / delta_x_m
+        JZwire_Y(n) = JZwire_Y(n) * 0.001_8 / delta_x_m
+        JZwire_JZ(n) = (mu_0_Hm * JZwire_JZ(n) / (2.0_8 * pi)) / (delta_x_m * B_scale_T)
+     END DO
+
+     CLOSE (9, STATUS = 'KEEP')
 
   END IF
 
@@ -133,8 +168,13 @@ REAL(8) FUNCTION Bx(x, y)
   IMPLICIT NONE
 
   REAL(8) x, y
+  INTEGER n
 
   Bx = Bx_ext
+
+  DO n = 1, N_JZ_wires
+     Bx = Bx - JZwire_JZ(n) * (y - JZwire_Y(n)) / ((x - JZwire_X(n))**2 + (y - JZwire_Y(n))**2)
+  END DO
 
 END FUNCTION Bx
 
@@ -147,8 +187,13 @@ REAL(8) FUNCTION By(x, y)
   IMPLICIT NONE
 
   REAL(8) x, y
+  INTEGER n
 
   By = By_ext
+
+  DO n = 1, N_JZ_wires
+     By = By + JZwire_JZ(n) * (x - JZwire_X(n)) / ((x - JZwire_X(n))**2 + (y - JZwire_Y(n))**2)
+  END DO
 
 END FUNCTION By
 

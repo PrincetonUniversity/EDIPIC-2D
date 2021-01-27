@@ -18,6 +18,12 @@ MODULE ExternalFields
   REAL(8) a1, a2
   REAL(8) b1, b2
 
+! parameters of set of wires with JZ current to get magnetic field with Bx, By
+  INTEGER N_JZ_wires
+  REAL(8), ALLOCATABLE :: JZwire_X(:)    ! x-coordinate of the wire
+  REAL(8), ALLOCATABLE :: JZwire_Y(:)    ! y-coordinate of the wire
+  REAL(8), ALLOCATABLE :: JZwire_JZ(:)    ! JZ current in the wire
+
 END MODULE ExternalFields
 
 !------------------------------------
@@ -144,6 +150,7 @@ MODULE CurrentProblemValues
   REAL(8), PARAMETER :: e_Cl     = 1.602189d-19      ! Charge of single electron [Cl]
   REAL(8), PARAMETER :: m_e_kg   = 9.109534d-31      ! Mass of single electron [kg]
   REAL(8), PARAMETER :: eps_0_Fm = 8.854188d-12      ! The dielectric constant [F/m]
+  REAL(8), PARAMETER :: mu_0_Hm  = 1.25663706d-6     ! vacuum permeability [H/m] or [m kg s^-2 A^-2]
   REAL(8), PARAMETER :: amu_kg   = 1.660565d-27      ! atomic mass unit [kg]
   REAL(8), PARAMETER :: kB_JK    = 1.38064852d-23    ! Boltzmann constant [J/K]
 
