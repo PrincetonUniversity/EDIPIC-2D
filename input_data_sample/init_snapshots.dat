@@ -14,9 +14,9 @@
          0.000       100.000     11
 -------- Parameters for calculation of velocity distribution functions
 --d-d--- Number of spatial boxes along the X / Y direction in a cluster (>=0)
-  8 5
+  2 2
 --ddd--- Electrons, maximal velocity [in units of v_Te_ms]
-   12
+    6 12
 --ddd--- Electrons, number of velocity bins per v_Te_ms
    20
 --ddd--- Ions, maximal velocity [in units of v_Te_ms*sqrt(me/Ms)]

@@ -1,5 +1,5 @@
 ---ddddddd.ddd----- simulation time [ns]
-       100.010  0.100 101.000
+       100.001  100.010  0.100 101.000
 --------dd--------- number of electron sub-cycles per ion cycle (odd)
         11   was 9
 ------dddd--------- number of ion cycles between internal cluster load balancing events
