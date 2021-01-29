@@ -9,6 +9,6 @@
 ---ddddd.ddd--- phase [deg] for sin(omega*t+phase)
        0.000
 ----dddd------- number of electron macroparticles injected each timestep, constant [dim-less]
-     100
+       0
 -------d.ddd--- temperature of emitted electrons [eV]
-       0.100
+       0.000

@@ -889,6 +889,8 @@ SUBROUTINE PROCESS_ADDED_ELECTRONS
 
   USE ElectronParticles, ONLY : N_e_to_add, N_electrons, max_N_electrons, electron, electron_to_add
 
+  USE rng_wrapper  !###???
+
   IMPLICIT NONE
 
   TYPE particle
@@ -904,6 +906,10 @@ SUBROUTINE PROCESS_ADDED_ELECTRONS
 
   INTEGER ALLOC_ERR, DEALLOC_ERR
   INTEGER k, current_N
+
+  INTEGER random_j
+  INTEGER temptag
+  REAL(8) tempX, tempY, tempVX, tempVY, tempVZ
   
   IF (N_e_to_add.GT.(max_N_electrons-N_electrons)) THEN
 ! increase the size of the main electron array
@@ -943,6 +949,34 @@ SUBROUTINE PROCESS_ADDED_ELECTRONS
 ! update electron counter
   N_electrons = N_electrons + N_e_to_add
 
+!???????????? shuffle the added and the available particles ?????????????
+  DO k = N_electrons - N_e_to_add + 1, N_electrons
+!     random_j = MAX(1, MIN( N_electrons - N_e_to_add, INT(well_random_number() * (N_electrons-N_e_to_add))) )
+     random_j = MAX(1, MIN( N_electrons, INT(well_random_number() * N_electrons)))
+
+     IF (random_j.EQ.k) CYCLE
+
+     tempX   = electron(random_j)%X
+     tempY   = electron(random_j)%Y
+     tempVX  = electron(random_j)%VX
+     tempVY  = electron(random_j)%VY
+     tempVZ  = electron(random_j)%VZ
+     temptag = electron(random_j)%tag
+
+     electron(random_j)%X   = electron(k)%X
+     electron(random_j)%Y   = electron(k)%Y
+     electron(random_j)%VX  = electron(k)%VX
+     electron(random_j)%VY  = electron(k)%VY
+     electron(random_j)%VZ  = electron(k)%VZ
+     electron(random_j)%tag = electron(k)%tag
+
+     electron(k)%X   = tempX
+     electron(k)%Y   = tempY
+     electron(k)%VX  = tempVX
+     electron(k)%VY  = tempVY
+     electron(k)%VZ  = tempVZ
+     electron(k)%tag = temptag
+  END DO
 
 !print '("Process ",i4," called PROCESS_ADDED_ELECTRONS, T_cntr= ",i7," N_e_to_add= ",i8," N_electrons= ",i8," max_N_electrons= ",i8)', &
 !     & Rank_of_process, T_cntr, N_e_to_add, N_electrons, max_N_electrons

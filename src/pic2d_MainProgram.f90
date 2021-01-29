@@ -174,6 +174,9 @@ call report_total_number_of_particles
 
         CALL MPI_BARRIER(MPI_COMM_WORLD, ierr) 
 
+        CALL PROCESS_ADDED_ELECTRONS                ! add the new electrons to the main array   !### NEW       
+        CALL MPI_BARRIER(MPI_COMM_WORLD, ierr)
+
         t12 = MPI_WTIME()
 
         CALL COLLECT_PARTICLE_BOUNDARY_HITS

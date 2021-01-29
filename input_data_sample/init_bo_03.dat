@@ -1,7 +1,7 @@
 ------AAAAAA--- code/abbreviation of the material, character string
       METAL0
 ---ddddd.ddd--- constant potential [V]
-     100.000
+      80.000
 ---ddddd.ddd--- amplitude of potential oscillations [V]
        0.000
 ---ddddd.ddd--- frequency [MHz]

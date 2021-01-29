@@ -1,0 +1,6 @@
+---dd--- number of wires with the electric current along the Z-direction
+    2
+--- provide below for each wire its X coordinate [mm] Y coordinate [mm] and electric current JZ [A]
+---ddddd.ddd---ddddd.ddd---ddddd.ddd---
+     -10.000       8.000      30.000
+      18.012       8.000     -30.000

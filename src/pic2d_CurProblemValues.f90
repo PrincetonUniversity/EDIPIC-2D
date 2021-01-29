@@ -9,7 +9,7 @@ SUBROUTINE INITIATE_PARAMETERS
   USE IonParticles
   USE LoadBalancing
   USE BlockAndItsBoundaries, ONLY : block_row, block_column
-  USE ClusterAndItsBoundaries, ONLY : c_row, c_column, c_N_of_local_object_parts, c_indx_y_min, c_indx_y_max
+  USE ClusterAndItsBoundaries, ONLY : c_row, c_column, c_N_of_local_object_parts, c_indx_x_min, c_indx_x_max, c_indx_y_min, c_indx_y_max
   USE Diagnostics, ONLY : N_of_probes, N_of_probes_cluster
   USE BlockAndItsBoundaries, ONLY : indx_x_min, indx_x_max, indx_y_min, indx_y_max
   USE ExternalFields
@@ -46,6 +46,19 @@ SUBROUTINE INITIATE_PARAMETERS
 
   INTEGER init_random_seed
   REAL(8) myran
+
+  CHARACTER(24) BxBy_filename   ! proc_NNNN_BxBy_vs_xy.dat
+                                ! ----x----I----x----I----
+
+! functions
+  REAL(8) Bx, By
+  interface
+     function convert_int_to_txt_string(int_number, length_of_string)
+       character*(length_of_string) convert_int_to_txt_string
+       integer int_number
+       integer length_of_string
+     end function convert_int_to_txt_string
+  end interface
 
   INQUIRE (FILE = 'init_configuration.dat', EXIST = exists)
   CALL MPI_BARRIER(MPI_COMM_WORLD, ierr)
@@ -609,6 +622,27 @@ if (Rank_of_process.eq.0) print *, "SET_CLUSTER_STRUCTURE done"
      phi=0.0_8
 !     rho_i=0.0_8 !DBLE(N_of_particles_cell) * init_Ne_m3 / N_plasma_m3 !0.0_8
 !     rho_e=0.0_8
+  END IF
+
+! save vectors of the external magnetic field
+  IF (Rank_cluster.EQ.0) THEN
+     BxBy_filename = 'proc_NNNN_BxBy_vs_xy.dat'
+     BxBy_filename(6:9) = convert_int_to_txt_string(Rank_of_process,4)
+     OPEN (10, FILE = BxBy_filename)
+     DO j = c_indx_y_min, c_indx_y_max
+        DO i = c_indx_x_min, c_indx_x_max
+           WRITE (10, '(2x,i5,2x,i5,2x,f12.9,2x,f12.9,2x,e14.7,2x,e14.7)') &
+                & i, &
+                & j, &
+                & i * delta_x_m, &
+                & j * delta_x_m, &
+                & B_scale_T * Bx(DBLE(i), DBLE(j)), &
+                & B_scale_T * By(DBLE(i), DBLE(j))
+        END DO
+        WRITE (10, '(" ")')
+     END DO
+     CLOSE (10, STATUS = 'KEEP')
+     PRINT '("file ",A24," is ready")', BxBy_filename
   END IF
 
 END SUBROUTINE INITIATE_PARAMETERS
