@@ -337,9 +337,9 @@ END SUBROUTINE COLLECT_ELECTRON_BOUNDARY_HITS
 SUBROUTINE INITIATE_WALL_DIAGNOSTICS
 
   USE ParallelOperationValues
-  USE CurrentProblemValues, ONLY : N_of_boundary_objects
+  USE CurrentProblemValues, ONLY : N_of_boundary_objects, Start_T_cntr
   USE Checkpoints, ONLY : use_checkpoint
-  USE Diagnostics, ONLY : N_of_saved_records
+!  USE Diagnostics, ONLY : N_of_saved_records
   USE SetupValues, ONLY : ht_use_e_emission_from_cathode, ht_use_e_emission_from_cathode_zerogradf, ht_emission_constant
 
   IMPLICIT NONE
@@ -376,7 +376,7 @@ SUBROUTINE INITIATE_WALL_DIAGNOSTICS
         INQUIRE (FILE = historybo_filename, EXIST = exists)
         IF (exists) THEN                                                       
            OPEN (21, FILE = historybo_filename, STATUS = 'OLD')          
-           DO i = 1, N_of_saved_records
+           DO i = 1, Start_T_cntr   !N_of_saved_records             ! these files are updated at every electron timestep
               READ (21, '(2x,i8,10(2x,i8))') i_dummy
            END DO
            ENDFILE 21       

@@ -322,19 +322,13 @@ SUBROUTINE PERFORM_ELECTRON_NEUTRAL_COLLISIONS
   USE CurrentProblemValues, ONLY : V_scale_ms, m_e_kg, e_Cl
   USE rng_wrapper
 
-  USE ParallelOperationValues
+!  USE ParallelOperationValues
 
   IMPLICIT NONE
 
-  INCLUDE 'mpif.h'
-
-  INTEGER ierr
-  INTEGER stattus(MPI_STATUS_SIZE)
-  INTEGER request
-
   INTEGER ALLOC_ERR
 
-  INTEGER n
+  INTEGER n, p
 
   REAL(8) R_collided, F_collided
   INTEGER I_collided
@@ -350,10 +344,6 @@ SUBROUTINE PERFORM_ELECTRON_NEUTRAL_COLLISIONS
   INTEGER i, indx_segment
 
   INTEGER k, indx_coll
-
-  INTEGER buflen, pos, p
-  INTEGER, ALLOCATABLE :: ibufer_send(:)
-  INTEGER, ALLOCATABLE :: ibufer_receive(:)
 
 ! functions
   LOGICAL Find_in_stored_list
@@ -372,11 +362,6 @@ SUBROUTINE PERFORM_ELECTRON_NEUTRAL_COLLISIONS
   NULLIFY(Collided_particle)
   IF (.NOT.ASSOCIATED(Collided_particle)) THEN
      ALLOCATE(Collided_particle, STAT=ALLOC_ERR)
-!           IF (ALLOC_ERR.NE.0) THEN
-!              PRINT '(/2x,"Process ",i3," : Error in ALLOCATE Collided_particle !!!")', Rank_of_process
-!              PRINT  '(2x,"Program will be terminated now :(")'
-!              STOP
-!           END IF
   END IF
   NULLIFY(Collided_particle%Larger)
   NULLIFY(Collided_particle%Smaller)
@@ -398,8 +383,6 @@ SUBROUTINE PERFORM_ELECTRON_NEUTRAL_COLLISIONS
 
      DO j = 0, I_collided
 
-!print '(3(2x,i6),2x,f10.3)', Rank_of_process, j, I_collided, R_collided
-
         IF (j.EQ.0) THEN
 ! here we process the "fractional" collisional event
            IF (well_random_number().GT.F_collided) CYCLE
@@ -415,14 +398,10 @@ SUBROUTINE PERFORM_ELECTRON_NEUTRAL_COLLISIONS
            IF (.NOT.Find_in_stored_list(random_j)) EXIT    !#### needs some safety mechanism to avoid endless cycling
         END DO
 
-!print '("proc ",i4," stage A")', Rank_of_process
-
 ! account for reduced neutral density
         IF (random_n.GT.neutral_density_normalized(n, electron(random_j)%X, electron(random_j)%Y)) CYCLE      
 
         energy_eV = (electron(random_j)%VX**2 + electron(random_j)%VY**2 + electron(random_j)%VZ**2) * V_scale_ms**2 * m_e_kg * 0.5_8 / e_Cl
-
-!print '("proc ",i4," stage B")', Rank_of_process
 
         IF (energy_eV.GE.collision_e_neutral(n)%energy_segment_boundary_value(collision_e_neutral(n)%N_of_energy_segments)) THEN
            indx_energy = collision_e_neutral(n)%N_of_energy_values-1
@@ -451,8 +430,6 @@ SUBROUTINE PERFORM_ELECTRON_NEUTRAL_COLLISIONS
            a0 = 1.0_8 - a1
         END IF
 
-!print '("proc ",i4," stage C")', Rank_of_process
-
         DO k = collision_e_neutral(n)%N_of_activated_colproc, 1, -1 
            IF (random_r.GT.(a0 * collision_e_neutral(n)%prob_colproc_energy(k, indx_energy) + &
                          &  a1 * collision_e_neutral(n)%prob_colproc_energy(k, indx_energy+1)) ) EXIT
@@ -461,45 +438,146 @@ SUBROUTINE PERFORM_ELECTRON_NEUTRAL_COLLISIONS
 
         IF (indx_coll.GT.collision_e_neutral(n)%N_of_activated_colproc) CYCLE   ! the null collision
 
-!print '("Proc ",i4," is about to CALL Add_to_stored_list")', Rank_of_process
         CALL Add_to_stored_list(random_j)
-!print '("Proc ",i4," survived CALL Add_to_stored_list")', Rank_of_process
 
         SELECT CASE (collision_e_neutral(n)%colproc_info(indx_coll)%type)
         CASE (10)
-!print '("Proc ",i4," is about to do en_Collision_Elastic_10")', Rank_of_process
            CALL en_Collision_Elastic_10( n, random_j, energy_eV, &
                                        & collision_e_neutral(n)%counter(indx_coll))
-!print '("Proc ",i4," did            en_Collision_Elastic_10")', Rank_of_process
         CASE (20)
-!print '("Proc ",i4," is about to do en_Collision_Inelastic_20")', Rank_of_process
            CALL en_Collision_Inelastic_20( n, random_j, energy_eV, &
                                           & collision_e_neutral(n)%colproc_info(indx_coll)%threshold_energy_eV, &
                                           & collision_e_neutral(n)%counter(indx_coll) )
-!print '("Proc ",i4," did            en_Collision_Inelastic_20")', Rank_of_process
         CASE (30)
-!print '("Proc ",i4," is about to do en_Collision_Ionization_30")', Rank_of_process
            CALL en_Collision_Ionization_30( n, random_j, energy_eV, &
                                           & collision_e_neutral(n)%colproc_info(indx_coll)%threshold_energy_eV, &
                                           & collision_e_neutral(n)%colproc_info(indx_coll)%ion_species_produced, &
                                           & collision_e_neutral(n)%colproc_info(indx_coll)%ion_velocity_factor, &
                                           & collision_e_neutral(n)%counter(indx_coll) )
-!print '("Proc ",i4," did            en_Collision_Ionization_30")', Rank_of_process
 
         END SELECT
 
      END DO
   END DO
 
-!print '("Proc ",i4," is about to do Node_Killer")', Rank_of_process
   CALL Node_Killer(Collided_particle)
-!print '("Proc ",i4," survived Node_Killer")', Rank_of_process
 
-! as a minimal diagnostics, report all collision counters to the process with zero global rank
+END SUBROUTINE PERFORM_ELECTRON_NEUTRAL_COLLISIONS
 
-  CALL MPI_BARRIER(MPI_COMM_WORLD, ierr) 
-     
-  buflen=0
+!-------------------------------------------------------------------------------------------
+!
+SUBROUTINE INITIATE_en_COLL_DIAGNOSTICS
+
+  USE ParallelOperationValues
+  USE MCCollisions
+  USE CurrentProblemValues, ONLY : Start_T_cntr, N_subcycles, delta_t_s
+  USE Checkpoints, ONLY : use_checkpoint
+
+  IMPLICIT NONE
+
+  INTEGER n
+                                      ! ----x----I----x----I----x--
+  CHARACTER(27) historycoll_filename  ! history_coll_e_n_AAAAAA.dat
+
+  LOGICAL exists
+  CHARACTER(1) buf
+  INTEGER k, i
+  INTEGER i_dummy
+
+  IF (Rank_of_process.NE.0) RETURN
+
+  IF (en_collisions_turned_off) RETURN
+
+  IF (use_checkpoint.EQ.1) THEN
+! start from checkpoint, must trim the time dependences
+
+     DO n = 1, N_neutral_spec
+
+        IF (collision_e_neutral(n)%N_of_activated_colproc.EQ.0) CYCLE
+
+        historycoll_filename = 'history_coll_e_n_AAAAAA.dat'
+        historycoll_filename(18:23) = neutral(n)%name
+
+        INQUIRE (FILE = historycoll_filename, EXIST = exists)
+        IF (exists) THEN                                                       
+           OPEN (21, FILE = historycoll_filename, STATUS = 'OLD')          
+! skip header
+           READ (21, '(A1)') buf ! WRITE (21, '("# electron time step is ",e14.7," s")'), delta_t_s
+           READ (21, '(A1)') buf ! WRITE (21, '("#      ion time step is ",e14.7," s")'), delta_t_s * N_subcycles
+           READ (21, '(A1)') buf ! WRITE (21, '("# column  1 is the electron step counter")')
+           READ (21, '(A1)') buf ! WRITE (21, '("# column  2 is the total number of electron macroparticles in the whole system")')
+           DO k = 1, collision_e_neutral(n)%N_of_activated_colproc
+              READ (21, '(A1)') buf ! WRITE (21, '(# column ",i2," is the number of collision events during past ion time step for collision process with id ",i2," type ",i2)') &
+                                    ! &  k+2, collision_e_neutral(n)%colproc_info(k)%id_number, collision_e_neutral(n)%colproc_info(k)%type
+           END DO
+
+           DO i = 1, Start_T_cntr / N_subcycles            ! these files are updated at every ion timestep
+              READ (21, '(2x,i8,10(2x,i8))') i_dummy
+           END DO
+           ENDFILE 21       
+           CLOSE (21, STATUS = 'KEEP')        
+        END IF
+
+     END DO
+
+  ELSE
+! fresh start, empty files
+
+     DO n = 1, N_neutral_spec
+
+        IF (collision_e_neutral(n)%N_of_activated_colproc.EQ.0) CYCLE
+
+        historycoll_filename = 'history_coll_e_n_AAAAAA.dat'
+        historycoll_filename(18:23) = neutral(n)%name
+
+        OPEN  (21, FILE = historycoll_filename, STATUS = 'REPLACE')
+! save header
+        WRITE (21, '("# electron time step is ",e14.7," s")') delta_t_s
+        WRITE (21, '("#      ion time step is ",e14.7," s")') delta_t_s * N_subcycles
+        WRITE (21, '("# column  1 is the electron step counter")')
+        WRITE (21, '("# column  2 is the total number of electron macroparticles in the whole system")')
+        DO k = 1, collision_e_neutral(n)%N_of_activated_colproc
+           WRITE (21, '("# column ",i2," is the number of collision events during past ion time step for collision process with id ",i2," type ",i2)') &
+                &  k+2, collision_e_neutral(n)%colproc_info(k)%id_number, collision_e_neutral(n)%colproc_info(k)%type
+        END DO
+        CLOSE (21, STATUS = 'KEEP')
+
+     END DO
+
+  END IF
+
+END SUBROUTINE INITIATE_en_COLL_DIAGNOSTICS
+
+!-------------------------------------------------------------------------------------------
+!
+SUBROUTINE SAVE_en_COLLISIONS
+
+  USE ParallelOperationValues
+  USE MCCollisions
+  USE ElectronParticles, ONLY : N_electrons
+  USE CurrentProblemValues, ONLY : T_cntr
+
+  IMPLICIT NONE
+
+  INCLUDE 'mpif.h'
+
+  INTEGER ierr
+  INTEGER stattus(MPI_STATUS_SIZE)
+  INTEGER request
+
+  INTEGER buflen, pos, n, p
+  INTEGER, ALLOCATABLE :: ibufer_send(:)
+  INTEGER, ALLOCATABLE :: ibufer_receive(:)
+  INTEGER ALLOC_ERR
+
+  INTEGER global_N_of_electrons
+
+                                      ! ----x----I----x----I----x--
+  CHARACTER(27) historycoll_filename  ! history_coll_e_n_AAAAAA.dat
+
+! report all collision counters to the process with zero global rank
+
+  buflen=1             ! include N_electrons
   DO n = 1, N_neutral_spec
      buflen = buflen + collision_e_neutral(n)%N_of_activated_colproc
   END DO
@@ -507,7 +585,8 @@ SUBROUTINE PERFORM_ELECTRON_NEUTRAL_COLLISIONS
   ALLOCATE (ibufer_send(1:buflen), STAT = ALLOC_ERR)
   ALLOCATE (ibufer_receive(1:buflen), STAT = ALLOC_ERR)
 
-  pos=0
+  pos=1
+  ibufer_send(pos) = N_electrons
   DO n = 1, N_neutral_spec
      DO p = 1, collision_e_neutral(n)%N_of_activated_colproc
         pos = pos+1
@@ -521,21 +600,40 @@ SUBROUTINE PERFORM_ELECTRON_NEUTRAL_COLLISIONS
 
   IF (Rank_of_process.EQ.0) THEN
 ! translate the message
-     pos=0
+     pos=1
+     global_N_of_electrons = ibufer_receive(pos)
      DO n = 1, N_neutral_spec
         IF (collision_e_neutral(n)%N_of_activated_colproc.LT.1) CYCLE
         DO p = 1, collision_e_neutral(n)%N_of_activated_colproc
            pos = pos+1
            collision_e_neutral(n)%counter(p) = ibufer_receive(pos)
         END DO
-        PRINT '("Total collisions with neutral species ",i2," :: ",10(2x,i6))', n, collision_e_neutral(n)%counter(1:collision_e_neutral(n)%N_of_activated_colproc)
+        PRINT '("Total collisions with neutral species ",i2," (",A6,") :: ",10(2x,i6))', n, neutral(n)%name, collision_e_neutral(n)%counter(1:collision_e_neutral(n)%N_of_activated_colproc)
      END DO
   END IF
 
   DEALLOCATE(ibufer_send, STAT = ALLOC_ERR)
   DEALLOCATE(ibufer_receive, STAT = ALLOC_ERR)
 
-END SUBROUTINE PERFORM_ELECTRON_NEUTRAL_COLLISIONS
+  IF (Rank_of_process.NE.0) RETURN
+
+  DO n = 1, N_neutral_spec
+
+     IF (collision_e_neutral(n)%N_of_activated_colproc.EQ.0) CYCLE
+
+     historycoll_filename = 'history_coll_e_n_AAAAAA.dat'
+     historycoll_filename(18:23) = neutral(n)%name
+
+     OPEN (21, FILE = historycoll_filename, POSITION = 'APPEND')
+     WRITE (21, '(2x,i8,10(2x,i8))') &
+          & T_cntr, &
+          & global_N_of_electrons, &
+          & collision_e_neutral(n)%counter(1:collision_e_neutral(n)%N_of_activated_colproc)
+     CLOSE (21, STATUS = 'KEEP')
+  
+  END DO
+
+END SUBROUTINE SAVE_en_COLLISIONS
 
 !----------------------------------------
 !

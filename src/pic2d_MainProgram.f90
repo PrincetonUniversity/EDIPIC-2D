@@ -28,18 +28,20 @@ PROGRAM MainProg
   T_cntr_cluster_load_balance = Start_T_cntr
 
   CALL INITIATE_PARAMETERS
-print *, "did INITIATE_PARAMETERS"
+!print *, "did INITIATE_PARAMETERS"
 
   CALL INITIATE_ELECTRON_NEUTRAL_COLLISIONS
 
-print *, "did INITIATE_ELECTRON_NEUTRAL_COLLISIONS"
-CALL MPI_BARRIER(MPI_COMM_WORLD, ierr) 
+!print *, "did INITIATE_ELECTRON_NEUTRAL_COLLISIONS"
+!CALL MPI_BARRIER(MPI_COMM_WORLD, ierr) 
 !stop
 
   CALL INITIATE_PROBE_DIAGNOSTICS
 
   CALL INITIATE_WALL_DIAGNOSTICS_HT_SETUP   ! only one of the two actually works
   CALL INITIATE_WALL_DIAGNOSTICS            !
+
+  CALL INITIATE_en_COLL_DIAGNOSTICS
 
   CALL INITIATE_SNAPSHOTS
 
@@ -174,7 +176,8 @@ call report_total_number_of_particles
 
         CALL MPI_BARRIER(MPI_COMM_WORLD, ierr) 
 
-        CALL PROCESS_ADDED_ELECTRONS                ! add the new electrons to the main array   !### NEW       
+        CALL PROCESS_ADDED_ELECTRONS                ! add the new electrons to the main array   !### NEW   
+    
         CALL MPI_BARRIER(MPI_COMM_WORLD, ierr)
 
         t12 = MPI_WTIME()
@@ -186,6 +189,10 @@ call report_total_number_of_particles
         t13 = MPI_WTIME()
 
         CALL PERFORM_ELECTRON_NEUTRAL_COLLISIONS
+
+        CALL MPI_BARRIER(MPI_COMM_WORLD, ierr) 
+
+        CALL SAVE_en_COLLISIONS
 
         CALL MPI_BARRIER(MPI_COMM_WORLD, ierr) 
 
