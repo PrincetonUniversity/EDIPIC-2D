@@ -10,7 +10,7 @@
      1     1     1     0     1     1     1     1     1     1     1     1     1
 ---dd--- Number of groups of snapshots ( >= 0 )
     3
----ddddddd.ddd---ddddddd.ddd---dddd---d--- group: start (ns) / finish (ns) / number of snapshots / save evdfs (0/1/2/3 = No/1d only/2d only/1d and 2d)
+---ddddddd.ddd---ddddddd.ddd---dddd---d--- group: start (ns) / finish (ns) / number of snapshots / save VDFs (0/1/2/3 = No/1d only/2d only/1d and 2d)
          0.000         0.000      1   3
          1.000         9.000      5   0
         10.000        10.000      1   3
