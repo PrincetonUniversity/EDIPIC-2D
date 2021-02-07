@@ -1,3 +1,33 @@
+!------------------------------------
+! This program reads files history_bo_NN.dat, where NN is the boundary object number. 
+! Such a file contains records of how many electrons and ions of different species 
+! collided with the boundary object at each time step. 
+! The program calculates average fluxes of the collided and emitted particles in units of the electric current [Amperes, A]
+! and saves those as functions of time in files history_bo_NN_avg.dat, here NN is again the boundary object number.
+! The averaging is performed over the requested number of ion cycles (the program will ask for it).
+! The program also needs the following input data files from the simulation:
+! init_configuration.dat
+! init_simcontrol.dat
+! init_particles.dat 
+!
+! In simulation output files history_bo_NN.dat 
+! column 1 is the time step counter, 
+! column 2 is the number of electron macroparticles collided with boundary object NN,
+! columns 3:3+N_spec-1 are the numbers of ion macroparticles of species 1:N_spec collided with boundary object NN, 
+! column 3+N_spec is the number of electrons emitted by boundary object NN, N_spec is the number of ion species.
+!
+! In processed files history_bo_NN_avg.dat
+! column 1 is the time [ns],
+! column 2 is the average flux of electron collided with the boundary object NN [A],
+! columns 3:3+N_spec are the average fluxes of ions of species 1:N_spec collided with the boundary object NN [A],
+! column 3+N_spec is the average flux of electron emitted the boundary object NN [A], N_spec is the number of ion species.
+!
+! The fluxes/currents in processed files history_bo_NN_avg.dat are all positive, 
+! it is user's responsibility to use the proper sign.
+!
+! Also, in the top of the processed files there is a line with the length of the corresponding boundary object, 
+! which can be used to calculate the current density, if necessary.
+!
 !----------------------------
 !
 module physical_constants
