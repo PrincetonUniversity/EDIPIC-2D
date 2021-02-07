@@ -24,6 +24,7 @@ SUBROUTINE INITIATE_SNAPSHOTS
   REAL(8) Rqst_snap_start_ns        ! requested start of current set of snapshots [ns], read from file
   REAL(8) Rqst_snap_finish_ns       ! requested finish of current set of snapshots [ns], read from file 
   INTEGER Rqst_n_of_snaps           ! requested number of snapshots in current set, read from file
+  INTEGER Rqst_evdf_flag            ! requested flag defining which evdfs to save (0/1/2/3 = No/1d only/2d only/1d and 2d)
 
   INTEGER T1, T2, N1, N2 
 
@@ -32,7 +33,8 @@ SUBROUTINE INITIATE_SNAPSHOTS
   INTEGER Fact_n_of_snaps           ! calculated number of snapshots in one set
 
   INTEGER n                             ! ordering number of snapshot in the set
-  INTEGER, ALLOCATABLE :: timestep(:)   ! array for temporary storage of moments (timesteps) of snapshots
+  INTEGER, ALLOCATABLE ::           timestep(:)   ! array for temporary storage of moments (timesteps) of snapshots
+  INTEGER, ALLOCATABLE :: evdf_flag_timestep(:)   ! array for temporary storage of evdf save flags
 
   INTEGER ALLOC_ERR
 
@@ -45,7 +47,8 @@ SUBROUTINE INITIATE_SNAPSHOTS
 
   IF (exists) THEN
 
-     ALLOCATE(timestep(1:9999), STAT = ALLOC_ERR)
+     ALLOCATE(          timestep(1:9999), STAT = ALLOC_ERR)
+     ALLOCATE(evdf_flag_timestep(1:9999), STAT = ALLOC_ERR)
      
      IF (Rank_of_process.EQ.0) PRINT '("### File init_snapshots is found. Reading the data file... ###")'
 
@@ -69,11 +72,11 @@ SUBROUTINE INITIATE_SNAPSHOTS
 
      READ (9, '(A1)') buf !---dd--- Number of groups of snapshots ( >= 0 )
      READ (9, '(3x,i2)') N_of_snap_groups
-     READ (9, '(A1)') buf !---ddddddd.ddd---ddddddd.ddd---dddd--- group: start (ns) / finish (ns) / number of snapshots
+     READ (9, '(A1)') buf !---ddddddd.ddd---ddddddd.ddd---dddd---d--- group: start (ns) / finish (ns) / number of snapshots / save evdfs (0/1/2/3 = No/1d only/2d only/1d and 2d)
 
      DO i = 1, N_of_snap_groups
 ! read the parameters of current set of snapshot from the data file
-        READ (9, '(3x,f11.3,3x,f11.3,3x,i4)') Rqst_snap_start_ns, Rqst_snap_finish_ns, Rqst_n_of_snaps    !!!
+        READ (9, '(3x,f11.3,3x,f11.3,3x,i4,3x,i1)') Rqst_snap_start_ns, Rqst_snap_finish_ns, Rqst_n_of_snaps, Rqst_evdf_flag    !!!
 ! try the next group of snapshots if the current group snapshot number is zero
         IF (Rqst_n_of_snaps.LT.1) CYCLE
 ! get the timestep, coinciding with the diagnostic output timestep and closest to Rqst_snap_start_ns
@@ -98,7 +101,7 @@ SUBROUTINE INITIATE_SNAPSHOTS
         END DO
 ! skip the line if the start moment is after (larger than) the finish moment
         IF (T1.GT.T2) CYCLE
-! if we are here than T1 and T2 can be used for calculation of moments of snapshots
+! if we are here then T1 and T2 can be used for calculation of moments of snapshots
 ! calculate the number of snapshots which can be made in current set
         IF (Rqst_n_of_snaps.EQ.1) THEN
            large_step = 0
@@ -123,7 +126,8 @@ SUBROUTINE INITIATE_SNAPSHOTS
         DO n = 1, Fact_n_of_snaps
 ! Calculate and save the snapshot moment in the temporary array
            N_of_all_snaps = N_of_all_snaps + 1
-           timestep(N_of_all_snaps) =  T1 + (n - 1) * large_step * Save_probes_data_step
+                     timestep(N_of_all_snaps) =  T1 + (n - 1) * large_step * Save_probes_data_step
+           evdf_flag_timestep(N_of_all_snaps) = MAX(0,MIN(3,Rqst_evdf_flag))
         END DO        ! end of cycle over snapshots in one set
      END DO           ! end of cycle over sets of snapshots     
 
@@ -182,22 +186,25 @@ SUBROUTINE INITIATE_SNAPSHOTS
   END IF
 
 ! allocate the array of moments of snapshots
-  ALLOCATE(Tcntr_snapshot(1:N_of_all_snaps), STAT=ALLOC_ERR)
+  ALLOCATE(    Tcntr_snapshot(1:N_of_all_snaps), STAT=ALLOC_ERR)
+  ALLOCATE(save_evdf_snapshot(1:N_of_all_snaps), STAT=ALLOC_ERR)
 
 ! move the calculated snapshot moments from the temporary array to the allocated array 
-  Tcntr_snapshot(1:N_of_all_snaps) = timestep(1:N_of_all_snaps)
+      Tcntr_snapshot(1:N_of_all_snaps) =           timestep(1:N_of_all_snaps)
+  save_evdf_snapshot(1:N_of_all_snaps) = evdf_flag_timestep(1:N_of_all_snaps)
  
-  DEALLOCATE(timestep, STAT = ALLOC_ERR)
+  DEALLOCATE(          timestep, STAT = ALLOC_ERR)
+  DEALLOCATE(evdf_flag_timestep, STAT = ALLOC_ERR)
  
   IF (Rank_of_process.EQ.0) THEN 
      PRINT '("### The program will create ",i4," snapshots ###")', N_of_all_snaps
 
 ! write moments of snapshot creation into the file
      OPEN (41, FILE = '_snapmoments.dat')
-!              "--****-----*******.*****----********---"
-     WRITE (41, '(" number       time(ns)       T_cntr")')
+!                 "--****-----*******.*****----********----*"
+     WRITE (41, '(" number       time(ns)       T_cntr  vdf-flag")')
      DO i = 1, N_of_all_snaps
-        WRITE (41, '(2x,i4,5x,f13.5,4x,i8)') i, Tcntr_snapshot(i) * 1.0d9 * delta_t_s, Tcntr_snapshot(i) 
+        WRITE (41, '(2x,i4,5x,f13.5,4x,i8,4x,i1)') i, Tcntr_snapshot(i) * 1.0d9 * delta_t_s, Tcntr_snapshot(i), save_evdf_snapshot(i)
      END DO
      CLOSE (41, STATUS = 'KEEP')
 
@@ -385,13 +392,19 @@ SUBROUTINE CREATE_SNAPSHOT
 
      IF (N_vdfbox_all.GT.0) THEN
 
-        ALLOCATE(evxdf(indx_v_min_e:indx_v_max_e, 1:N_vdfbox_all), STAT=ALLOC_ERR)
-        ALLOCATE(evydf(indx_v_min_e:indx_v_max_e, 1:N_vdfbox_all), STAT=ALLOC_ERR)
-        ALLOCATE(evzdf(indx_v_min_e:indx_v_max_e, 1:N_vdfbox_all), STAT=ALLOC_ERR)
+        IF ((save_evdf_snapshot(current_snap).EQ.ONLY1D).OR.(save_evdf_snapshot(current_snap).EQ.BOTH1DAND2D)) THEN
+           ALLOCATE(evxdf(indx_v_min_e:indx_v_max_e, 1:N_vdfbox_all), STAT=ALLOC_ERR)
+           ALLOCATE(evydf(indx_v_min_e:indx_v_max_e, 1:N_vdfbox_all), STAT=ALLOC_ERR)
+           ALLOCATE(evzdf(indx_v_min_e:indx_v_max_e, 1:N_vdfbox_all), STAT=ALLOC_ERR)
 
-        ALLOCATE(isvxdf(indx_v_min_i:indx_v_max_i, 1:N_vdfbox_all, 1:N_spec), STAT=ALLOC_ERR)
-        ALLOCATE(isvydf(indx_v_min_i:indx_v_max_i, 1:N_vdfbox_all, 1:N_spec), STAT=ALLOC_ERR)
-        ALLOCATE(isvzdf(indx_v_min_i:indx_v_max_i, 1:N_vdfbox_all, 1:N_spec), STAT=ALLOC_ERR)
+           ALLOCATE(isvxdf(indx_v_min_i:indx_v_max_i, 1:N_vdfbox_all, 1:N_spec), STAT=ALLOC_ERR)
+           ALLOCATE(isvydf(indx_v_min_i:indx_v_max_i, 1:N_vdfbox_all, 1:N_spec), STAT=ALLOC_ERR)
+           ALLOCATE(isvzdf(indx_v_min_i:indx_v_max_i, 1:N_vdfbox_all, 1:N_spec), STAT=ALLOC_ERR)
+        END IF
+
+        IF ((save_evdf_snapshot(current_snap).EQ.ONLY2D).OR.(save_evdf_snapshot(current_snap).EQ.BOTH1DAND2D)) THEN
+           ALLOCATE(evxvydf(indx_v_min_e:indx_v_max_e, indx_v_min_e:indx_v_max_e, 1:N_vdfbox_all), STAT=ALLOC_ERR)
+        END IF
 
      END IF
 
@@ -413,13 +426,19 @@ SUBROUTINE CREATE_SNAPSHOT
 
      IF (N_vdfbox_all.GT.0) THEN
 
-        ALLOCATE(evxdf(1,1), STAT=ALLOC_ERR)
-        ALLOCATE(evydf(1,1), STAT=ALLOC_ERR)
-        ALLOCATE(evzdf(1,1), STAT=ALLOC_ERR)
+        IF ((save_evdf_snapshot(current_snap).EQ.ONLY1D).OR.(save_evdf_snapshot(current_snap).EQ.BOTH1DAND2D)) THEN
+           ALLOCATE(evxdf(1,1), STAT=ALLOC_ERR)
+           ALLOCATE(evydf(1,1), STAT=ALLOC_ERR)
+           ALLOCATE(evzdf(1,1), STAT=ALLOC_ERR)
 
-        ALLOCATE(isvxdf(1,1,1), STAT=ALLOC_ERR)
-        ALLOCATE(isvydf(1,1,1), STAT=ALLOC_ERR)
-        ALLOCATE(isvzdf(1,1,1), STAT=ALLOC_ERR)
+           ALLOCATE(isvxdf(1,1,1), STAT=ALLOC_ERR)
+           ALLOCATE(isvydf(1,1,1), STAT=ALLOC_ERR)
+           ALLOCATE(isvzdf(1,1,1), STAT=ALLOC_ERR)
+        END IF
+
+        IF ((save_evdf_snapshot(current_snap).EQ.ONLY2D).OR.(save_evdf_snapshot(current_snap).EQ.BOTH1DAND2D)) THEN
+           ALLOCATE(evxvydf(1,1,1), STAT=ALLOC_ERR)
+        END IF
 
      END IF
 
@@ -698,6 +717,10 @@ SUBROUTINE CREATE_SNAPSHOT
 
   CALL MPI_BARRIER(MPI_COMM_WORLD, ierr) 
 
+  CALL SAVE_ALL_VDF2D
+
+  CALL MPI_BARRIER(MPI_COMM_WORLD, ierr) 
+
   IF (cluster_rank_key.NE.0) THEN
 
      DEALLOCATE(cs_N, STAT=ALLOC_ERR)
@@ -711,6 +734,8 @@ SUBROUTINE CREATE_SNAPSHOT
      IF (ALLOCATED(evxdf)) DEALLOCATE(evxdf, STAT=ALLOC_ERR)
      IF (ALLOCATED(evydf)) DEALLOCATE(evydf, STAT=ALLOC_ERR)
      IF (ALLOCATED(evzdf)) DEALLOCATE(evzdf, STAT=ALLOC_ERR)
+
+     IF (ALLOCATED(evxvydf)) DEALLOCATE(evxvydf, STAT=ALLOC_ERR)
 
      IF (ALLOCATED(isvxdf)) DEALLOCATE(isvxdf, STAT=ALLOC_ERR)
      IF (ALLOCATED(isvydf)) DEALLOCATE(isvydf, STAT=ALLOC_ERR)
@@ -743,6 +768,8 @@ SUBROUTINE CREATE_SNAPSHOT
      IF (ALLOCATED(evxdf)) DEALLOCATE(evxdf, STAT = ALLOC_ERR)
      IF (ALLOCATED(evydf)) DEALLOCATE(evydf, STAT = ALLOC_ERR)
      IF (ALLOCATED(evzdf)) DEALLOCATE(evzdf, STAT = ALLOC_ERR)
+
+     IF (ALLOCATED(evxvydf)) DEALLOCATE(evxvydf, STAT = ALLOC_ERR)
 
      IF (ALLOCATED(isvxdf)) DEALLOCATE(isvxdf, STAT = ALLOC_ERR)
      IF (ALLOCATED(isvydf)) DEALLOCATE(isvydf, STAT = ALLOC_ERR)
@@ -968,6 +995,9 @@ SUBROUTINE SAVE_ALL_VDF1D
 
   IF (N_vdfbox_all.EQ.0) RETURN
 
+  IF (save_evdf_snapshot(current_snap).EQ.NOANYVDF) RETURN
+  IF (save_evdf_snapshot(current_snap).EQ.ONLY2D) RETURN
+
   IF (cluster_rank_key.NE.0) RETURN
 
   filename = '_NNNN_vdf1d.bin'
@@ -1111,6 +1141,167 @@ END SUBROUTINE SAVE_ALL_VDF1D
 
 !---------------------------------------------------------------------------------------------------
 !
+SUBROUTINE SAVE_ALL_VDF2D
+
+  USE ParallelOperationValues
+  USE CurrentProblemValues
+  USE ClusterAndItsBoundaries
+  USE IonParticles
+  USE Snapshots
+
+  IMPLICIT NONE
+
+  INCLUDE 'mpif.h'
+
+  CHARACTER(15) filename      ! _NNNN_vdf2d.bin
+                              ! ----x----I----x
+
+  REAL, ALLOCATABLE :: xsplit (:)
+  REAL, ALLOCATABLE :: ysplit (:)
+  INTEGER ALLOC_ERR
+
+  INTEGER i, j, n, pos1, pos2, jv
+
+  INTEGER file_handle
+
+  INTEGER ierr
+  INTEGER stattus(MPI_STATUS_SIZE)
+  INTEGER(kind=MPI_OFFSET_KIND) shifthead 
+
+  INTEGER ibufsize
+  INTEGER one_loc_rec_len
+
+  INTEGER, ALLOCATABLE :: ibufer(:)
+  REAL, ALLOCATABLE :: rbufer(:)
+
+  INTERFACE
+     FUNCTION convert_int_to_txt_string(int_number, length_of_string)
+       CHARACTER*(length_of_string) convert_int_to_txt_string
+       INTEGER int_number
+       INTEGER length_of_string
+     END FUNCTION convert_int_to_txt_string
+  END INTERFACE
+
+  IF (N_vdfbox_all.EQ.0) RETURN
+
+  IF (save_evdf_snapshot(current_snap).EQ.NOANYVDF) RETURN
+  IF (save_evdf_snapshot(current_snap).EQ.ONLY1D) RETURN
+
+  IF (cluster_rank_key.NE.0) RETURN
+
+  filename = '_NNNN_vdf2d.bin'
+  filename(2:5) = convert_int_to_txt_string(current_snap, 4)
+
+! calculate xsplit and ysplit (they differ from the ones used in CALCULATE_ELECTRON_VDF)
+
+  ALLOCATE(xsplit(0:N_vdfbox_x), STAT = ALLOC_ERR)
+  xsplit(0) = REAL(c_X_area_min * delta_x_m)
+  DO i = 1, N_vdfbox_x-1
+     xsplit(i) = REAL((c_X_area_min + DBLE(i) * (c_X_area_max - c_X_area_min) / N_vdfbox_x) * delta_x_m)
+  END DO
+  xsplit(N_vdfbox_x) = REAL(c_X_area_max * delta_x_m)
+
+  ALLOCATE(ysplit(0:N_vdfbox_y), STAT = ALLOC_ERR)
+  ysplit(0) = REAL(c_Y_area_min * delta_x_m)
+  DO j = 1, N_vdfbox_y-1
+     ysplit(j) = (REAL(c_Y_area_min + DBLE(j) * (c_Y_area_max - c_Y_area_min) / N_vdfbox_y) * delta_x_m)
+  END DO
+  ysplit(N_vdfbox_y) = REAL(c_Y_area_max * delta_x_m)
+
+! size of the integer bufer with a 2d electron vdf (Nvx*Nvy) 
+  ibufsize = (indx_v_max_e - indx_v_min_e + 1) * (indx_v_max_e - indx_v_min_e + 1)
+
+! length of vdf record for one sub-domain (box)
+! includes 4 real numbers (boundaries of the box) and the integer bufer with the distribution function
+  one_loc_rec_len = 4 + ibufsize
+
+  CALL MPI_FILE_OPEN( COMM_HORIZONTAL, &
+                    & filename,  &
+                    & MPI_MODE_WRONLY + MPI_MODE_CREATE, & 
+                    & MPI_INFO_NULL, &
+                    & file_handle, &
+                    & ierr )
+
+  ALLOCATE(ibufer(1:MAX(5,ibufsize)), STAT = ALLOC_ERR)
+  ALLOCATE(rbufer(1:4), STAT = ALLOC_ERR)
+
+  IF (Rank_of_process.EQ.0) THEN
+
+     ibufer(1) = N_vdfbox_x * N_clusters_x
+     ibufer(2) = N_vdfbox_y * N_clusters_y
+     ibufer(3) = indx_v_min_e
+     ibufer(4) = indx_v_max_e
+     ibufer(5) = N_vbins_e
+
+     shifthead = 0
+     CALL MPI_FILE_SEEK( file_handle, shifthead, MPI_SEEK_SET, ierr)
+
+     CALL MPI_FILE_WRITE( file_handle, ibufer(1:5), 5, MPI_INTEGER, stattus, ierr )
+
+     rbufer(1) = REAL(T_e_eV)
+
+     shifthead = 5*4
+     CALL MPI_FILE_SEEK( file_handle, shifthead, MPI_SEEK_SET, ierr)
+
+     CALL MPI_FILE_WRITE( file_handle, rbufer(1:1), 1, MPI_REAL, stattus, ierr )
+
+  END IF
+
+  DO j = 1, N_vdfbox_y
+
+     DO i = 1, N_vdfbox_x
+
+        rbufer(1) = xsplit(i-1)
+        rbufer(2) = xsplit(i)
+        rbufer(3) = ysplit(j-1)
+        rbufer(4) = ysplit(j)
+
+        n = i + (j-1) * N_vdfbox_x         ! number of the spatial box
+
+        pos2 = 0
+        DO jv = indx_v_min_e, indx_v_max_e
+           pos1 = pos2 + 1
+           pos2 = pos2 + (indx_v_max_e - indx_v_min_e + 1)
+           ibufer(pos1:pos2) = evxvydf(indx_v_min_e:indx_v_max_e, jv, n)
+        END DO
+
+        shifthead = 5 + 1 + &
+                  & ((c_row   -1) * N_vdfbox_y + j - 1) * N_vdfbox_x * N_clusters_x * one_loc_rec_len + &
+                  & ((c_column-1) * N_vdfbox_x + i - 1) * one_loc_rec_len
+        shifthead = shifthead * 4
+
+! note: (c_row-1)*N_vdfbox_y+j-1 changes from 0 at c_row=j=1 to N_clusters_y*N_vdfbox_y-1 at c_row=N_clusters_y and j=N_vdfbox_y
+!
+! note: ((c_column-1) * N_vdfbox_x + i - 1) changes from 0 at c_column=i=1 to N_clusters_x*N_vdfbox_x-1 at c_column=N_clusters_x and i=N_vdfbox_x
+
+        CALL MPI_FILE_SEEK( file_handle, shifthead, MPI_SEEK_SET, ierr)
+
+        CALL MPI_FILE_WRITE( file_handle, rbufer(1:4), 4, MPI_REAL, stattus, ierr )
+
+        shifthead = shifthead + 4 * 4
+
+        CALL MPI_FILE_SEEK( file_handle, shifthead, MPI_SEEK_SET, ierr)
+
+        CALL MPI_FILE_WRITE( file_handle, ibufer(1:ibufsize), ibufsize, MPI_INTEGER, stattus, ierr )
+
+     END DO
+
+  END DO
+
+  CALL MPI_FILE_CLOSE(file_handle, ierr)
+
+  DEALLOCATE(xsplit, STAT=ALLOC_ERR)
+  DEALLOCATE(ysplit, STAT=ALLOC_ERR)
+
+  DEALLOCATE(rbufer, STAT = ALLOC_ERR)
+  DEALLOCATE(ibufer, STAT = ALLOC_ERR)
+
+  IF (Rank_of_process.EQ.0) PRINT '("created file ",A15)', filename
+
+END SUBROUTINE SAVE_ALL_VDF2D
+
+!---------------------------------------------------------------------------------------------------
+!
 SUBROUTINE FINISH_SNAPSHOTS
 
   USE Snapshots
@@ -1118,6 +1309,7 @@ SUBROUTINE FINISH_SNAPSHOTS
 
   INTEGER DEALLOC_ERR
 
-  IF (ALLOCATED(Tcntr_snapshot)) DEALLOCATE(Tcntr_snapshot, STAT=DEALLOC_ERR)
+  IF (ALLOCATED(    Tcntr_snapshot)) DEALLOCATE(    Tcntr_snapshot, STAT=DEALLOC_ERR)
+  IF (ALLOCATED(save_evdf_snapshot)) DEALLOCATE(save_evdf_snapshot, STAT=DEALLOC_ERR)
 
 END SUBROUTINE FINISH_SNAPSHOTS

@@ -644,7 +644,8 @@ END MODULE Diagnostics
 MODULE Snapshots
 
   INTEGER N_of_all_snaps                        ! number of all snapshots  
-  INTEGER, ALLOCATABLE :: Tcntr_snapshot(:)     ! timesteps when the snapshot files are written
+  INTEGER, ALLOCATABLE ::     Tcntr_snapshot(:)     ! timesteps when the snapshot files are written
+  INTEGER, ALLOCATABLE :: save_evdf_snapshot(:)     ! timesteps when the snapshot files are written
 
   INTEGER current_snap                          ! index of current snapshot (which must be created)
 
@@ -676,7 +677,12 @@ MODULE Snapshots
 
   LOGICAL save_data(1:32)
 
-! variables for calculation of 1-D velocity distribution functions
+! variables for calculation of 1D and 2D velocity distribution functions
+
+  INTEGER, PARAMETER :: NOANYVDF = 0
+  INTEGER, PARAMETER :: ONLY1D = 1
+  INTEGER, PARAMETER :: ONLY2D = 2
+  INTEGER, PARAMETER :: BOTH1DAND2D = 3
 
   INTEGER N_vdfbox_x       ! number of spatial boxes in the X-direction in a cluster
   INTEGER N_vdfbox_y       !           same as above in the Y-direction
@@ -697,6 +703,8 @@ MODULE Snapshots
   INTEGER, ALLOCATABLE :: evxdf(:,:)
   INTEGER, ALLOCATABLE :: evydf(:,:)
   INTEGER, ALLOCATABLE :: evzdf(:,:)
+
+  INTEGER, ALLOCATABLE :: evxvydf(:,:,:)
 
   INTEGER, ALLOCATABLE :: isvxdf(:,:,:)
   INTEGER, ALLOCATABLE :: isvydf(:,:,:)

@@ -25,6 +25,10 @@ SUBROUTINE CALCULATE_ELECTRON_VDF
   INTEGER bufsize
   INTEGER shift
 
+  INTEGER, ALLOCATABLE :: ibufer_evxvydf(:)
+  INTEGER reclen2
+  INTEGER bufsize2
+
   REAL(8), ALLOCATABLE :: xsplit(:)
   REAL(8), ALLOCATABLE :: ysplit(:)
 
@@ -35,22 +39,38 @@ SUBROUTINE CALCULATE_ELECTRON_VDF
 
   INTEGER bin_vx, bin_vy, bin_vz
 
-  INTEGER pos, pos1
+  INTEGER pos, pos1, pos2
 
   IF (N_vdfbox_all.EQ.0) RETURN
+
+  IF (save_evdf_snapshot(current_snap).EQ.NOANYVDF) RETURN
 
   reclen = 2 * N_max_vel_e * N_vbins_e     ! number of points in a single 1d evdf
   bufsize = reclen * N_vdfbox_all          ! total number of values in the array which includes vdfs for one velocity component in all locations
   shift = N_max_vel_e * N_vbins_e + 1      ! if velocity bin index in evdf ranges from -N_max_vel*N_vbins_e to N_max_vel*N_vbins_e-1
                                            ! adding this "shift" modifies the range so that it is from 1 to reclen
 
-  ALLOCATE(ibufer_evxdf(1:bufsize), STAT=ALLOC_ERR)
-  ALLOCATE(ibufer_evydf(1:bufsize), STAT=ALLOC_ERR)
-  ALLOCATE(ibufer_evzdf(1:bufsize), STAT=ALLOC_ERR)
+  IF ((save_evdf_snapshot(current_snap).EQ.ONLY1D).OR.(save_evdf_snapshot(current_snap).EQ.BOTH1DAND2D)) THEN
+     ALLOCATE(ibufer_evxdf(1:bufsize), STAT=ALLOC_ERR)
+     ALLOCATE(ibufer_evydf(1:bufsize), STAT=ALLOC_ERR)
+     ALLOCATE(ibufer_evzdf(1:bufsize), STAT=ALLOC_ERR)
+     ibufer_evxdf = 0
+     ibufer_evydf = 0
+     ibufer_evzdf = 0
+  END IF
 
-  ibufer_evxdf = 0
-  ibufer_evydf = 0
-  ibufer_evzdf = 0
+! a 2d-velocity distribution, f(vx,vy) is stored in an 1d array in the same manner as 
+! a 2d array where vx corresponds to the first (fastest) array index and vy - to the second array index
+! that is 
+! f(vxmin:vxmax,vymin), f(vxmin:vxmax,vymin+1),... f(vxmin:vxmax,vymax-1), f(vxmin:vxmax,vymax)
+
+  reclen2 = reclen * reclen                ! number of points in a single 2d evdf
+  bufsize2 = reclen2 * N_vdfbox_all        ! total number of values in the array which includes vdfs for two velocity components in all locations
+  
+  IF ((save_evdf_snapshot(current_snap).EQ.ONLY2D).OR.(save_evdf_snapshot(current_snap).EQ.BOTH1DAND2D)) THEN
+     ALLOCATE(ibufer_evxvydf(1:bufsize2), STAT=ALLOC_ERR)
+     ibufer_evxvydf = 0
+  END IF
 
 ! arrays xsplit and ysplit are recalculated rather than stored
 ! this must be cheaper since it does not require including these arrays in the list
@@ -103,7 +123,7 @@ SUBROUTINE CALCULATE_ELECTRON_VDF
      n = ibox + (jbox-1) * N_vdfbox_x
 
 ! identify velocity bins and 
-! skip particles which are too faster to be registered correctly by the given velocity bin set
+! skip particles which are too fast to be registered correctly by the given velocity bin set
 
 ! X-direction
      bin_vx = INT(electron(k)%VX * fvc)
@@ -132,41 +152,51 @@ SUBROUTINE CALCULATE_ELECTRON_VDF
         CYCLE
      END IF
 
+! include particle in 1d-vdf arrays
+
+     IF ((save_evdf_snapshot(current_snap).EQ.ONLY1D).OR.(save_evdf_snapshot(current_snap).EQ.BOTH1DAND2D)) THEN
 ! common displacement of index accounting for location (spatial box) number
-     pos1 = (n-1) * reclen + shift
-
-! include particle in the vdf arrays
-
+        pos1 = (n-1) * reclen + shift
 ! X-direction
-     pos = pos1 + bin_vx
-     ibufer_evxdf(pos) = ibufer_evxdf(pos) + 1
-
+        pos = pos1 + bin_vx
+        ibufer_evxdf(pos) = ibufer_evxdf(pos) + 1
 ! Y-direction
-     pos = pos1 + bin_vy
-     ibufer_evydf(pos) = ibufer_evydf(pos) + 1
-
+        pos = pos1 + bin_vy
+        ibufer_evydf(pos) = ibufer_evydf(pos) + 1
 ! Z-direction
-     pos = pos1 + bin_vz
-     ibufer_evzdf(pos) = ibufer_evzdf(pos) + 1
+        pos = pos1 + bin_vz
+        ibufer_evzdf(pos) = ibufer_evzdf(pos) + 1
+     END IF
+
+! include particle in 2d-vdf arrays (vx-vy only now)
+
+     IF ((save_evdf_snapshot(current_snap).EQ.ONLY2D).OR.(save_evdf_snapshot(current_snap).EQ.BOTH1DAND2D)) THEN
+        pos2 = (n-1) * reclen2 + (shift + bin_vy - 1) * reclen + (shift + bin_vx)
+        ibufer_evxvydf(pos2) = ibufer_evxvydf(pos2) + 1
+     END IF
 
   END DO
 
-! collect moments from all processes in a cluster
+! collect/report (if any) numbers of skipped particles from all processes in a cluster
   ibufer(1) = skip_count
   ibufer2 = 0
   CALL MPI_REDUCE(ibufer, ibufer2, 1, MPI_INTEGER, MPI_SUM, 0, COMM_CLUSTER, ierr)
 
-  IF ((cluster_rank_key.EQ.0).AND.(ibufer2(1).GT.0)) PRINT '("### Warning :: Process ",i5," :: skipped ",i9," electron particles when calculating 1D EVDFs ###")', Rank_of_process, ibufer2(1)
+  IF ((cluster_rank_key.EQ.0).AND.(ibufer2(1).GT.0)) PRINT '("### Warning :: Process ",i5," :: skipped ",i9," electron particles when calculating EVDFs ###")', Rank_of_process, ibufer2(1)
 
-  CALL MPI_REDUCE(ibufer_evxdf, evxdf, bufsize, MPI_INTEGER, MPI_SUM, 0, COMM_CLUSTER, ierr)
+  IF ((save_evdf_snapshot(current_snap).EQ.ONLY1D).OR.(save_evdf_snapshot(current_snap).EQ.BOTH1DAND2D)) THEN
+     CALL MPI_REDUCE(ibufer_evxdf, evxdf, bufsize, MPI_INTEGER, MPI_SUM, 0, COMM_CLUSTER, ierr)
+     CALL MPI_REDUCE(ibufer_evydf, evydf, bufsize, MPI_INTEGER, MPI_SUM, 0, COMM_CLUSTER, ierr)
+     CALL MPI_REDUCE(ibufer_evzdf, evzdf, bufsize, MPI_INTEGER, MPI_SUM, 0, COMM_CLUSTER, ierr)
+     DEALLOCATE(ibufer_evxdf, STAT=ALLOC_ERR)
+     DEALLOCATE(ibufer_evydf, STAT=ALLOC_ERR)
+     DEALLOCATE(ibufer_evzdf, STAT=ALLOC_ERR)
+  END IF
 
-  CALL MPI_REDUCE(ibufer_evydf, evydf, bufsize, MPI_INTEGER, MPI_SUM, 0, COMM_CLUSTER, ierr)
-
-  CALL MPI_REDUCE(ibufer_evzdf, evzdf, bufsize, MPI_INTEGER, MPI_SUM, 0, COMM_CLUSTER, ierr)
-
-  DEALLOCATE(ibufer_evxdf, STAT=ALLOC_ERR)
-  DEALLOCATE(ibufer_evydf, STAT=ALLOC_ERR)
-  DEALLOCATE(ibufer_evzdf, STAT=ALLOC_ERR)
+  IF ((save_evdf_snapshot(current_snap).EQ.ONLY2D).OR.(save_evdf_snapshot(current_snap).EQ.BOTH1DAND2D)) THEN
+     CALL MPI_REDUCE(ibufer_evxvydf, evxvydf, bufsize2, MPI_INTEGER, MPI_SUM, 0, COMM_CLUSTER, ierr)
+     DEALLOCATE(ibufer_evxvydf, STAT=ALLOC_ERR)
+  END IF
 
   IF (N_vdfbox_all.GT.1) THEN
      DEALLOCATE(xsplit, STAT = ALLOC_ERR)
@@ -216,6 +246,9 @@ SUBROUTINE CALCULATE_ION_VDF
   INTEGER pos, pos1
 
   IF (N_vdfbox_all.EQ.0) RETURN
+
+  IF (save_evdf_snapshot(current_snap).EQ.NOANYVDF) RETURN
+  IF (save_evdf_snapshot(current_snap).EQ.ONLY2D) RETURN
 
   reclen = 2 * N_max_vel_i * N_vbins_i              ! number of points in a single 1d evdf for one ion species
   bufsize = reclen * N_vdfbox_all * N_spec          ! total number of values in the array which includes vdfs for one velocity component in all locations

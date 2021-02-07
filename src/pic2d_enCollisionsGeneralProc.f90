@@ -79,8 +79,8 @@ SUBROUTINE INITIATE_ELECTRON_NEUTRAL_COLLISIONS
   END DO
   CLOSE (9, STATUS = 'KEEP')
 
-CALL MPI_BARRIER(MPI_COMM_WORLD, ierr) 
-print *, "read init_neutrals.dat"
+!CALL MPI_BARRIER(MPI_COMM_WORLD, ierr) 
+!print *, "read init_neutrals.dat"
 
 ! for each neutral species included, specify activated collisions
 
@@ -129,8 +129,8 @@ print *, "read init_neutrals.dat"
      CLOSE (9, STATUS = 'KEEP')
   END DO
 
-CALL MPI_BARRIER(MPI_COMM_WORLD, ierr) 
-print *, "read ", initneutral_filename
+!CALL MPI_BARRIER(MPI_COMM_WORLD, ierr) 
+!print *, "read ", initneutral_filename
 
 ! collision types
 ! 10 = elastic
