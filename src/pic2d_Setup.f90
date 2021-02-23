@@ -39,7 +39,7 @@ SUBROUTINE PREPARE_SETUP_VALUES
 
      INQUIRE (FILE = initbo_filename, EXIST = exists)
      IF (.NOT.exists) THEN
-        IF (Rank_of_process.EQ.0) PRINT '("### PREPARE_SETUP_VALUES :: file ",A14," not found, use default setup values for boundary object ",i2)', Rank_of_process, n
+        IF (Rank_of_process.EQ.0) PRINT '("### PREPARE_SETUP_VALUES :: file ",A14," not found, use default setup values for boundary object ",i2)', initbo_filename, n
         CYCLE
      END IF
 
