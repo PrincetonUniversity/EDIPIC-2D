@@ -72,7 +72,7 @@ SUBROUTINE INITIATE_SNAPSHOTS
 
      READ (9, '(A1)') buf !---dd--- Number of groups of snapshots ( >= 0 )
      READ (9, '(3x,i2)') N_of_snap_groups
-     READ (9, '(A1)') buf !---ddddddd.ddd---ddddddd.ddd---dddd---d--- group: start (ns) / finish (ns) / number of snapshots / save evdfs (0/1/2/3 = No/1d only/2d only/1d and 2d)
+     READ (9, '(A1)') buf !---ddddddd.ddd---ddddddd.ddd---dddd---d--- group: start (ns) / finish (ns) / number of snapshots / save VDFs (0/1/2/3 = No/1d only/2d only/1d and 2d)
 
      DO i = 1, N_of_snap_groups
 ! read the parameters of current set of snapshot from the data file
@@ -453,7 +453,8 @@ SUBROUTINE CREATE_SNAPSHOT
   IF (save_data(1)) THEN
      filename_F = '_NNNN_F_V_2D.bin'
      filename_F(2:5) = convert_int_to_txt_string(current_snap, 4)
-     CALL SAVE_GLOBAL_2D_ARRAY(cs_phi, filename_F)
+     IF (cluster_rank_key.EQ.0) CALL SAVE_GLOBAL_2D_ARRAY(cs_phi, filename_F)
+     CALL MPI_BARRIER(MPI_COMM_WORLD, ierr) 
   END IF
 
 ! electric field components
@@ -461,16 +462,18 @@ SUBROUTINE CREATE_SNAPSHOT
   IF (save_data(2)) THEN
      filename_E = '_NNNN_EX_Vm_2D.bin'
      filename_E(2:5) = convert_int_to_txt_string(current_snap, 4)
-     CALL SAVE_GLOBAL_2D_ARRAY(cs_EX, filename_E)
+     IF (cluster_rank_key.EQ.0) CALL SAVE_GLOBAL_2D_ARRAY(cs_EX, filename_E)
+     CALL MPI_BARRIER(MPI_COMM_WORLD, ierr) 
   END IF
 
   IF (save_data(3)) THEN
      filename_E = '_NNNN_EY_Vm_2D.bin'
      filename_E(2:5) = convert_int_to_txt_string(current_snap, 4)
-     CALL SAVE_GLOBAL_2D_ARRAY(cs_EY, filename_E)
+     IF (cluster_rank_key.EQ.0) CALL SAVE_GLOBAL_2D_ARRAY(cs_EY, filename_E)
+     CALL MPI_BARRIER(MPI_COMM_WORLD, ierr) 
   END IF
 
-  CALL MPI_BARRIER(MPI_COMM_WORLD, ierr)
+!  CALL MPI_BARRIER(MPI_COMM_WORLD, ierr)
 
 ! collect electron and ion velocity distribution function moments (density, flows, energies)
 
@@ -485,7 +488,8 @@ SUBROUTINE CREATE_SNAPSHOT
   IF (save_data(7)) THEN
      filename_Ne = '_NNNN_Ne_m3_2D.bin'
      filename_Ne(2:5) = convert_int_to_txt_string(current_snap, 4)
-     CALL SAVE_GLOBAL_2D_ARRAY(cs_N, filename_Ne)
+     IF (cluster_rank_key.EQ.0) CALL SAVE_GLOBAL_2D_ARRAY(cs_N, filename_Ne)
+     CALL MPI_BARRIER(MPI_COMM_WORLD, ierr) 
   END IF
 
 ! electric current along each coordinate direction
@@ -493,19 +497,22 @@ SUBROUTINE CREATE_SNAPSHOT
   IF (save_data(8)) THEN
      filename_Je = '_NNNN_JXe_Am2_2D.bin'
      filename_Je(2:5) = convert_int_to_txt_string(current_snap, 4)
-     CALL SAVE_GLOBAL_2D_ARRAY(cs_JX, filename_Je)
+     IF (cluster_rank_key.EQ.0) CALL SAVE_GLOBAL_2D_ARRAY(cs_JX, filename_Je)
+     CALL MPI_BARRIER(MPI_COMM_WORLD, ierr) 
   END IF
 
   IF (save_data(9)) THEN
      filename_Je = '_NNNN_JYe_Am2_2D.bin'
      filename_Je(2:5) = convert_int_to_txt_string(current_snap, 4)
-     CALL SAVE_GLOBAL_2D_ARRAY(cs_JY, filename_Je)
+     IF (cluster_rank_key.EQ.0) CALL SAVE_GLOBAL_2D_ARRAY(cs_JY, filename_Je)
+     CALL MPI_BARRIER(MPI_COMM_WORLD, ierr) 
   END IF
 
   IF (save_data(10)) THEN
      filename_Je = '_NNNN_JZe_Am2_2D.bin'
      filename_Je(2:5) = convert_int_to_txt_string(current_snap, 4)
-     CALL SAVE_GLOBAL_2D_ARRAY(cs_JZ, filename_Je)
+     IF (cluster_rank_key.EQ.0) CALL SAVE_GLOBAL_2D_ARRAY(cs_JZ, filename_Je)
+     CALL MPI_BARRIER(MPI_COMM_WORLD, ierr) 
   END IF
 
 ! average velocity along each coordinate direction
@@ -513,19 +520,22 @@ SUBROUTINE CREATE_SNAPSHOT
   IF (save_data(11)) THEN
      filename_Ve = '_NNNN_VXe_ms_2D.bin'
      filename_Ve(2:5) = convert_int_to_txt_string(current_snap, 4)
-     CALL SAVE_GLOBAL_2D_ARRAY(cs_VX, filename_Ve)
+     IF (cluster_rank_key.EQ.0) CALL SAVE_GLOBAL_2D_ARRAY(cs_VX, filename_Ve)
+     CALL MPI_BARRIER(MPI_COMM_WORLD, ierr) 
   END IF
 
   IF (save_data(12)) THEN
      filename_Ve = '_NNNN_VYe_ms_2D.bin'
      filename_Ve(2:5) = convert_int_to_txt_string(current_snap, 4)
-     CALL SAVE_GLOBAL_2D_ARRAY(cs_VY, filename_Ve)
+     IF (cluster_rank_key.EQ.0) CALL SAVE_GLOBAL_2D_ARRAY(cs_VY, filename_Ve)
+     CALL MPI_BARRIER(MPI_COMM_WORLD, ierr) 
   END IF
 
   IF (save_data(13)) THEN
      filename_Ve = '_NNNN_VZe_ms_2D.bin'
      filename_Ve(2:5) = convert_int_to_txt_string(current_snap, 4)
-     CALL SAVE_GLOBAL_2D_ARRAY(cs_VZ, filename_Ve)
+     IF (cluster_rank_key.EQ.0) CALL SAVE_GLOBAL_2D_ARRAY(cs_VZ, filename_Ve)
+     CALL MPI_BARRIER(MPI_COMM_WORLD, ierr) 
   END IF
 
 ! average energy of FULL motion along each coordinate direction
@@ -533,19 +543,22 @@ SUBROUTINE CREATE_SNAPSHOT
   IF (save_data(14)) THEN
      filename_We = '_NNNN_WXe_eV_2D.bin'
      filename_We(2:5) = convert_int_to_txt_string(current_snap, 4)
-     CALL SAVE_GLOBAL_2D_ARRAY(cs_WX, filename_We)
+     IF (cluster_rank_key.EQ.0) CALL SAVE_GLOBAL_2D_ARRAY(cs_WX, filename_We)
+     CALL MPI_BARRIER(MPI_COMM_WORLD, ierr) 
   END IF
 
   IF (save_data(15)) THEN
      filename_We = '_NNNN_WYe_eV_2D.bin'
      filename_We(2:5) = convert_int_to_txt_string(current_snap, 4)
-     CALL SAVE_GLOBAL_2D_ARRAY(cs_WY, filename_We)
+     IF (cluster_rank_key.EQ.0) CALL SAVE_GLOBAL_2D_ARRAY(cs_WY, filename_We)
+     CALL MPI_BARRIER(MPI_COMM_WORLD, ierr) 
   END IF
 
   IF (save_data(16)) THEN
      filename_We = '_NNNN_WZe_eV_2D.bin'
      filename_We(2:5) = convert_int_to_txt_string(current_snap, 4)
-     CALL SAVE_GLOBAL_2D_ARRAY(cs_WZ, filename_We)
+     IF (cluster_rank_key.EQ.0) CALL SAVE_GLOBAL_2D_ARRAY(cs_WZ, filename_We)
+     CALL MPI_BARRIER(MPI_COMM_WORLD, ierr) 
   END IF
 
 ! average energy of THERMAL motion along each coordinate direction
@@ -553,22 +566,25 @@ SUBROUTINE CREATE_SNAPSHOT
   IF (save_data(17)) THEN
      filename_Te = '_NNNN_TXe_eV_2D.bin'
      filename_Te(2:5) = convert_int_to_txt_string(current_snap, 4)
-     CALL SAVE_GLOBAL_2D_ARRAY(cs_TX, filename_Te)
+     IF (cluster_rank_key.EQ.0) CALL SAVE_GLOBAL_2D_ARRAY(cs_TX, filename_Te)
+     CALL MPI_BARRIER(MPI_COMM_WORLD, ierr) 
   END IF
 
   IF (save_data(18)) THEN
      filename_Te = '_NNNN_TYe_eV_2D.bin'
      filename_Te(2:5) = convert_int_to_txt_string(current_snap, 4)
-     CALL SAVE_GLOBAL_2D_ARRAY(cs_TY, filename_Te)
+     IF (cluster_rank_key.EQ.0) CALL SAVE_GLOBAL_2D_ARRAY(cs_TY, filename_Te)
+     CALL MPI_BARRIER(MPI_COMM_WORLD, ierr) 
   END IF
 
   IF (save_data(19)) THEN
      filename_Te = '_NNNN_TZe_eV_2D.bin'
      filename_Te(2:5) = convert_int_to_txt_string(current_snap, 4)
-     CALL SAVE_GLOBAL_2D_ARRAY(cs_TZ, filename_Te)
+     IF (cluster_rank_key.EQ.0) CALL SAVE_GLOBAL_2D_ARRAY(cs_TZ, filename_Te)
+     CALL MPI_BARRIER(MPI_COMM_WORLD, ierr) 
   END IF
 
-  CALL MPI_BARRIER(MPI_COMM_WORLD, ierr)
+!  CALL MPI_BARRIER(MPI_COMM_WORLD, ierr)
 
 ! write ion moments to files ------------------------------------------
 
@@ -584,7 +600,8 @@ SUBROUTINE CREATE_SNAPSHOT
         filename_Ni = '_NNNN_Ni_s_m3_2D.bin'
         filename_Ni(2:5) = convert_int_to_txt_string(current_snap, 4)
         filename_Ni(10:10) = convert_int_to_txt_string(s, 1)
-        CALL SAVE_GLOBAL_2D_ARRAY(cs_N, filename_Ni)
+        IF (cluster_rank_key.EQ.0) CALL SAVE_GLOBAL_2D_ARRAY(cs_N, filename_Ni)
+        CALL MPI_BARRIER(MPI_COMM_WORLD, ierr) 
      END IF
 
 ! electric current along each coordinate direction
@@ -593,22 +610,25 @@ SUBROUTINE CREATE_SNAPSHOT
         filename_Ji = '_NNNN_JXi_s_Am2_2D.bin'
         filename_Ji(2:5) = convert_int_to_txt_string(current_snap, 4)
         filename_Ji(11:11) = convert_int_to_txt_string(s, 1)
-        CALL SAVE_GLOBAL_2D_ARRAY(cs_JX, filename_Ji)
+        IF (cluster_rank_key.EQ.0) CALL SAVE_GLOBAL_2D_ARRAY(cs_JX, filename_Ji)
+        CALL MPI_BARRIER(MPI_COMM_WORLD, ierr) 
      END IF
 
      IF (save_data(22)) THEN
         filename_Ji = '_NNNN_JYi_s_Am2_2D.bin'
         filename_Ji(2:5) = convert_int_to_txt_string(current_snap, 4)
         filename_Ji(11:11) = convert_int_to_txt_string(s, 1)
-        CALL SAVE_GLOBAL_2D_ARRAY(cs_JY, filename_Ji)
+        IF (cluster_rank_key.EQ.0) CALL SAVE_GLOBAL_2D_ARRAY(cs_JY, filename_Ji)
+        CALL MPI_BARRIER(MPI_COMM_WORLD, ierr) 
      END IF
 
      IF (save_data(23)) THEN
         filename_Ji = '_NNNN_JZi_s_Am2_2D.bin'
         filename_Ji(2:5) = convert_int_to_txt_string(current_snap, 4)
         filename_Ji(11:11) = convert_int_to_txt_string(s, 1)
-        CALL SAVE_GLOBAL_2D_ARRAY(cs_JZ, filename_Ji)
-     END IF
+        IF (cluster_rank_key.EQ.0) CALL SAVE_GLOBAL_2D_ARRAY(cs_JZ, filename_Ji)
+        CALL MPI_BARRIER(MPI_COMM_WORLD, ierr) 
+    END IF
 
 ! average velocity along each coordinate direction
 
@@ -616,21 +636,24 @@ SUBROUTINE CREATE_SNAPSHOT
         filename_Vi = '_NNNN_VXi_s_ms_2D.bin'
         filename_Vi(2:5) = convert_int_to_txt_string(current_snap, 4)
         filename_Vi(11:11) = convert_int_to_txt_string(s, 1)
-        CALL SAVE_GLOBAL_2D_ARRAY(cs_VX, filename_Vi)
+        IF (cluster_rank_key.EQ.0) CALL SAVE_GLOBAL_2D_ARRAY(cs_VX, filename_Vi)
+        CALL MPI_BARRIER(MPI_COMM_WORLD, ierr) 
      END IF
 
      IF (save_data(25)) THEN
         filename_Vi = '_NNNN_VYi_s_ms_2D.bin'
         filename_Vi(2:5) = convert_int_to_txt_string(current_snap, 4)
         filename_Vi(11:11) = convert_int_to_txt_string(s, 1)
-        CALL SAVE_GLOBAL_2D_ARRAY(cs_VY, filename_Vi)
+        IF (cluster_rank_key.EQ.0) CALL SAVE_GLOBAL_2D_ARRAY(cs_VY, filename_Vi)
+        CALL MPI_BARRIER(MPI_COMM_WORLD, ierr) 
      END IF
 
      IF (save_data(26)) THEN
         filename_Vi = '_NNNN_VZi_s_ms_2D.bin'
         filename_Vi(2:5) = convert_int_to_txt_string(current_snap, 4)
         filename_Vi(11:11) = convert_int_to_txt_string(s, 1)
-        CALL SAVE_GLOBAL_2D_ARRAY(cs_VZ, filename_Vi)
+        IF (cluster_rank_key.EQ.0) CALL SAVE_GLOBAL_2D_ARRAY(cs_VZ, filename_Vi)
+        CALL MPI_BARRIER(MPI_COMM_WORLD, ierr) 
      END IF
 
 ! average energy of FULL motion along each coordinate direction
@@ -639,21 +662,24 @@ SUBROUTINE CREATE_SNAPSHOT
         filename_Wi = '_NNNN_WXi_s_eV_2D.bin'
         filename_Wi(2:5) = convert_int_to_txt_string(current_snap, 4)
         filename_Wi(11:11) = convert_int_to_txt_string(s, 1)
-        CALL SAVE_GLOBAL_2D_ARRAY(cs_WX, filename_Wi)
+        IF (cluster_rank_key.EQ.0) CALL SAVE_GLOBAL_2D_ARRAY(cs_WX, filename_Wi)
+        CALL MPI_BARRIER(MPI_COMM_WORLD, ierr) 
      END IF
 
      IF (save_data(28)) THEN
         filename_Wi = '_NNNN_WYi_s_eV_2D.bin'
         filename_Wi(2:5) = convert_int_to_txt_string(current_snap, 4)
         filename_Wi(11:11) = convert_int_to_txt_string(s, 1)
-        CALL SAVE_GLOBAL_2D_ARRAY(cs_WY, filename_Wi)
+        IF (cluster_rank_key.EQ.0) CALL SAVE_GLOBAL_2D_ARRAY(cs_WY, filename_Wi)
+        CALL MPI_BARRIER(MPI_COMM_WORLD, ierr) 
      END IF
 
      IF (save_data(29)) THEN
         filename_Wi = '_NNNN_WZi_s_eV_2D.bin'
         filename_Wi(2:5) = convert_int_to_txt_string(current_snap, 4)
         filename_Wi(11:11) = convert_int_to_txt_string(s, 1)
-        CALL SAVE_GLOBAL_2D_ARRAY(cs_WZ, filename_Wi)
+        IF (cluster_rank_key.EQ.0) CALL SAVE_GLOBAL_2D_ARRAY(cs_WZ, filename_Wi)
+        CALL MPI_BARRIER(MPI_COMM_WORLD, ierr) 
      END IF
 
 ! average energy of THERMAL motion along each coordinate direction
@@ -662,24 +688,27 @@ SUBROUTINE CREATE_SNAPSHOT
         filename_Ti = '_NNNN_TXi_s_eV_2D.bin'
         filename_Ti(2:5) = convert_int_to_txt_string(current_snap, 4)
         filename_Ti(11:11) = convert_int_to_txt_string(s, 1)
-        CALL SAVE_GLOBAL_2D_ARRAY(cs_TX, filename_Ti)
+        IF (cluster_rank_key.EQ.0) CALL SAVE_GLOBAL_2D_ARRAY(cs_TX, filename_Ti)
+        CALL MPI_BARRIER(MPI_COMM_WORLD, ierr) 
      END IF
 
      IF (save_data(31)) THEN
         filename_Ti = '_NNNN_TYi_s_eV_2D.bin'
         filename_Ti(2:5) = convert_int_to_txt_string(current_snap, 4)
         filename_Ti(11:11) = convert_int_to_txt_string(s, 1)
-        CALL SAVE_GLOBAL_2D_ARRAY(cs_TY, filename_Ti)
+        IF (cluster_rank_key.EQ.0) CALL SAVE_GLOBAL_2D_ARRAY(cs_TY, filename_Ti)
+        CALL MPI_BARRIER(MPI_COMM_WORLD, ierr) 
      END IF
 
      IF (save_data(32)) THEN
         filename_Ti = '_NNNN_TZi_s_eV_2D.bin'
         filename_Ti(2:5) = convert_int_to_txt_string(current_snap, 4)
         filename_Ti(11:11) = convert_int_to_txt_string(s, 1)
-        CALL SAVE_GLOBAL_2D_ARRAY(cs_TZ, filename_Ti)
+        IF (cluster_rank_key.EQ.0) CALL SAVE_GLOBAL_2D_ARRAY(cs_TZ, filename_Ti)
+        CALL MPI_BARRIER(MPI_COMM_WORLD, ierr) 
      END IF
 
-     CALL MPI_BARRIER(MPI_COMM_WORLD, ierr)
+!     CALL MPI_BARRIER(MPI_COMM_WORLD, ierr)
 
   END DO
 
@@ -688,19 +717,22 @@ SUBROUTINE CREATE_SNAPSHOT
   IF (save_data(4)) THEN
      filename_Jsum = '_NNNN_JXsum_Am2_2D.bin'
      filename_Jsum(2:5) = convert_int_to_txt_string(current_snap, 4)
-     CALL SAVE_GLOBAL_2D_ARRAY(cs_JXsum, filename_Jsum)
+     IF (cluster_rank_key.EQ.0) CALL SAVE_GLOBAL_2D_ARRAY(cs_JXsum, filename_Jsum)
+     CALL MPI_BARRIER(MPI_COMM_WORLD, ierr) 
   END IF
 
   IF (save_data(5)) THEN
      filename_Jsum = '_NNNN_JYsum_Am2_2D.bin'
      filename_Jsum(2:5) = convert_int_to_txt_string(current_snap, 4)
-     CALL SAVE_GLOBAL_2D_ARRAY(cs_JYsum, filename_Jsum)
+     IF (cluster_rank_key.EQ.0) CALL SAVE_GLOBAL_2D_ARRAY(cs_JYsum, filename_Jsum)
+     CALL MPI_BARRIER(MPI_COMM_WORLD, ierr) 
   END IF
 
   IF (save_data(6)) THEN
      filename_Jsum = '_NNNN_JZsum_Am2_2D.bin'
      filename_Jsum(2:5) = convert_int_to_txt_string(current_snap, 4)
-     CALL SAVE_GLOBAL_2D_ARRAY(cs_JZsum, filename_Jsum)
+     IF (cluster_rank_key.EQ.0) CALL SAVE_GLOBAL_2D_ARRAY(cs_JZsum, filename_Jsum)
+     CALL MPI_BARRIER(MPI_COMM_WORLD, ierr) 
   END IF
 
 ! write electron velocity distribution function -----------------------
@@ -828,125 +860,113 @@ SUBROUTINE SAVE_GLOBAL_2D_ARRAY(arr, filename)
 
   INTEGER i, j
 
-!  CALL MPI_COMM_SPLIT(MPI_COMM_WORLD, cluster_rank_key, Rank_of_process, COMM_SAVE_CLUSTERS, ierr)
-!  CALL MPI_COMM_RANK(COMM_SAVE_CLUSTERS, Rank_save_clusters, ierr)
-!  CALL MPI_COMM_SIZE(COMM_SAVE_CLUSTERS, N_processes_save_clusters, ierr)
+  IF (cluster_rank_key.NE.0) THEN
+! just in case 
+     PRINT '("Proc ",i4," Error in SAVE_GLOBAL_2D_ARRAY :: this process is not a cluster master, cluster_rank_key = ",i2," it should not call this subroutine")', Rank_of_process, cluster_rank_key
+     STOP
+  END IF
 
-  IF (cluster_rank_key.EQ.0) THEN
+  DO col = 1, N_clusters_x
+     reclenx(col) = cluster_N_blocks_x * N_grid_block_x
+  END DO
+  reclenx(1)            = reclenx(1) + 2              ! include the leftmost boundary point and a y-coordinate 
+  reclenx(N_clusters_x) = reclenx(N_clusters_x) + 1   ! include the rightmost bondary point
 
-     DO col = 1, N_clusters_x
-        reclenx(col) = cluster_N_blocks_x * N_grid_block_x
-     END DO
-     reclenx(1)            = reclenx(1) + 2              ! include the leftmost boundary point and a y-coordinate 
-     reclenx(N_clusters_x) = reclenx(N_clusters_x) + 1   ! include the rightmost bondary point
+  DO row = 1, N_clusters_y
+     recleny(row) = cluster_N_blocks_y * N_grid_block_y
+  END DO
+  recleny(1)            = recleny(1) + 1              ! include the bottom boundary point BUT doess NOT include the x-coordinate line
+  recleny(N_clusters_y) = recleny(N_clusters_y) + 1   ! include the top boundary point
 
-     DO row = 1, N_clusters_y
-        recleny(row) = cluster_N_blocks_y * N_grid_block_y
-     END DO
-     recleny(1)            = recleny(1) + 1              ! include the bottom boundary point BUT doess NOT include the x-coordinate line
-     recleny(N_clusters_y) = recleny(N_clusters_y) + 1   ! include the top boundary point
+  CALL MPI_FILE_OPEN( COMM_HORIZONTAL, &
+                    & filename,  &
+                    & MPI_MODE_WRONLY + MPI_MODE_CREATE, & 
+                    & MPI_INFO_NULL, &
+                    & file_handle, &
+                    & ierr )
 
-     CALL MPI_FILE_OPEN( COMM_HORIZONTAL, &
-                       & filename,  &
-                       & MPI_MODE_WRONLY + MPI_MODE_CREATE, & 
-                       & MPI_INFO_NULL, &
-                       & file_handle, &
-                       & ierr )
+  IF (c_column.EQ.1) THEN
+     out_indx_x_min = c_indx_x_min-1
+  ELSE
+     out_indx_x_min = c_indx_x_min+1
+  END IF
 
-     IF (c_column.EQ.1) THEN
-        out_indx_x_min = c_indx_x_min-1
-     ELSE
-        out_indx_x_min = c_indx_x_min+1
-     END IF
+  IF (c_column.EQ.N_clusters_x) THEN
+     out_indx_x_max = c_indx_x_max
+  ELSE
+     out_indx_x_max = c_indx_x_max-1
+  END IF
 
-     IF (c_column.EQ.N_clusters_x) THEN
-        out_indx_x_max = c_indx_x_max
-     ELSE
-        out_indx_x_max = c_indx_x_max-1
-     END IF
+  ALLOCATE(rbufer(out_indx_x_min:out_indx_x_max), STAT = ALLOC_ERR)
 
-     ALLOCATE(rbufer(out_indx_x_min:out_indx_x_max), STAT = ALLOC_ERR)
+  IF (c_row.EQ.1) THEN
+     out_indx_y_min = c_indx_y_min
+  ELSE 
+     out_indx_y_min = c_indx_y_min+1
+  END IF
 
-     IF (c_row.EQ.1) THEN
-        out_indx_y_min = c_indx_y_min
-     ELSE 
-        out_indx_y_min = c_indx_y_min+1
-     END IF
+  IF (c_row.EQ.N_clusters_y) THEN
+     out_indx_y_max = c_indx_y_max
+  ELSE
+     out_indx_y_max = c_indx_y_max-1
+  END IF
 
-     IF (c_row.EQ.N_clusters_y) THEN
-        out_indx_y_max = c_indx_y_max
-     ELSE
-        out_indx_y_max = c_indx_y_max-1
-     END IF
-
-     IF (c_row.EQ.1) THEN
+  IF (c_row.EQ.1) THEN
 ! must save a line with x-coordinates, as required by gnuplot
 
-        shifthead = 0
-        DO col = 1, c_column-1
-           shifthead = shifthead + reclenx(col)
-        END DO
-        shifthead = shifthead * 4
-
-!if (Rank_of_process.eq.0) print '("Process ",i4,"/",i4," shift ",i8," B")', Rank_of_process, Rank_horizontal,  shifthead
-
-        CALL MPI_FILE_SEEK( file_handle, shifthead, MPI_SEEK_SET, ierr)
-
-        IF (c_column.EQ.1) THEN
-           rbufer(out_indx_x_min) = REAL(global_maximal_i + 1)    ! the very first element is the size of the x-line, as required by gnuplot
-           DO i = out_indx_x_min+1, out_indx_x_max
-              rbufer(i) = REAL(i * delta_x_m)
-           END DO
-        ELSE
-           DO i = out_indx_x_min, out_indx_x_max
-              rbufer(i) = REAL(i * delta_x_m)
-           END DO
-        END IF
-
-        CALL MPI_FILE_WRITE( file_handle, rbufer(out_indx_x_min:out_indx_x_max), out_indx_x_max-out_indx_x_min+1, MPI_REAL, stattus, ierr )
-
-     END IF
-
-     DO j = out_indx_y_min, out_indx_y_max
-        
-        shifthead = global_maximal_i + 2
-        DO row = 1, c_row-1
-           shifthead = shifthead + recleny(row) * (global_maximal_i + 2)   ! +1 since indexing starts with 0 and another +1 since y-coordinate is included
-        END DO
-        shifthead = shifthead + (j - out_indx_y_min) * (global_maximal_i + 2) 
-        DO col = 1, c_column-1
-           shifthead = shifthead + reclenx(col)
-        END DO
-        shifthead = shifthead * 4
-
-!if (Rank_of_process.eq.0) print '("Process ",i4,"/",i4," shift ",i8," B")', Rank_of_process, Rank_horizontal,  shifthead
-
-        CALL MPI_FILE_SEEK( file_handle, shifthead, MPI_SEEK_SET, ierr)
-        
-        IF (c_column.EQ.1) THEN
-           rbufer(out_indx_x_min) = REAL(j * delta_x_m)    ! the very first element is the y-coordinate, as required by gnuplot
-           rbufer(out_indx_x_min+1:out_indx_x_max) = arr(out_indx_x_min+1:out_indx_x_max, j)
-        ELSE
-           rbufer(out_indx_x_min:out_indx_x_max) = arr(out_indx_x_min:out_indx_x_max, j)
-        END IF
-
-        CALL MPI_FILE_WRITE( file_handle, rbufer(out_indx_x_min:out_indx_x_max), out_indx_x_max-out_indx_x_min+1, MPI_REAL, stattus, ierr )
-
+     shifthead = 0
+     DO col = 1, c_column-1
+        shifthead = shifthead + reclenx(col)
      END DO
+     shifthead = shifthead * 4
 
-     CALL MPI_FILE_CLOSE(file_handle, ierr)
+     CALL MPI_FILE_SEEK( file_handle, shifthead, MPI_SEEK_SET, ierr)
 
-     DEALLOCATE(rbufer, STAT = ALLOC_ERR)
+     IF (c_column.EQ.1) THEN
+        rbufer(out_indx_x_min) = REAL(global_maximal_i + 1)    ! the very first element is the size of the x-line, as required by gnuplot
+        DO i = out_indx_x_min+1, out_indx_x_max
+           rbufer(i) = REAL(i * delta_x_m)
+        END DO
+     ELSE
+        DO i = out_indx_x_min, out_indx_x_max
+           rbufer(i) = REAL(i * delta_x_m)
+        END DO
+     END IF
+     
+     CALL MPI_FILE_WRITE( file_handle, rbufer(out_indx_x_min:out_indx_x_max), out_indx_x_max-out_indx_x_min+1, MPI_REAL, stattus, ierr )
 
   END IF
 
-  CALL MPI_BARRIER(MPI_COMM_WORLD, ierr) 
+  DO j = out_indx_y_min, out_indx_y_max
+        
+     shifthead = global_maximal_i + 2
+     DO row = 1, c_row-1
+        shifthead = shifthead + recleny(row) * (global_maximal_i + 2)   ! +1 since indexing starts with 0 and another +1 since y-coordinate is included
+     END DO
+     shifthead = shifthead + (j - out_indx_y_min) * (global_maximal_i + 2) 
+     DO col = 1, c_column-1
+        shifthead = shifthead + reclenx(col)
+     END DO
+     shifthead = shifthead * 4
 
-! all processes must participate in destroying the communicator, I guess...
-!  CALL MPI_COMM_FREE(COMM_SAVE_CLUSTERS, ierr)
+     CALL MPI_FILE_SEEK( file_handle, shifthead, MPI_SEEK_SET, ierr)
+        
+     IF (c_column.EQ.1) THEN
+        rbufer(out_indx_x_min) = REAL(j * delta_x_m)    ! the very first element is the y-coordinate, as required by gnuplot
+        rbufer(out_indx_x_min+1:out_indx_x_max) = arr(out_indx_x_min+1:out_indx_x_max, j)
+     ELSE
+        rbufer(out_indx_x_min:out_indx_x_max) = arr(out_indx_x_min:out_indx_x_max, j)
+     END IF
+
+     CALL MPI_FILE_WRITE( file_handle, rbufer(out_indx_x_min:out_indx_x_max), out_indx_x_max-out_indx_x_min+1, MPI_REAL, stattus, ierr )
+
+  END DO
+
+  CALL MPI_FILE_CLOSE(file_handle, ierr)
+
+  DEALLOCATE(rbufer, STAT = ALLOC_ERR)
 
   IF (Rank_of_process.EQ.0) PRINT '("created file ",A40)', filename
-!stop
 
 END SUBROUTINE SAVE_GLOBAL_2D_ARRAY
 
