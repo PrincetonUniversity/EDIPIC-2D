@@ -45,5 +45,8 @@ mpifort -o ./runpic2dpetsc.out -C *.o -lpetsc -L${PETSC_DIR}/${PETSC_ARCH}/lib
 ## run sample input with
 mpirun -np 32 ./runpic2dpetsc.out > output.txt &
 
-##
+## or as batch job (sample file "bmt" is in the same directory)
+sbatch bmt
+
+
 
