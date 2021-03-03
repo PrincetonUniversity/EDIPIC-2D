@@ -1,0 +1,14 @@
+#!/bin/bash
+## this is sample SBATCH commands for perseus
+#SBATCH -N 2
+#SBATCH -n 32
+#SBATCH -t 3:59:00
+# sends mail when process begins, and when it ends. Make sure you define your email 
+##SBATCH --mail-type=begin 
+#SBATCH --mail-type=end 
+##SBATCH --mail-user=your@email.aaa 
+
+# Load openmpi environment
+module load openmpi intel
+
+srun -n 32 ./runpic2dpetsc.out > output.txt
