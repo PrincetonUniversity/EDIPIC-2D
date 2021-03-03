@@ -38,6 +38,7 @@ make PETSC_DIR=/scratch/gpfs/your_dir_name/petsc PETSC_ARCH=arch-linux-c-debug c
 
 export PETSC_DIR=/scratch/gpfs/your_dir_name/petsc
 export PETSC_ARCH=arch-linux-c-debug
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/${PETSC_DIR}/${PETSC_ARCH}/lib
 mpifort -c pic2d_PETSc_Solver.F90 pic2d_ElectricFieldCalc_PETSc.F90 pic2d_CurProblemValues.f90 -C -I${PETSC_DIR}/include -I${PETSC_DIR}/${PETSC_ARCH}/include -I${PETSC_DIR}/include/petsc/finclude
 mpifort -o ./runpic2dpetsc.out -C *.o -lpetsc -L${PETSC_DIR}/${PETSC_ARCH}/lib
 
