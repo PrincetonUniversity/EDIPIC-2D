@@ -130,6 +130,7 @@ MODULE ParallelFFTX
 
   REAL(8), ALLOCATABLE :: a_eq(:,:)    ! pre-calculated upper-diagonal coefficients of the linear y-system of equations
                                        ! [for several fft-n, second index]
+  LOGICAL two_dielectric_walls
 
 END MODULE ParallelFFTX
 
@@ -268,8 +269,8 @@ MODULE CurrentProblemValues
   REAL(8), ALLOCATABLE :: rho_i(:,:)     ! these arrays cover a single field-calculating block, they are used when SOR is involved
   REAL(8), ALLOCATABLE :: rho_e(:,:)     ! 
 
-  REAL(8), ALLOCATABLE :: ext_phi(:)     ! linear potential profile corresponding to the external voltage applied between the two electrodes 
-                                         ! in case when the system is periodic in X and non-periodic in Y
+!  REAL(8), ALLOCATABLE :: ext_phi(:)     ! linear potential profile corresponding to the external voltage applied between the two electrodes 
+!                                         ! in case when the system is periodic in X and non-periodic in Y
 
 END MODULE CurrentProblemValues
 

@@ -790,6 +790,12 @@ SUBROUTINE PREPARE_SYS_Y
      END IF
   END DO
 
+  two_dielectric_walls = .TRUE.
+  IF (wall_below_is_metal.OR.wall_above_is_metal) two_dielectric_walls = .FALSE. 
+
+! flags wall_below/above_is_metal work when the bottom/top boundary is a solid metal wall or a segmented wall 
+! (combination of METAL_WALL and VACUUM_GAP boundary objects) with potential profile that is a known function of time
+
 ! precalculate coefficients of the linear system --------------------------------------------
 
   ALLOCATE(a_eq(0:global_maximal_j, sysy_strip_nmin:sysy_strip_nmax), STAT = ALLOC_ERR)  ! diagonal main+1 (above)

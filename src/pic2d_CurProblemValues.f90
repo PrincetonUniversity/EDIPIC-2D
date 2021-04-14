@@ -591,32 +591,28 @@ if (Rank_of_process.eq.0) print *, "SET_CLUSTER_STRUCTURE done"
 ! do this here to set whole_object%phi which may be used below to calculate external electric field
   CALL UPDATE_WALL_POTENTIALS(0)
 
-  IF ((periodicity_flag.EQ.PERIODICITY_X).AND.(cluster_rank_key.EQ.0)) THEN
+!  IF ((periodicity_flag.EQ.PERIODICITY_X).AND.(cluster_rank_key.EQ.0)) THEN
 ! scan the list of boundary objects, find a wall with non-zero potential
-     ALLOCATE(ext_phi(c_indx_y_min:c_indx_y_max), STAT = ALLOC_ERR)
-     ext_phi = 0.0_8
-! fixmeplease
-! ##### hardwired for boundary objects #2 and #4 being at the top (max y) and bottom (min y) of the simulation domain   #####
-! ##### the potential values assigned to these boundaries are used to calculate the externally applied y-electric field #####
-! ##### if one or both y-boundaries are dielectric or the external voltage if both boundaries are metal                 #####
-     IF (ht_grid_requested) THEN 
-
-        DO j = c_indx_y_min, c_indx_y_max
-
-           IF (j.LE.grid_j) THEN
-              ext_phi(j) = whole_object(4)%phi + (F_grid - whole_object(4)%phi) * DBLE(j) / DBLE(grid_j)
-           ELSE
-              ext_phi(j) = F_grid + (whole_object(2)%phi - F_grid) * DBLE(j - grid_j) / DBLE(global_maximal_j - grid_j)
-           END IF
-
-        END DO
-
-     ELSE 
-        DO j = c_indx_y_min, c_indx_y_max
-           ext_phi(j) = (whole_object(2)%phi - whole_object(4)%phi) * DBLE(j) / DBLE(global_maximal_j)
-        END DO
-     END IF
-  END IF
+!     ALLOCATE(ext_phi(c_indx_y_min:c_indx_y_max), STAT = ALLOC_ERR)
+!     ext_phi = 0.0_8
+!! fixmeplease
+!! ##### hardwired for boundary objects #2 and #4 being at the top (max y) and bottom (min y) of the simulation domain   #####
+!! ##### the potential values assigned to these boundaries are used to calculate the externally applied y-electric field #####
+!! ##### if one or both y-boundaries are dielectric or the external voltage if both boundaries are metal                 #####
+!     IF (ht_grid_requested) THEN 
+!        DO j = c_indx_y_min, c_indx_y_max
+!           IF (j.LE.grid_j) THEN
+!              ext_phi(j) = whole_object(4)%phi + (F_grid - whole_object(4)%phi) * DBLE(j) / DBLE(grid_j)
+!           ELSE
+!              ext_phi(j) = F_grid + (whole_object(2)%phi - F_grid) * DBLE(j - grid_j) / DBLE(global_maximal_j - grid_j)
+!           END IF
+!        END DO
+!     ELSE 
+!        DO j = c_indx_y_min, c_indx_y_max
+!           ext_phi(j) = (whole_object(2)%phi - whole_object(4)%phi) * DBLE(j) / DBLE(global_maximal_j)
+!        END DO
+!     END IF
+!  END IF
 
   IF ((periodicity_flag.EQ.PERIODICITY_NONE).OR.(periodicity_flag.EQ.PERIODICITY_X_Y)) THEN
      phi=0.0_8

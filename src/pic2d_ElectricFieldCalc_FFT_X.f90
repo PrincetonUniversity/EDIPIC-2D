@@ -8,7 +8,7 @@ SUBROUTINE SOLVE_POISSON_FFTX_LINSYSY
   USE BlockAndItsBoundaries, ONLY : indx_x_min, indx_x_max, indx_y_min, indx_y_max
   USE ParallelFFTX
   USE Diagnostics, ONLY : Save_probes_data_T_cntr, N_of_probes_cluster, List_of_probes_cluster, Probe_position, probe_F_cluster
-  USE SetupValues, ONLY : ht_soft_grid_requested, grid_j
+  USE SetupValues, ONLY : ht_soft_grid_requested, ht_grid_requested, grid_j, F_grid
 
   IMPLICIT NONE
 
@@ -51,6 +51,9 @@ character(18) proc_filename     ! abcdefghi_NNNN.dat
 
   INTEGER npc, npa
 
+  REAL(8), ALLOCATABLE :: corr_phi(:)     ! correction applied to get desired value of the average potential in the injection plane
+                                          ! it is used only if ht_soft_grid_requested = .TRUE.
+
   REAL(8) myavg_phi, avg_phi
 
   interface
@@ -82,31 +85,62 @@ character(10) myfilename ! A_NNNN.dat
         END DO
      END DO
 
-! account for surface charge density on dielectric surfaces
+! account for the grid potential if it is included
+     IF (ht_grid_requested) THEN
+        IF ((grid_j.GE.c_indx_y_min).AND.(grid_j.LE.c_indx_y_max)) THEN
+           DO i = c_indx_x_min, c_indx_x_max
+              c_rho(i,j) = F_grid
+           END DO
+        END IF
+     END IF
 
 ! note that in each cluster the surface charge at i=c_indx_x_min/max is nullified due to overlapping
 ! correct values of the surface charge density at i=0 will be implemented at later stage
 ! when the X-bands of charge density will be created 
 
      DO n = 1, c_N_of_local_object_parts_below
-! check if there is a dielectric below the cluster        
+! if there is a wall below the cluster        
         m = c_index_of_local_object_part_below(n)
         nwo = c_local_object_part(m)%object_number
         IF (whole_object(nwo)%object_type.EQ.DIELECTRIC) THEN
+! account for surface charge density on dielectric
            DO i = c_local_object_part(m)%istart, c_local_object_part(m)%iend
               c_rho(i,c_indx_y_min) = 0.5_8 * c_rho(i,c_indx_y_min) + factor_rho * c_local_object_part(m)%surface_charge(i)
            END DO
+        ELSE IF (whole_object(nwo)%object_type.EQ.VACUUM_GAP) THEN
+! account for the potential in vacuum gap
+           DO i = c_local_object_part(m)%istart, c_local_object_part(m)%iend
+              c_rho(i,c_indx_y_min) = whole_object(nwo)%phi_profile(i)
+           END DO
+        ELSE IF (whole_object(nwo)%object_type.EQ.METAL_WALL) THEN
+! account for the potential of metal wall
+           DO i = c_local_object_part(m)%istart, c_local_object_part(m)%iend
+              c_rho(i,c_indx_y_min) = whole_object(nwo)%phi
+           END DO
+!print '("proc ",i4,"sets bottom object ",i2," potential to ",f10.2," V")', Rank_of_process, nwo, whole_object(nwo)%phi * F_scale_V
         END IF
      END DO
 
      DO n = 1, c_N_of_local_object_parts_above
-! check if there is a dielectric above the cluster        
+! if there is a wall above the cluster        
         m = c_index_of_local_object_part_above(n)
         nwo = c_local_object_part(m)%object_number
         IF (whole_object(nwo)%object_type.EQ.DIELECTRIC) THEN
+! account for surface charge density on dielectric
            DO i = c_local_object_part(m)%istart, c_local_object_part(m)%iend
               c_rho(i,c_indx_y_max) = 0.5_8 * c_rho(i,c_indx_y_max) + factor_rho * c_local_object_part(m)%surface_charge(i)
            END DO
+        ELSE IF (whole_object(nwo)%object_type.EQ.VACUUM_GAP) THEN
+! account for the potential in vacuum gap
+            DO i = c_local_object_part(m)%istart, c_local_object_part(m)%iend
+              c_rho(i,c_indx_y_max) = whole_object(nwo)%phi_profile(i)
+           END DO
+        ELSE IF (whole_object(nwo)%object_type.EQ.METAL_WALL) THEN
+! account for the potential of metal wall
+           DO i = c_local_object_part(m)%istart, c_local_object_part(m)%iend
+              c_rho(i,c_indx_y_max) = whole_object(nwo)%phi
+           END DO
+!print '("proc ",i4,"sets top object ",i2," potential to ",f10.2," V")', Rank_of_process, nwo, whole_object(nwo)%phi * F_scale_V
         END IF
      END DO
 
@@ -651,15 +685,62 @@ character(10) myfilename ! A_NNNN.dat
 ! set RHS 
      jre = 0
      jim = 1
-     rhs(jre) = -yband(jre, n) * a_eq(0, n)   ! if the wall y=0 is metal, a_eq(0,n)=0 :: this ensures zero rhs
-     rhs(jim) = -yband(jim, n) * a_eq(0, n)   !
 
-     DO j = 1, global_maximal_j
+     IF (a_eq(0,n).EQ.0.0_8) THEN
+! the wall y=0 is a combination of METAL_WALL / VACUUM_GAP boundary objects, the potential is known
+        rhs(jre) = yband(jre, n)
+        rhs(jim) = yband(jim, n)
+     ELSE
+! the wall y=0 is DIELECTRIC
+        rhs(jre) = -yband(jre, n) * a_eq(0, n)   ! if the wall y=0 is metal, a_eq(0,n)=0 :: this ensures zero rhs
+        rhs(jim) = -yband(jim, n) * a_eq(0, n)   !
+     END IF
+
+     IF (two_dielectric_walls.AND.(n.EQ.0)) THEN
+        rhs(jre) = 0.0_8
+        rhs(jim) = 0.0_8
+     END IF
+
+     IF (ht_grid_requested) THEN
+        DO j = 1, grid_j-1
+           jre = jre + 2
+           jim = jim + 2
+           rhs(jre) = (-yband(jre, n) - rhs(jre-2)) * a_eq(j, n)
+           rhs(jim) = (-yband(jim, n) - rhs(jim-2)) * a_eq(j, n)
+        END DO
+        j = grid_j
         jre = jre + 2
         jim = jim + 2
-        rhs(jre) = (-yband(jre, n) - rhs(jre-2)) * a_eq(j, n)   ! if the wall j=global_maximal_j is metal, a_eq(global_maximal_j,n)=0 :: this ensures zero rhs
-        rhs(jim) = (-yband(jim, n) - rhs(jim-2)) * a_eq(j, n)   ! (to get nonzero potential of the metal wall here, external field will be added later) 
-     END DO
+        rhs(jre) = yband(jre, n)
+        rhs(jim) = yband(jim, n)
+        DO j = grid_j+1, global_maximal_j-1
+           jre = jre + 2
+           jim = jim + 2
+           rhs(jre) = (-yband(jre, n) - rhs(jre-2)) * a_eq(j, n)
+           rhs(jim) = (-yband(jim, n) - rhs(jim-2)) * a_eq(j, n)
+        END DO
+     ELSE
+        DO j = 1, global_maximal_j-1
+           jre = jre + 2
+           jim = jim + 2
+           rhs(jre) = (-yband(jre, n) - rhs(jre-2)) * a_eq(j, n)
+           rhs(jim) = (-yband(jim, n) - rhs(jim-2)) * a_eq(j, n)
+        END DO
+     END IF
+
+     j = global_maximal_j
+     jre = jre + 2
+     jim = jim + 2
+
+     IF (a_eq(j, n).EQ.0.0_8) THEN
+! the wall y=global_maximal_j is a combination of METAL_WALL / VACUUM_GAP boundary objects, the potential is known
+        rhs(jre) = yband(jre, n)
+        rhs(jim) = yband(jim, n)
+     ELSE
+! the wall y=global_maximal_j is DIELECTRIC
+        rhs(jre) = (-yband(jre, n) - rhs(jre-2)) * a_eq(j, n)
+        rhs(jim) = (-yband(jim, n) - rhs(jim-2)) * a_eq(j, n)
+     END IF
 
 ! solve the equation system
 
@@ -669,7 +750,7 @@ character(10) myfilename ! A_NNNN.dat
      DO j = global_maximal_j - 1, 0, -1  ! was global_maximal_j - 2, 1, -1 
         jre = jre - 2
         jim = jim - 2
-        yband(jre, n) = rhs(jre) - a_eq(j, n) * yband(jre + 2, n)  ! for metal wall at j=0, rhs=0 and a_eq=0, which gives yband=0
+        yband(jre, n) = rhs(jre) - a_eq(j, n) * yband(jre + 2, n)  ! for metal wall at j=0, a_eq=0, which gives yband=rhs
         yband(jim, n) = rhs(jim) - a_eq(j, n) * yband(jim + 2, n)  !
      END DO
 
@@ -1218,13 +1299,16 @@ character(10) myfilename ! A_NNNN.dat
 
 ! if requested, the average potential in the injection plane may be set to a given value
 ! this requires re-calculating the ext_phi array 
-! note that here cluster_rank_key=0, that is only the master processes process the code below
+! note that here cluster_rank_key=0, that is only master processes execute the code below
 ! also note that the desired average value of the potential is set equal to the potential associated with the right boundary
 ! and once the corrected external field is applied, the potential of the right boundary is not necessary equal to 
 ! the initially associated value
 
      IF (ht_soft_grid_requested) THEN
 ! define average potential in the injection plane
+! this option should be used only when the upper and lower boundaries are solid metal walls (as in LANDMARK tests)
+
+        ALLOCATE(corr_phi(c_indx_y_min:c_indx_y_max), STAT = ALLOC_ERR)
 
         myavg_phi = 0.0_8
         IF ((grid_j.GT.c_indx_y_min).AND.(grid_j.LT.c_indx_y_max)) THEN
@@ -1242,17 +1326,20 @@ character(10) myfilename ! A_NNNN.dat
 
 ! recalculate the external potential array
         DO j = c_indx_y_min, c_indx_y_max
-           ext_phi(j) = whole_object(4)%phi + (whole_object(2)%phi - avg_phi - whole_object(4)%phi) * DBLE(j) / DBLE(grid_j)
+!           ext_phi(j) = whole_object(4)%phi + (whole_object(2)%phi - avg_phi - whole_object(4)%phi) * DBLE(j) / DBLE(grid_j)
+           corr_phi(j) = (whole_object(2)%phi - avg_phi) * DBLE(j) / DBLE(grid_j)
         END DO
-
-     END IF
 
 ! add the external voltage
-     DO j = c_indx_y_min, c_indx_y_max
-        DO i = c_indx_x_min, c_indx_x_max
-           c_phi(i,j) = c_phi(i,j) + ext_phi(j)
+        DO j = c_indx_y_min, c_indx_y_max
+           DO i = c_indx_x_min, c_indx_x_max
+              c_phi(i,j) = c_phi(i,j) + corr_phi(j)
+           END DO
         END DO
-     END DO
+
+        DEALLOCATE(corr_phi, STAT = ALLOC_ERR)
+
+     END IF
 
 ! ################ diagnostics, electrostatic potential #################
 !
