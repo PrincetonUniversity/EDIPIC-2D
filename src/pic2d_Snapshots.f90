@@ -24,7 +24,8 @@ SUBROUTINE INITIATE_SNAPSHOTS
   REAL(8) Rqst_snap_start_ns        ! requested start of current set of snapshots [ns], read from file
   REAL(8) Rqst_snap_finish_ns       ! requested finish of current set of snapshots [ns], read from file 
   INTEGER Rqst_n_of_snaps           ! requested number of snapshots in current set, read from file
-  INTEGER Rqst_evdf_flag            ! requested flag defining which evdfs to save (0/1/2/3 = No/1d only/2d only/1d and 2d)
+  INTEGER Rqst_evdf_flag            ! requested flag defining which velocity distribution functions to save (0/1/2/3 = No/1d only/2d only/1d and 2d)
+  INTEGER Rqst_pp_flag              ! requested flag defining which phase planes to save (0/1/2/3 = No/electrons only/ions only/electrons and ions)
 
   INTEGER T1, T2, N1, N2 
 
@@ -34,7 +35,8 @@ SUBROUTINE INITIATE_SNAPSHOTS
 
   INTEGER n                             ! ordering number of snapshot in the set
   INTEGER, ALLOCATABLE ::           timestep(:)   ! array for temporary storage of moments (timesteps) of snapshots
-  INTEGER, ALLOCATABLE :: evdf_flag_timestep(:)   ! array for temporary storage of evdf save flags
+  INTEGER, ALLOCATABLE :: evdf_flag_timestep(:)   ! array for temporary storage of vdf save flags
+  INTEGER, ALLOCATABLE ::   pp_flag_timestep(:)   ! array for temporary storage of phase planes save flags
 
   INTEGER ALLOC_ERR
 
@@ -49,6 +51,7 @@ SUBROUTINE INITIATE_SNAPSHOTS
 
      ALLOCATE(          timestep(1:9999), STAT = ALLOC_ERR)
      ALLOCATE(evdf_flag_timestep(1:9999), STAT = ALLOC_ERR)
+     ALLOCATE(  pp_flag_timestep(1:9999), STAT = ALLOC_ERR)
      
      IF (Rank_of_process.EQ.0) PRINT '("### File init_snapshots is found. Reading the data file... ###")'
 
@@ -72,11 +75,11 @@ SUBROUTINE INITIATE_SNAPSHOTS
 
      READ (9, '(A1)') buf !---dd--- Number of groups of snapshots ( >= 0 )
      READ (9, '(3x,i2)') N_of_snap_groups
-     READ (9, '(A1)') buf !---ddddddd.ddd---ddddddd.ddd---dddd---d--- group: start (ns) / finish (ns) / number of snapshots / save VDFs (0/1/2/3 = No/1d only/2d only/1d and 2d)
+     READ (9, '(A1)') buf !---ddddddd.ddd---ddddddd.ddd---dddd---d---d--- group: start (ns) / finish (ns) / number of snapshots / save VDFs (0/1/2/3 = No/1d/2d/1d+2d) / save phase planes (0/1/2/3 = No/e/i/e+i)
 
      DO i = 1, N_of_snap_groups
 ! read the parameters of current set of snapshot from the data file
-        READ (9, '(3x,f11.3,3x,f11.3,3x,i4,3x,i1)') Rqst_snap_start_ns, Rqst_snap_finish_ns, Rqst_n_of_snaps, Rqst_evdf_flag    !!!
+        READ (9, '(3x,f11.3,3x,f11.3,3x,i4,3x,i1,3x,i1)') Rqst_snap_start_ns, Rqst_snap_finish_ns, Rqst_n_of_snaps, Rqst_evdf_flag, Rqst_pp_flag    !!!
 ! try the next group of snapshots if the current group snapshot number is zero
         IF (Rqst_n_of_snaps.LT.1) CYCLE
 ! get the timestep, coinciding with the diagnostic output timestep and closest to Rqst_snap_start_ns
@@ -128,6 +131,7 @@ SUBROUTINE INITIATE_SNAPSHOTS
            N_of_all_snaps = N_of_all_snaps + 1
                      timestep(N_of_all_snaps) =  T1 + (n - 1) * large_step * Save_probes_data_step
            evdf_flag_timestep(N_of_all_snaps) = MAX(0,MIN(3,Rqst_evdf_flag))
+             pp_flag_timestep(N_of_all_snaps) = MAX(0,MIN(3,Rqst_pp_flag))
         END DO        ! end of cycle over snapshots in one set
      END DO           ! end of cycle over sets of snapshots     
 
@@ -147,6 +151,15 @@ SUBROUTINE INITIATE_SNAPSHOTS
      READ (9, '(2x,i3)') N_max_vel_i
      READ (9, '(A1)') buf !--ddd--- Number of velocity bins per v_Te_ms*sqrt(me/Ms) for ions
      READ (9, '(2x,i3)') N_vbins_i
+
+     READ (9, '(A1)') buf !-------- Parameters for saving phase planes
+     READ (9, '(A1)') buf !--dd---- Number of rectangular spatial boxes (>=0)
+     READ (9, '(2x,i2)') N_pp_boxes
+     ALLOCATE(pp_box(1:N_pp_boxes), STAT=ALLOC_ERR)
+     READ (9, '(A1)') buf !--dddd--dddd----dddd--dddd--- left bottom corner X/Y (node index) / right top corner X/Y (node index)
+     DO n = 1, N_pp_boxes
+        READ (9, '(2x,i4,2x,i4,4x,i4,2x,i4)') pp_box(n)%imin, pp_box(n)%jmin, pp_box(n)%imax, pp_box(n)%jmax 
+     END DO
 
      CLOSE (9, STATUS = 'KEEP')
 
@@ -188,23 +201,26 @@ SUBROUTINE INITIATE_SNAPSHOTS
 ! allocate the array of moments of snapshots
   ALLOCATE(    Tcntr_snapshot(1:N_of_all_snaps), STAT=ALLOC_ERR)
   ALLOCATE(save_evdf_snapshot(1:N_of_all_snaps), STAT=ALLOC_ERR)
+  ALLOCATE(  save_pp_snapshot(1:N_of_all_snaps), STAT=ALLOC_ERR)
 
 ! move the calculated snapshot moments from the temporary array to the allocated array 
       Tcntr_snapshot(1:N_of_all_snaps) =           timestep(1:N_of_all_snaps)
   save_evdf_snapshot(1:N_of_all_snaps) = evdf_flag_timestep(1:N_of_all_snaps)
+    save_pp_snapshot(1:N_of_all_snaps) =   pp_flag_timestep(1:N_of_all_snaps)
  
   DEALLOCATE(          timestep, STAT = ALLOC_ERR)
   DEALLOCATE(evdf_flag_timestep, STAT = ALLOC_ERR)
+  DEALLOCATE(  pp_flag_timestep, STAT = ALLOC_ERR)
  
   IF (Rank_of_process.EQ.0) THEN 
      PRINT '("### The program will create ",i4," snapshots ###")', N_of_all_snaps
 
 ! write moments of snapshot creation into the file
      OPEN (41, FILE = '_snapmoments.dat')
-!                 "--****-----*******.*****----********----*"
-     WRITE (41, '(" number       time(ns)       T_cntr  vdf-flag")')
+!                 "--****-----*******.*****----********----*----*"
+     WRITE (41, '(" number       time(ns)       T_cntr    vdf  pp")')
      DO i = 1, N_of_all_snaps
-        WRITE (41, '(2x,i4,5x,f13.5,4x,i8,4x,i1)') i, Tcntr_snapshot(i) * 1.0d9 * delta_t_s, Tcntr_snapshot(i), save_evdf_snapshot(i)
+        WRITE (41, '(2x,i4,5x,f13.5,4x,i8,4x,i1,4x,i1)') i, Tcntr_snapshot(i) * 1.0d9 * delta_t_s, Tcntr_snapshot(i), save_evdf_snapshot(i), save_pp_snapshot(i)
      END DO
      CLOSE (41, STATUS = 'KEEP')
 
@@ -811,6 +827,14 @@ SUBROUTINE CREATE_SNAPSHOT
 
   CALL MPI_BARRIER(MPI_COMM_WORLD, ierr)
 
+  CALL SAVE_ELECTRON_PHASE_PLANES
+
+  CALL MPI_BARRIER(MPI_COMM_WORLD, ierr)
+
+  CALL SAVE_ION_PHASE_PLANES
+
+  CALL MPI_BARRIER(MPI_COMM_WORLD, ierr)
+
   IF (Rank_of_process.EQ.0) PRINT '(/2x,"### ^^^^^^^^^^^^^^^^^^^^ Snapshot ",i4," completed :) ^^^^^^^^^^^^^^^^^^^ ###")', current_snap
 
   current_snap = current_snap + 1           ! increase the snapshots counter 
@@ -1320,6 +1344,292 @@ SUBROUTINE SAVE_ALL_VDF2D
 
 END SUBROUTINE SAVE_ALL_VDF2D
 
+!------------------------------------
+!
+SUBROUTINE SAVE_ELECTRON_PHASE_PLANES
+
+  USE ParallelOperationValues
+  USE CurrentProblemValues
+  USE ElectronParticles
+  USE Snapshots
+  
+  IMPLICIT NONE
+
+  INCLUDE 'mpif.h'
+
+  INTEGER ierr
+  INTEGER stattus(MPI_STATUS_SIZE)
+  INTEGER request
+
+  INTEGER count
+  INTEGER i, j, k, n
+  INTEGER ibufer_length, rbufer_length
+
+  INTEGER, ALLOCATABLE :: ibufer(:)
+  REAL,    ALLOCATABLE :: rbufer(:)
+  INTEGER ALLOC_ERR
+  
+  INTEGER pos
+
+  INTEGER file_handle
+
+  CHARACTER(13) filename_epp      ! _NNNN_epp.bin
+                                  ! ----x----I---
+
+  INTERFACE
+     FUNCTION convert_int_to_txt_string(int_number, length_of_string)
+       CHARACTER*(length_of_string) convert_int_to_txt_string
+       INTEGER int_number
+       INTEGER length_of_string
+     END FUNCTION convert_int_to_txt_string
+  END INTERFACE
+
+  IF (N_pp_boxes.LE.0) RETURN
+
+  IF (save_pp_snapshot(current_snap).EQ.NOANYPP) RETURN
+  IF (save_pp_snapshot(current_snap).EQ.ONLYionPP) RETURN
+
+! find number of particles to be saved
+  count = 0
+  DO k = 1, N_electrons
+     i = INT(electron(k)%X)
+     j = INT(electron(k)%Y)
+     DO n = 1, N_pp_boxes
+        IF ((i.GE.pp_box(n)%imin).AND.(i.LT.pp_box(n)%imax).AND.(j.GE.pp_box(n)%jmin).AND.(j.LT.pp_box(n)%jmax)) THEN
+           count = count+1
+! exit as soon as one box is found, even if the particle is in several boxes we save it only once
+           EXIT
+        END IF
+     END DO
+  END DO
+
+  IF (Rank_of_process.EQ.0) THEN
+     ibufer_length = 1+4*N_pp_boxes+1+1
+     ALLOCATE(ibufer(ibufer_length), STAT=ALLOC_ERR)
+     ibufer(1) = N_pp_boxes
+     pos=2
+     DO n = 1, N_pp_boxes
+        ibufer(pos)   = pp_box(n)%imin
+        ibufer(pos+1) = pp_box(n)%jmin
+        ibufer(pos+2) = pp_box(n)%imax
+        ibufer(pos+3) = pp_box(n)%jmax
+        pos=pos+4
+     END DO
+     ibufer(pos) = N_of_processes
+     ibufer(pos+1) = count
+  ELSE
+     ibufer_length = 1
+     ALLOCATE(ibufer(ibufer_length), STAT=ALLOC_ERR)
+     ibufer(ibufer_length) = count
+  END IF
+
+! create filename
+  filename_epp = '_NNNN_epp.bin'
+  filename_epp(2:5) = convert_int_to_txt_string(current_snap, 4)
+
+  CALL MPI_BARRIER(MPI_COMM_WORLD, ierr)
+
+  CALL MPI_FILE_OPEN( MPI_COMM_WORLD, &
+                    & filename_epp,  &
+                    & MPI_MODE_WRONLY + MPI_MODE_CREATE, & 
+                    & MPI_INFO_NULL, &
+                    & file_handle, &
+                    & ierr )
+    
+  CALL MPI_FILE_WRITE_ORDERED( file_handle, ibufer, ibufer_length, MPI_INTEGER, stattus, ierr )
+
+  rbufer_length = 6*count
+  IF (Rank_of_process.EQ.0) rbufer_length = rbufer_length + 1  ! to save delta_x_m
+
+  ALLOCATE(rbufer(1:MAX(rbufer_length,1)), STAT=ALLOC_ERR)
+
+! save particles into the buffers
+  pos=1
+  IF (Rank_of_process.EQ.0) THEN
+     rbufer(pos) = REAL(delta_x_m)
+     pos = pos+1
+  END IF
+  DO k = 1, N_electrons
+     i = INT(electron(k)%X)
+     j = INT(electron(k)%Y)
+     DO n = 1, N_pp_boxes
+        IF ((i.GE.pp_box(n)%imin).AND.(i.LT.pp_box(n)%imax).AND.(j.GE.pp_box(n)%jmin).AND.(j.LT.pp_box(n)%jmax)) THEN
+           rbufer(pos)   = REAL(electron(k)%X)
+           rbufer(pos+1) = REAL(electron(k)%Y)
+           rbufer(pos+2) = REAL(electron(k)%VX * V_scale_ms)
+           rbufer(pos+3) = REAL(electron(k)%VY * V_scale_ms)
+           rbufer(pos+4) = REAL(electron(k)%VZ * V_scale_ms)
+           rbufer(pos+5) = REAL(electron(k)%tag)
+           pos = pos+6
+! exit as soon as one box is found, even if the particle is in several boxes we save it only once
+           EXIT
+        END IF
+     END DO
+  END DO
+
+  CALL MPI_BARRIER(MPI_COMM_WORLD, ierr)
+
+  CALL MPI_FILE_WRITE_ORDERED( file_handle, rbufer, rbufer_length, MPI_REAL, stattus, ierr )
+
+  CALL MPI_FILE_CLOSE(file_handle, ierr)
+
+!  CALL MPI_BARRIER(MPI_COMM_WORLD, ierr)
+
+  IF (ALLOCATED(rbufer)) DEALLOCATE(rbufer, STAT=ALLOC_ERR)
+  IF (ALLOCATED(ibufer)) DEALLOCATE(ibufer, STAT=ALLOC_ERR)
+
+  IF (Rank_of_process.EQ.0) PRINT '("created file ",A13)', filename_epp
+
+END SUBROUTINE SAVE_ELECTRON_PHASE_PLANES
+
+!------------------------------------
+!
+SUBROUTINE SAVE_ION_PHASE_PLANES
+
+  USE ParallelOperationValues
+  USE CurrentProblemValues
+  USE IonParticles
+  USE Snapshots
+  
+  IMPLICIT NONE
+
+  INCLUDE 'mpif.h'
+
+  INTEGER ierr
+  INTEGER stattus(MPI_STATUS_SIZE)
+  INTEGER request
+
+  INTEGER s
+  INTEGER count
+  INTEGER i, j, k, n
+  INTEGER ibufer_length, rbufer_length
+
+  INTEGER, ALLOCATABLE :: ibufer(:)
+  REAL,    ALLOCATABLE :: rbufer(:)
+  INTEGER ALLOC_ERR
+  
+  INTEGER pos
+
+  INTEGER file_handle
+
+  CHARACTER(13) filename_ipp      ! _NNNN_ipp.bin
+                                  ! ----x----I---
+
+  INTERFACE
+     FUNCTION convert_int_to_txt_string(int_number, length_of_string)
+       CHARACTER*(length_of_string) convert_int_to_txt_string
+       INTEGER int_number
+       INTEGER length_of_string
+     END FUNCTION convert_int_to_txt_string
+  END INTERFACE
+
+  IF (N_pp_boxes.LE.0) RETURN
+
+  IF (save_pp_snapshot(current_snap).EQ.NOANYPP) RETURN
+  IF (save_pp_snapshot(current_snap).EQ.ONLYelectronPP) RETURN
+
+  IF (Rank_of_process.EQ.0) THEN
+     ibufer_length = 1+4*N_pp_boxes+1+1
+     ALLOCATE(ibufer(ibufer_length), STAT=ALLOC_ERR)
+     ibufer(1) = N_pp_boxes
+     pos=2
+     DO n = 1, N_pp_boxes
+        ibufer(pos)   = pp_box(n)%imin
+        ibufer(pos+1) = pp_box(n)%jmin
+        ibufer(pos+2) = pp_box(n)%imax
+        ibufer(pos+3) = pp_box(n)%jmax
+        pos=pos+4
+     END DO
+     ibufer(pos) = N_of_processes
+     ibufer(pos+1) = N_spec
+  ELSE
+     ibufer_length = 0
+     ALLOCATE(ibufer(1), STAT=ALLOC_ERR)
+     ibufer = 0  ! just to have some value
+  END IF
+
+! create filename
+  filename_ipp = '_NNNN_ipp.bin'
+  filename_ipp(2:5) = convert_int_to_txt_string(current_snap, 4)
+
+  CALL MPI_BARRIER(MPI_COMM_WORLD, ierr)
+
+  CALL MPI_FILE_OPEN( MPI_COMM_WORLD, &
+                    & filename_ipp,  &
+                    & MPI_MODE_WRONLY + MPI_MODE_CREATE, & 
+                    & MPI_INFO_NULL, &
+                    & file_handle, &
+                    & ierr )
+    
+  CALL MPI_FILE_WRITE_ORDERED( file_handle, ibufer, ibufer_length, MPI_INTEGER, stattus, ierr )
+
+  DO s = 1, N_spec
+
+! find number of particles to be saved
+     count = 0
+     DO k = 1, N_ions(s)
+        i = INT(ion(s)%part(k)%X)
+        j = INT(ion(s)%part(k)%Y)
+        DO n = 1, N_pp_boxes
+           IF ((i.GE.pp_box(n)%imin).AND.(i.LT.pp_box(n)%imax).AND.(j.GE.pp_box(n)%jmin).AND.(j.LT.pp_box(n)%jmax)) THEN
+              count = count+1
+! exit as soon as one box is found, even if the particle is in several boxes we save it only once
+              EXIT
+           END IF
+        END DO
+     END DO
+
+     ibufer(1) = count
+
+     CALL MPI_FILE_WRITE_ORDERED( file_handle, ibufer(1:1), 1, MPI_INTEGER, stattus, ierr )
+
+     rbufer_length = 6*count
+     IF ((Rank_of_process.EQ.0).AND.(s.EQ.1)) rbufer_length = rbufer_length + 1  ! to save delta_x_m
+
+     IF (ALLOCATED(rbufer)) DEALLOCATE(rbufer, STAT = ALLOC_ERR)
+     ALLOCATE(rbufer(1:MAX(rbufer_length,1)), STAT=ALLOC_ERR)
+
+! save particles into the buffer
+     pos=1
+     IF ((Rank_of_process.EQ.0).AND.(s.EQ.1)) THEN
+        rbufer(pos) = REAL(delta_x_m)
+        pos = pos+1
+     END IF
+     DO k = 1, N_ions(s)
+        i = INT(ion(s)%part(k)%X)
+        j = INT(ion(s)%part(k)%Y)
+        DO n = 1, N_pp_boxes
+           IF ((i.GE.pp_box(n)%imin).AND.(i.LT.pp_box(n)%imax).AND.(j.GE.pp_box(n)%jmin).AND.(j.LT.pp_box(n)%jmax)) THEN
+              rbufer(pos)   = REAL(ion(s)%part(k)%X)
+              rbufer(pos+1) = REAL(ion(s)%part(k)%Y)
+              rbufer(pos+2) = REAL(ion(s)%part(k)%VX * V_scale_ms)
+              rbufer(pos+3) = REAL(ion(s)%part(k)%VY * V_scale_ms)
+              rbufer(pos+4) = REAL(ion(s)%part(k)%VZ * V_scale_ms)
+              rbufer(pos+5) = REAL(ion(s)%part(k)%tag)
+              pos = pos+6
+! exit as soon as one box is found, even if the particle is in several boxes we save it only once
+              EXIT
+           END IF
+        END DO
+     END DO
+     
+     CALL MPI_BARRIER(MPI_COMM_WORLD, ierr)
+
+     CALL MPI_FILE_WRITE_ORDERED( file_handle, rbufer, rbufer_length, MPI_REAL, stattus, ierr )
+
+  END DO
+
+  CALL MPI_FILE_CLOSE(file_handle, ierr)
+
+!  CALL MPI_BARRIER(MPI_COMM_WORLD, ierr)
+
+  IF (ALLOCATED(rbufer)) DEALLOCATE(rbufer, STAT=ALLOC_ERR)
+  IF (ALLOCATED(ibufer)) DEALLOCATE(ibufer, STAT=ALLOC_ERR)
+
+  IF (Rank_of_process.EQ.0) PRINT '("created file ",A13)', filename_ipp
+
+END SUBROUTINE SAVE_ION_PHASE_PLANES
+
 !---------------------------------------------------------------------------------------------------
 !
 SUBROUTINE FINISH_SNAPSHOTS
@@ -1331,5 +1641,6 @@ SUBROUTINE FINISH_SNAPSHOTS
 
   IF (ALLOCATED(    Tcntr_snapshot)) DEALLOCATE(    Tcntr_snapshot, STAT=DEALLOC_ERR)
   IF (ALLOCATED(save_evdf_snapshot)) DEALLOCATE(save_evdf_snapshot, STAT=DEALLOC_ERR)
+  IF (ALLOCATED(save_pp_snapshot)) DEALLOCATE(save_pp_snapshot, STAT=DEALLOC_ERR)
 
 END SUBROUTINE FINISH_SNAPSHOTS

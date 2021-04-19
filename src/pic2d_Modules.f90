@@ -647,6 +647,7 @@ MODULE Snapshots
   INTEGER N_of_all_snaps                        ! number of all snapshots  
   INTEGER, ALLOCATABLE ::     Tcntr_snapshot(:)     ! timesteps when the snapshot files are written
   INTEGER, ALLOCATABLE :: save_evdf_snapshot(:)     ! timesteps when the snapshot files are written
+  INTEGER, ALLOCATABLE ::   save_pp_snapshot(:)     ! timesteps when the snapshot files are written
 
   INTEGER current_snap                          ! index of current snapshot (which must be created)
 
@@ -710,6 +711,24 @@ MODULE Snapshots
   INTEGER, ALLOCATABLE :: isvxdf(:,:,:)
   INTEGER, ALLOCATABLE :: isvydf(:,:,:)
   INTEGER, ALLOCATABLE :: isvzdf(:,:,:)
+
+! variables for saving phase planes
+
+  INTEGER, PARAMETER :: NOANYPP = 0
+  INTEGER, PARAMETER :: ONLYelectronPP = 1
+  INTEGER, PARAMETER :: ONLYionPP = 2
+  INTEGER, PARAMETER :: BOTHelectronANDionPP = 3
+
+  INTEGER N_pp_boxes
+
+  TYPE index_limits
+     INTEGER imin
+     INTEGER jmin
+     INTEGER imax
+     INTEGER jmax
+  END TYPE index_limits
+
+  TYPE(index_limits), ALLOCATABLE :: pp_box(:)
 
 END MODULE Snapshots
 
