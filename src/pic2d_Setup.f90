@@ -145,7 +145,7 @@ SUBROUTINE PERFORM_ELECTRON_EMISSION_SETUP
         vx = vx * whole_object(nwo)%factor_convert_constant_vinj
         vy = vy * whole_object(nwo)%factor_convert_constant_vinj
         vz = vz * whole_object(nwo)%factor_convert_constant_vinj
-        tag = 0
+        tag = nwo !0
         CALL ADD_ELECTRON_TO_ADD_LIST(x, y, vx, vy, vz, tag)
      END DO
 
@@ -190,7 +190,7 @@ SUBROUTINE PERFORM_ELECTRON_EMISSION_SETUP
         vx =  vx * whole_object(nwo)%factor_convert_constant_vinj
         vy = -vy * whole_object(nwo)%factor_convert_constant_vinj
         vz =  vz * whole_object(nwo)%factor_convert_constant_vinj
-        tag = 0
+        tag = nwo !0
         CALL ADD_ELECTRON_TO_ADD_LIST(x, y, vx, vy, vz, tag)
      END DO
 
@@ -235,7 +235,7 @@ SUBROUTINE PERFORM_ELECTRON_EMISSION_SETUP
         vx =-vx * whole_object(nwo)%factor_convert_constant_vinj
         vy = vy * whole_object(nwo)%factor_convert_constant_vinj
         vz = vz * whole_object(nwo)%factor_convert_constant_vinj
-        tag = 0
+        tag = nwo !0
         CALL ADD_ELECTRON_TO_ADD_LIST(x, y, vx, vy, vz, tag)
      END DO
 
@@ -280,7 +280,7 @@ SUBROUTINE PERFORM_ELECTRON_EMISSION_SETUP
         vx = vx * whole_object(nwo)%factor_convert_constant_vinj
         vy = vy * whole_object(nwo)%factor_convert_constant_vinj
         vz = vz * whole_object(nwo)%factor_convert_constant_vinj
-        tag = 0
+        tag = nwo !0
         CALL ADD_ELECTRON_TO_ADD_LIST(x, y, vx, vy, vz, tag)
      END DO
 
