@@ -195,9 +195,8 @@ call report_total_number_of_particles
 
         CALL MPI_BARRIER(MPI_COMM_WORLD, ierr) 
 
-        CALL PERFORM_IONIZATION_HT_SETUP
-
-        CALL MPI_BARRIER(MPI_COMM_WORLD, ierr) 
+!###        CALL PERFORM_IONIZATION_HT_SETUP
+!        CALL MPI_BARRIER(MPI_COMM_WORLD, ierr) 
 
         t14 = MPI_WTIME()
 
