@@ -38,7 +38,7 @@ PROGRAM MainProg
 
   CALL INITIATE_PROBE_DIAGNOSTICS
 
-  CALL INITIATE_WALL_DIAGNOSTICS_HT_SETUP   ! only one of the two actually works
+!###  CALL INITIATE_WALL_DIAGNOSTICS_HT_SETUP   ! only one of the two actually works
   CALL INITIATE_WALL_DIAGNOSTICS            !
 
   CALL INITIATE_en_COLL_DIAGNOSTICS
@@ -99,7 +99,7 @@ call report_total_number_of_particles
 
      CALL MPI_BARRIER(MPI_COMM_WORLD, ierr) 
 
-     CALL PERFORM_ELECTRON_EMISSION_HT_SETUP_ZERO_GRAD_F   ! this procedure is used only when axial-azimuthal periodic model of a Hall thruster is simulated
+!###     CALL PERFORM_ELECTRON_EMISSION_HT_SETUP_ZERO_GRAD_F   ! this procedure is used only when axial-azimuthal periodic model of a Hall thruster is simulated
 
      CALL MPI_BARRIER(MPI_COMM_WORLD, ierr) 
 
@@ -111,7 +111,6 @@ call report_total_number_of_particles
 
      IF ((periodicity_flag.EQ.PERIODICITY_NONE).OR.(periodicity_flag.EQ.PERIODICITY_X_Y)) THEN
 
-!        CALL SOR_GIVEN_POTENTIAL_4_WALLS                ! n
         CALL SOLVE_POTENTIAL_WITH_PETSC
         
         CALL MPI_BARRIER(MPI_COMM_WORLD, ierr) 
@@ -242,7 +241,7 @@ call report_total_number_of_particles
 
      END IF
 
-     CALL PERFORM_ELECTRON_EMISSION_HT_SETUP        ! either this or
+!###     CALL PERFORM_ELECTRON_EMISSION_HT_SETUP        ! either this or
                                                     ! PERFORM_ELECTRON_EMISSION_HT_SETUP_ZERO_GRAD_F (called above) works
                                                     ! not both
      CALL PERFORM_ELECTRON_EMISSION_SETUP           ! this works for non-HT setup
@@ -257,7 +256,7 @@ call report_total_number_of_particles
 
      t18 = MPI_WTIME()
 
-     CALL SAVE_BOUNDARY_PARTICLE_HITS_EMISSIONS_HT_SETUP  ! only one of the two will work
+!###     CALL SAVE_BOUNDARY_PARTICLE_HITS_EMISSIONS_HT_SETUP  ! only one of the two will work
      CALL SAVE_BOUNDARY_PARTICLE_HITS_EMISSIONS           ! 
 
      CALL MPI_BARRIER(MPI_COMM_WORLD, ierr)
@@ -305,97 +304,4 @@ call report_total_number_of_particles
   CALL MPI_FINALIZE(ierr)
 
 END PROGRAM MainProg
-
-!------------------------------------
-subroutine try_notexchange_arrays
-
-  USE CurrentProblemValues
-  USE ParallelOperationValues
-!  USE SendToNeighbor
-  USE BlockAndItsBoundaries
-
-  IMPLICIT NONE
-
-  INCLUDE 'mpif.h'
-
-  INTEGER ierr
-  INTEGER stattus(MPI_STATUS_SIZE)
-  INTEGER request
-
-  REAL(8), ALLOCATABLE :: rbufer(:)
-  INTEGER ALLOC_ERR
-
-  INTEGER i, m, n
-
-  ALLOCATE(rbufer(1:((N_grid_block_x+2)*(N_grid_block_y+2))), STAT=ALLOC_ERR)
-
-  IF (WHITE) THEN  ! WHITE='TRUE' ############################################################################################
-! "white processes"
-
-! send right array of charge density
-     IF (Rank_of_process_right.GE.0) THEN
-! prepare array to send to right neighbor
-!        i=0
-!        DO n = indx_y_min, indx_y_max
-!           do m = indx_x_min, indx_x_max
-!              i=i+1
-!              rbufer(i) = rho_e(m,n)
-!           end do
-!        END DO
-! send particles to right neighbor
-        CALL MPI_SEND(rho_e, (N_grid_block_x+2)*(N_grid_block_y+2), MPI_DOUBLE_PRECISION, Rank_of_process_right, Rank_of_process, MPI_COMM_WORLD, request, ierr)     
-     END IF
-
-! receive array of charge density from left neighbor
-     IF (Rank_of_process_left.GE.0) THEN
-! receive particles from left neighbor
-        CALL MPI_RECV(rbufer, (N_grid_block_x+2)*(N_grid_block_y+2), MPI_DOUBLE_PRECISION, Rank_of_process_left, Rank_of_process_left, MPI_COMM_WORLD, stattus, ierr)     
-! process the received particles
-        i=0
-        DO n = indx_y_min, indx_y_max
-           do m = indx_x_min, indx_x_max
-              i=i+1
-              rho_e(m,n)=rho_e(m,n)+rbufer(i)
-           end do
-        END DO
-     END IF
-
-  ELSE             ! WHITE='FALSE' ############################################################################################
-! "black" processes
-
-! receive array of charge density from left neighbor
-     IF (Rank_of_process_left.GE.0) THEN
-! receive particles from left neighbor
-        CALL MPI_RECV(rbufer, (N_grid_block_x+2)*(N_grid_block_y+2), MPI_DOUBLE_PRECISION, Rank_of_process_left, Rank_of_process_left, MPI_COMM_WORLD, stattus, ierr)     
-! process the received particles
-        i=0
-        DO n = indx_y_min, indx_y_max
-           do m = indx_x_min, indx_x_max
-              i=i+1
-              rho_e(m,n)=rho_e(m,n)+rbufer(i)
-           end do
-        END DO
-     END IF
-
-! send right array of charge density
-     IF (Rank_of_process_right.GE.0) THEN
-! prepare array to send to right neighbor
-!        i=0
-!        DO n = indx_y_min, indx_y_max
-!           do m = indx_x_min, indx_x_max
-!              i=i+1
-!              rbufer(i) = rho_e(m,n)
-!           end do
-!        END DO
-! send particles to right neighbor
-        CALL MPI_SEND(rho_e, (N_grid_block_x+2)*(N_grid_block_y+2), MPI_DOUBLE_PRECISION, Rank_of_process_right, Rank_of_process, MPI_COMM_WORLD, request, ierr)     
-     END IF
-
-  END IF
-
-  DEALLOCATE(rbufer, STAT=ALLOC_ERR)
-        
-
-end subroutine try_notexchange_arrays
-
 
