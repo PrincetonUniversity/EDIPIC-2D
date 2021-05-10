@@ -45,9 +45,9 @@ SUBROUTINE PROCESS_ELECTRON_COLL_WITH_BOUNDARY_LEFT(x, y, vx, vy, vz, tag)
               c_local_object_part(m)%surface_charge(jabove) = c_local_object_part(m)%surface_charge(jabove) - dqabove
         END SELECT
 
-!###        IF (whole_object(nwo)%SEE_enabled) THEN
-!###           CALL PROCESS_SEE_EVENT(x, y, vx, vy, vz, 1, m)   ! "1" is for a left wall 
-!###        END IF
+        IF (whole_object(nwo)%SEE_enabled) THEN
+           CALL PROCESS_ELECTRON_INDUCED_ELECTRON_EMISSION(x, y, vx, vy, vz, tag, nwo, m, 1)   ! "1" is for a left wall 
+        END IF
 
 !>>>> processing begins >>>>
 ! the simplest case - specular reflection everywhere
@@ -116,6 +116,10 @@ SUBROUTINE PROCESS_ELECTRON_COLL_WITH_BOUNDARY_RIGHT(x, y, vx, vy, vz, tag)
               c_local_object_part(m)%surface_charge(jabove) = c_local_object_part(m)%surface_charge(jabove) - dqabove
         END SELECT
 
+        IF (whole_object(nwo)%SEE_enabled) THEN
+           CALL PROCESS_ELECTRON_INDUCED_ELECTRON_EMISSION(x, y, vx, vy, vz, tag, nwo, m, 3)   ! "3" is for a right wall 
+        END IF
+
 !>>>> processing begins >>>>
 ! the simplest case - specular reflection everywhere
 !###         CALL ADD_ELECTRON_TO_ADD_LIST(c_X_area_max, y, -vx, vy, vz, tag)
@@ -182,6 +186,10 @@ SUBROUTINE PROCESS_ELECTRON_COLL_WITH_BOUNDARY_BELOW(x, y, vx, vy, vz, tag)
               c_local_object_part(m)%surface_charge(iright) = c_local_object_part(m)%surface_charge(iright) - dqright
         END SELECT
 
+        IF (whole_object(nwo)%SEE_enabled) THEN
+           CALL PROCESS_ELECTRON_INDUCED_ELECTRON_EMISSION(x, y, vx, vy, vz, tag, nwo, m, 4)   ! "4" is for a wall below
+        END IF
+
 !>>>> processing begins >>>>
 ! the simplest case - specular reflection everywhere
 !###         CALL ADD_ELECTRON_TO_ADD_LIST(x, c_Y_area_min, vx, -vy, vz, tag)
@@ -247,6 +255,10 @@ SUBROUTINE PROCESS_ELECTRON_COLL_WITH_BOUNDARY_ABOVE(x, y, vx, vy, vz, tag)
               c_local_object_part(m)%surface_charge(ileft) = c_local_object_part(m)%surface_charge(ileft) - dqleft
               c_local_object_part(m)%surface_charge(iright) = c_local_object_part(m)%surface_charge(iright) - dqright
         END SELECT
+
+        IF (whole_object(nwo)%SEE_enabled) THEN
+           CALL PROCESS_ELECTRON_INDUCED_ELECTRON_EMISSION(x, y, vx, vy, vz, tag, nwo, m, 2)   ! "2" is for a wall above
+        END IF
 
 !>>>> processing begins >>>>
 ! the simplest case - specular reflection everywhere

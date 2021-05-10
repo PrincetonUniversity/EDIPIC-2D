@@ -234,7 +234,7 @@ MODULE CurrentProblemValues
 
      INTEGER N_electron_constant_emit      ! constant number of electron macroparticles to be injected each time step (for example due to emission from a thermocathode)
      REAL(8) Te_constant_emit_eV           ! temperature of electrons injected due to the constant emission [eV]
-     REAL(8) factor_convert_constant_vinj  ! factor to be used to convert values provided by Get*Velocity procedures to desired tempearture
+     REAL(8) factor_convert_constant_vinj  ! factor to be used to convert values provided by Get*Velocity procedures to desired temperature
 
      REAL(8) eps_diel                 ! relative dielectric permittivity, used with dielectric walls only
      LOGICAL SEE_enabled              ! switches on/off secondary electron emission
@@ -248,6 +248,53 @@ MODULE CurrentProblemValues
      REAL(8), ALLOCATABLE :: phi_profile(:)   ! ######## must be redone ??? #######, just put it here to compile now, must be in the segment
 
      CHARACTER(6) material
+
+! variables below define electron-induced emission of secondary electrons
+! based on the 1D EDIPIC
+     
+! we have three possible processes when an electron hits the wall, producing a secondary electron:
+! 1 - elastic backscattering
+! 2 - inelastic backscattering
+! 3 - true secondary emission
+
+     INTEGER Emitted_model(1:3)          ! for each possible process determines the way of processing
+     
+     INTEGER Elast_refl_type             ! type of reflection for elastically reflected electron: specular / random
+
+! ELASTIC, MODEL 1
+     REAL(8) setD_see_elastic            ! constant coefficient (ratio of emitted and incident electron fluxess)
+     REAL(8) minE_see_elastic            ! LOWER energy boundary, [dimensionless] 
+     REAL(8) maxE_see_elastic            ! UPPER energy boundary, [dimensionless]
+
+! ELASTIC, MODEL 2
+     REAL(8) E_elast_0                   ! threshold energy, [dimensionless]
+     REAL(8) E_elast_max                 ! maximum emission energy, [dimensionless]
+     REAL(8) maxD_elast                  ! maximum emission yield
+     REAL(8) dE_elast                    ! rate of decaying (like half-width) at energies > E_elast_max_eV, [dimensionless]
+     REAL(8) Frac_elast_highenergy       ! fraction of total SEE yield at high energies, >=0, <<1
+     
+! INELASTIC, MODEL 1
+     REAL(8) setD_see_inelastic          ! constant coefficient (ratio of emitted and incident electron fluxes)
+     REAL(8) minE_see_inelastic          ! LOWER energy boundary, [dimensionless] 
+     REAL(8) maxE_see_inelastic          ! UPPER energy boundary, [dimensionless]
+
+! INELASTIC, MODEL 2
+     REAL(8) Frac_inelastic              ! fraction of total SEE yield, >=0, <<1
+
+! TRUE SECONDARY, MODEL 1
+     REAL(8) setD_see_true               ! the coefficient (ratio of emitted to incident electrons)
+     REAL(8) minE_see_true               ! LOWER energy boundary, [dimensionless] 
+     REAL(8) maxE_see_true               ! UPPER energy boundary, [dimensionless]
+
+! TRUE SECONDARY, MODEL 2 / CLASSIC SEE COEFFICIENT
+     REAL(8) E_see_0                     ! threshold energy, [dimensionless]
+     REAL(8) E_see_max                   ! maximal emission energy, [dimensionless]
+     REAL(8) maxD_see_classic            ! maximal emission coefficient (normal to the surface)
+     REAL(8) k_smooth                    ! smoothness factor (from 0 for very rough to 2 for polished surfaces)
+
+     REAL(8) T_see_true_eV               ! Temperature of injected true secondary electrons, [eV]
+     REAL(8) factor_convert_seetrue_vinj ! factor to be used to convert values provided by Get*Velocity procedures to desired temperature
+     REAL(8) lowest_energy_for_see       ! threshold energy below which no emission occurs
 
   END TYPE boundary_object
 

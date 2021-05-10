@@ -28,8 +28,11 @@ SUBROUTINE ADVANCE_ELECTRONS
   N_e_to_send_above = 0
   N_e_to_send_below = 0
 
-! clear counters of particles that hit the boundary objects
+! clear counters of particles that hit boundary objects
   whole_object(1:N_of_boundary_objects)%electron_hit_count = 0
+
+! clear counters of particles emitted by boundary objects in order to account for the secondary electron emission
+  whole_object(1:N_of_boundary_objects)%electron_emit_count = 0  !### ?????
 
 !print *, "enter", Rank_of_process, N_electrons, max_N_electrons
 

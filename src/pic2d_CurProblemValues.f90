@@ -34,6 +34,8 @@ SUBROUTINE INITIATE_PARAMETERS
   INTEGER ALLOC_ERR
   INTEGER i, n, m, itmp, s, j
 
+  LOGICAL config_inconsistent
+
 !  INTEGER n_connected_to_start
 !  INTEGER n_connected_to_end
   INTEGER nn
@@ -95,6 +97,38 @@ SUBROUTINE INITIATE_PARAMETERS
      READ (9, '(5x,i1)') cluster_N_blocks_y
      READ (9, '(A1)') buf !"---ddd---------- number of boundary objects")')
      READ (9, '(3x,i3)') N_of_boundary_objects
+
+! configuration consistency check (rectangular domain)
+! N_blocks_x * N_blocks_y = N_of_processes
+! (N_blocks_x / cluster_N_blocks_x) * cluster_N_blocks_x = N_blocks_x 
+! (N_blocks_y / cluster_N_blocks_y) * cluster_N_blocks_y = N_blocks_y
+
+     config_inconsistent = .FALSE.
+
+     IF (N_of_processes.NE.(N_blocks_x*N_blocks_y)) THEN
+        config_inconsistent = .TRUE.
+        IF (Rank_of_process.EQ.0) PRINT '("@@@ INCONSISTENT CONFIGURATION ERROR-1, N_blocks_x * N_blocks_y .NE. N_of_processes :: ",i4," * ",i4," = ",i4," instead of ",i4," @@@")', &
+             & N_blocks_x, N_blocks_y, N_blocks_x*N_blocks_y, N_of_processes
+     END IF
+
+     IF (N_blocks_x.NE.((N_blocks_x / cluster_N_blocks_x) * cluster_N_blocks_x)) THEN
+        config_inconsistent = .TRUE.
+        IF (Rank_of_process.EQ.0) PRINT '("@@@ INCONSISTENT CONFIGURATION ERROR-2, N_blocks_x .NE. (N_blocks_x / cluster_N_blocks_x) * cluster_N_blocks_x :: (",i4," / ",i4,") * ",i4," = ",i4," instead of ",i4," @@@")', &
+             & N_blocks_x, cluster_N_blocks_x, cluster_N_blocks_x, (N_blocks_x / cluster_N_blocks_x) * cluster_N_blocks_x, N_blocks_x
+     END IF
+
+     IF (N_blocks_y.NE.((N_blocks_y / cluster_N_blocks_y) * cluster_N_blocks_y)) THEN
+        config_inconsistent = .TRUE.
+        IF (Rank_of_process.EQ.0) PRINT '("@@@ INCONSISTENT CONFIGURATION ERROR-3, N_blocks_y .NE. (N_blocks_y / cluster_N_blocks_y) * cluster_N_blocks_y :: (",i4," / ",i4,") * ",i4," = ",i4," instead of ",i4," @@@")', &
+             & N_blocks_y, cluster_N_blocks_y, cluster_N_blocks_y, (N_blocks_y / cluster_N_blocks_y) * cluster_N_blocks_y, N_blocks_y
+     END IF
+
+     CALL MPI_BARRIER(MPI_COMM_WORLD, ierr)
+
+     IF (config_inconsistent) THEN
+        CALL MPI_FINALIZE(ierr)
+        STOP
+     END IF
      
      ALLOCATE(whole_object(1:N_of_boundary_objects), STAT=ALLOC_ERR)
 
@@ -420,7 +454,10 @@ if (Rank_of_process.eq.0) print *, "SET_CLUSTER_STRUCTURE done"
   CALL MPI_BARRIER(MPI_COMM_WORLD, ierr)
 
   CALL PREPARE_SETUP_VALUES                   ! <<<<<<<< SETUP <<<<<<<<< additional processes are here <<<<<<<<<<<<
-  CALL PREPARE_WALL_MATERIALS
+
+  CALL PREPARE_WALL_MATERIALS                 ! the secondary electron emission is initialized here
+  CALL MPI_BARRIER(MPI_COMM_WORLD, ierr)
+
   CALL PREPARE_HT_SETUP_VALUES                ! <<<<<<<< SETUP <<<<<<<<< additional processes are here <<<<<<<<<<<<
 
   CALL MPI_BARRIER(MPI_COMM_WORLD, ierr)

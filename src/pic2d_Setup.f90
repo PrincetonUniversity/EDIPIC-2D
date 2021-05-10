@@ -68,7 +68,6 @@ SUBROUTINE PREPARE_SETUP_VALUES
 
 END SUBROUTINE PREPARE_SETUP_VALUES
 
-
 !--------------------------------------------
 !
 SUBROUTINE PERFORM_ELECTRON_EMISSION_SETUP
@@ -100,8 +99,6 @@ SUBROUTINE PERFORM_ELECTRON_EMISSION_SETUP
   IF (ht_use_e_emission_from_cathode.OR.ht_use_e_emission_from_cathode_zerogradf.OR.ht_emission_constant) RETURN   ! either PERFORM_ELECTRON_EMISSION_HT_SETUP or PERFORM_ELECTRON_EMISSION_HT_SETUP_ZERO_GRAD_F will be called instead
 
   IF (c_N_of_local_object_parts.LE.0) RETURN
-
-  whole_object(1:N_of_boundary_objects)%electron_emit_count = 0  !### ?????
 
 ! in a cluster, all processes have same copy of c_local_object_part (except c_local_object_part%segment_number) and c_index_of_local_object_part_*
 ! all processes have same copy of whole_object
