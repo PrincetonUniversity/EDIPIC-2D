@@ -1,0 +1,53 @@
+----dddddd--- Step for saving (timesteps, >=1)
+         1
+---ddddddd--- Start saving data at (timesteps, >=0)
+         0
+------dddd--- Skip periods of writing between text outputs (>=0)
+        50
+------dddd--- Number of probes (off if <=0)
+         9
+--ddddd--ddddd-- Probe coordinates (x/y, node numbers)
+    256     50
+    256    100
+    256    150
+    256    200
+    256    250
+    256    300
+    256    350
+    256    400
+    256    450
+
+     32    520
+     32    600
+     32    612
+     32    641
+     96     40
+     96    120
+     96    200
+     96    280
+     96    360
+     96    440
+     96    520
+     96    600
+     96    612
+     96    641
+    160     40
+    160    120
+    160    200
+    160    280
+    160    360
+    160    440
+    160    520
+    160    600
+    160    612
+    160    641
+    224     40
+    224    120
+    224    200
+    224    280
+    224    360
+    224    440
+    224    520
+    224    600
+    224    612
+    224    641
