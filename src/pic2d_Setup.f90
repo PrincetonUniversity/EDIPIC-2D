@@ -14,6 +14,10 @@ SUBROUTINE PREPARE_SETUP_VALUES
   
   CHARACTER(1) buf 
 
+  REAL(8) Te_normal_constant_emit_eV
+  REAL(8) Te_parallel_constant_emit_eV
+  REAL(8) We_beam_constant_emit_eV
+
   INTERFACE
      FUNCTION convert_int_to_txt_string(int_number, length_of_string)
        CHARACTER*(length_of_string) convert_int_to_txt_string
@@ -30,9 +34,10 @@ SUBROUTINE PREPARE_SETUP_VALUES
      whole_object(n)%omega = 0.0_8
      whole_object(n)%phase = 0.0_8
      whole_object(n)%N_electron_constant_emit = 0
-     whole_object(n)%Te_constant_emit_eV = 0.0_8
-
-!whole_object(n)%eps_diel  ?????????????/
+     whole_object(n)%model_constant_emit = 0
+     whole_object(n)%factor_convert_vinj_normal_constant_emit = 0.0_8
+     whole_object(n)%factor_convert_vinj_parallel_constant_emit = 0.0_8
+     whole_object(n)%v_ebeam_constant_emit = 0.0_8
 
      initbo_filename = 'init_bo_NN.dat'
      initbo_filename(9:10) = convert_int_to_txt_string(n, 2)
@@ -57,13 +62,41 @@ SUBROUTINE PREPARE_SETUP_VALUES
      READ (9, '(3x,f9.3)') whole_object(n)%phase
      READ (9, '(A1)') buf !----dddd------- number of electron macroparticles injected each timestep, constant [dim-less]
      READ (9, '(4x,i4)') whole_object(n)%N_electron_constant_emit
-     READ (9, '(A1)') buf !-------d.ddd--- temperature of emitted electrons [eV]
-     READ (9, '(3x,f9.3)') whole_object(n)%Te_constant_emit_eV
+     READ (9, '(A1)') buf !-------d------- emission model (0 = thermal emission, 1 = electron beam)
+     READ (9, '(7x,i1)') whole_object(n)%model_constant_emit
+     READ (9, '(A1)') buf !----dddd.ddd--- temperature of emitted electrons / half-energy-spread of the beam (Tb) normal to the wall [eV] (>=0)
+     READ (9, '(4x,f8.3)') Te_normal_constant_emit_eV
+     READ (9, '(A1)') buf !----dddd.ddd--- temperature of emitted electrons parallel to the wall [eV] (>=0)
+     READ (9, '(4x,f8.3)') Te_parallel_constant_emit_eV
+     READ (9, '(A1)') buf !----dddd.ddd--- energy of the electron beam [eV] (>3Tb/2)
+     READ (9, '(4x,f8.3)') We_beam_constant_emit_eV
 
      CLOSE (9, STATUS = 'KEEP')
 
-     whole_object(n)%factor_convert_constant_vinj = SQRT(whole_object(n)%Te_constant_emit_eV / T_e_eV) / N_max_vel
+     IF (whole_object(n)%model_constant_emit.EQ.0) THEN
+! thermal emission
+        whole_object(n)%factor_convert_vinj_normal_constant_emit = SQRT(Te_normal_constant_emit_eV / T_e_eV) / N_max_vel
+     ELSE
+! electron beam
+!
+! For beam injection, we take velocity from a Maxwellian distribution with certain (see below) temperature, then add the beam velocity.
+! We must ensure that particle velocity is directed away from the wall, therefore the beam velocity must exceed 
+! 3 thermal velocities for the temperature used to initialize beam particles.
+! When the beam is requested, the normal temperature is treated as the scale of energy spread of beam electrons in the laboratory frame.
+! In order to achieve this, it is necessary to use a different (smaller) value of temperature at the first step of selecting beam velocities.
+! 
+! check that the beam energy is above the threshold
+        IF (We_beam_constant_emit_eV.LE.(1.5_8 * Te_normal_constant_emit_eV)) THEN
+           IF (Rank_of_process.EQ.0) PRINT '("Error in PREPARE_SETUP_VALUES, boundary object ",i2," :: for beam energy ",f8.3," eV the beam energy spread ",f7.3," eV exceeds threshold ",f8.3," eV")', &
+                & n, We_beam_constant_emit_eV, Te_normal_constant_emit_eV, We_beam_constant_emit_eV/1.5
+           STOP
+        END IF
+! scaling factor is calculated with a reduced temperature to achieve required energy spread in the beam frame
+        whole_object(n)%factor_convert_vinj_normal_constant_emit = SQRT(0.25_8 * Te_normal_constant_emit_eV**2 / (We_beam_constant_emit_eV * T_e_eV)) / N_max_vel
+        whole_object(n)%v_ebeam_constant_emit = SQRT(We_beam_constant_emit_eV / T_e_eV) / N_max_vel
+     END IF
 
+     whole_object(n)%factor_convert_vinj_parallel_constant_emit = SQRT(Te_parallel_constant_emit_eV / T_e_eV) / N_max_vel
   END DO
 
 END SUBROUTINE PREPARE_SETUP_VALUES
@@ -136,13 +169,22 @@ SUBROUTINE PERFORM_ELECTRON_EMISSION_SETUP
            y = MIN(MAX(y, DBLE(c_indx_y_min)), DBLE(c_indx_y_max))
         END IF
         x = DBLE(c_indx_x_min) + 1.0d-6   !???
-        CALL GetInjMaxwellVelocity(vx)
+
+        IF (whole_object(nwo)%model_constant_emit.EQ.0) THEN
+! thermal emission
+           CALL GetInjMaxwellVelocity(vx)
+           vx = vx * whole_object(nwo)%factor_convert_vinj_normal_constant_emit
+        ELSE
+! warm beam
+           CALL GetMaxwellVelocity(vx)
+           vx = MAX(0.0_8, whole_object(nwo)%v_ebeam_constant_emit + vx * whole_object(nwo)%factor_convert_vinj_normal_constant_emit)
+        END IF
         CALL GetMaxwellVelocity(vy)
         CALL GetMaxwellVelocity(vz)
-        vx = vx * whole_object(nwo)%factor_convert_constant_vinj
-        vy = vy * whole_object(nwo)%factor_convert_constant_vinj
-        vz = vz * whole_object(nwo)%factor_convert_constant_vinj
+        vy = vy * whole_object(nwo)%factor_convert_vinj_parallel_constant_emit
+        vz = vz * whole_object(nwo)%factor_convert_vinj_parallel_constant_emit
         tag = nwo !0
+
         CALL ADD_ELECTRON_TO_ADD_LIST(x, y, vx, vy, vz, tag)
      END DO
 
@@ -181,13 +223,22 @@ SUBROUTINE PERFORM_ELECTRON_EMISSION_SETUP
            x = MIN(MAX(x, DBLE(c_indx_x_min)), DBLE(c_indx_x_max))
         END IF
         y = DBLE(c_indx_y_max) - 1.0d-6   !???
+
+        IF (whole_object(nwo)%model_constant_emit.EQ.0) THEN
+! thermal emission
+           CALL GetInjMaxwellVelocity(vy)
+           vy = -vy * whole_object(nwo)%factor_convert_vinj_normal_constant_emit
+        ELSE
+! warm beam
+           CALL GetMaxwellVelocity(vy)
+           vy = -MAX(0.0_8, whole_object(nwo)%v_ebeam_constant_emit + vy * whole_object(nwo)%factor_convert_vinj_normal_constant_emit)
+        END IF
         CALL GetMaxwellVelocity(vx)
-        CALL GetInjMaxwellVelocity(vy)
         CALL GetMaxwellVelocity(vz)
-        vx =  vx * whole_object(nwo)%factor_convert_constant_vinj
-        vy = -vy * whole_object(nwo)%factor_convert_constant_vinj
-        vz =  vz * whole_object(nwo)%factor_convert_constant_vinj
+        vx = vx * whole_object(nwo)%factor_convert_vinj_parallel_constant_emit
+        vz = vz * whole_object(nwo)%factor_convert_vinj_parallel_constant_emit
         tag = nwo !0
+
         CALL ADD_ELECTRON_TO_ADD_LIST(x, y, vx, vy, vz, tag)
      END DO
 
@@ -226,13 +277,22 @@ SUBROUTINE PERFORM_ELECTRON_EMISSION_SETUP
            y = MIN(MAX(y, DBLE(c_indx_y_min)), DBLE(c_indx_y_max))
         END IF
         x = DBLE(c_indx_x_max) - 1.0d-6   !???
-        CALL GetInjMaxwellVelocity(vx)
+
+        IF (whole_object(nwo)%model_constant_emit.EQ.0) THEN
+! thermal emission
+           CALL GetInjMaxwellVelocity(vx)
+           vx = -vx * whole_object(nwo)%factor_convert_vinj_normal_constant_emit
+        ELSE
+! warm beam
+           CALL GetMaxwellVelocity(vx)
+           vx = -MAX(0.0_8, whole_object(nwo)%v_ebeam_constant_emit + vx * whole_object(nwo)%factor_convert_vinj_normal_constant_emit)
+        END IF
         CALL GetMaxwellVelocity(vy)
         CALL GetMaxwellVelocity(vz)
-        vx =-vx * whole_object(nwo)%factor_convert_constant_vinj
-        vy = vy * whole_object(nwo)%factor_convert_constant_vinj
-        vz = vz * whole_object(nwo)%factor_convert_constant_vinj
+        vy = vy * whole_object(nwo)%factor_convert_vinj_parallel_constant_emit
+        vz = vz * whole_object(nwo)%factor_convert_vinj_parallel_constant_emit
         tag = nwo !0
+
         CALL ADD_ELECTRON_TO_ADD_LIST(x, y, vx, vy, vz, tag)
      END DO
 
@@ -271,13 +331,22 @@ SUBROUTINE PERFORM_ELECTRON_EMISSION_SETUP
            x = MIN(MAX(x, DBLE(c_indx_x_min)), DBLE(c_indx_x_max))
         END IF
         y = DBLE(c_indx_y_min) + 1.0d-6   !???
+
+        IF (whole_object(nwo)%model_constant_emit.EQ.0) THEN
+! thermal emission
+           CALL GetInjMaxwellVelocity(vy)
+           vy = vy * whole_object(nwo)%factor_convert_vinj_normal_constant_emit
+        ELSE
+! warm beam
+           CALL GetMaxwellVelocity(vy)
+           vy = MAX(0.0_8, whole_object(nwo)%v_ebeam_constant_emit + vy * whole_object(nwo)%factor_convert_vinj_normal_constant_emit)
+        END IF
         CALL GetMaxwellVelocity(vx)
-        CALL GetInjMaxwellVelocity(vy)
         CALL GetMaxwellVelocity(vz)
-        vx = vx * whole_object(nwo)%factor_convert_constant_vinj
-        vy = vy * whole_object(nwo)%factor_convert_constant_vinj
-        vz = vz * whole_object(nwo)%factor_convert_constant_vinj
+        vx = vx * whole_object(nwo)%factor_convert_vinj_parallel_constant_emit
+        vz = vz * whole_object(nwo)%factor_convert_vinj_parallel_constant_emit
         tag = nwo !0
+
         CALL ADD_ELECTRON_TO_ADD_LIST(x, y, vx, vy, vz, tag)
      END DO
 

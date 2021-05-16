@@ -30,9 +30,9 @@ END MODULE ExternalFields
 !
 MODULE ParallelOperationValues
 
-  INTEGER, PARAMETER :: SHIFT1 = 1000000
-  INTEGER, PARAMETER :: SHIFT2 = 2000000
-  INTEGER, PARAMETER :: SHIFT3 = 2000000
+  INTEGER, PARAMETER :: SHIFT1 = 0 !1000000
+  INTEGER, PARAMETER :: SHIFT2 = 0 !2000000
+  INTEGER, PARAMETER :: SHIFT3 = 0 !2000000
 
   INTEGER Rank_of_process
   INTEGER N_of_processes
@@ -233,8 +233,10 @@ MODULE CurrentProblemValues
      REAL(8) phase                ! phase of time varying part
 
      INTEGER N_electron_constant_emit      ! constant number of electron macroparticles to be injected each time step (for example due to emission from a thermocathode)
-     REAL(8) Te_constant_emit_eV           ! temperature of electrons injected due to the constant emission [eV]
-     REAL(8) factor_convert_constant_vinj  ! factor to be used to convert values provided by Get*Velocity procedures to desired temperature
+     INTEGER model_constant_emit
+     REAL(8) factor_convert_vinj_normal_constant_emit    ! factor to be used to convert values provided by Get*Velocity procedures to desired temperature
+     REAL(8) factor_convert_vinj_parallel_constant_emit  ! factor to be used to convert values provided by Get*Velocity procedures to desired temperature
+     REAL(8) v_ebeam_constant_emit                       ! velocity of the electron beam
 
      REAL(8) eps_diel                 ! relative dielectric permittivity, used with dielectric walls only
      LOGICAL SEE_enabled              ! switches on/off secondary electron emission
