@@ -10,5 +10,11 @@
        0.000
 ----dddd------- number of electron macroparticles injected each timestep, constant [dim-less]
      100
--------d.ddd--- temperature of emitted electrons [eV]
+-------d------- emission model (0 = thermal emission, 1 = electron beam)
+       0
+----dddd.ddd--- temperature of emitted electrons / half-energy-spread of the beam (Tb) normal to the wall [eV] (>=0)
        0.200
+----dddd.ddd--- temperature of emitted electrons parallel to the wall [eV] (>=0)
+       0.200
+----dddd.ddd--- energy of the electron beam [eV] (>3Tb/2)
+       0.000

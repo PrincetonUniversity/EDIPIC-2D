@@ -1,5 +1,5 @@
 ------AAAAAA--- code/abbreviation of the material, character string
-      METAL1
+      METAL0
 ---ddddd.ddd--- constant potential [V]
       80.000
 ---ddddd.ddd--- amplitude of potential oscillations [V]
@@ -10,5 +10,11 @@
        0.000
 ----dddd------- number of electron macroparticles injected each timestep, constant [dim-less]
        0
--------d.ddd--- temperature of emitted electrons [eV]
+-------d------- emission model (0 = thermal emission, 1 = electron beam)
+       0
+----dddd.ddd--- temperature of emitted electrons / half-energy-spread of the beam (Tb) normal to the wall [eV] (>=0)
+       0.000
+----dddd.ddd--- temperature of emitted electrons parallel to the wall [eV] (>=0)
+       0.000
+----dddd.ddd--- energy of the electron beam [eV] (>3Tb/2)
        0.000
