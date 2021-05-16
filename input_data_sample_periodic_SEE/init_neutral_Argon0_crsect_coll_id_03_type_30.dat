@@ -1,0 +1,67 @@
+    52
+       15.760   1.000e-24
+       16.000   2.020e-22
+       17.000   1.340e-21
+       18.000   2.940e-21
+       19.000   4.600e-21
+       20.000   6.270e-21
+       21.000   7.870e-21
+       22.000   9.330e-21
+       23.000   1.060e-20
+       24.000   1.180e-20
+       25.000   1.300e-20
+       26.000   1.410e-20
+       28.000   1.600e-20
+       30.000   1.800e-20
+       32.000   1.960e-20
+       34.000   2.110e-20
+       36.000   2.240e-20
+       38.000   2.330e-20
+       40.000   2.390e-20
+       42.500   2.450e-20
+       45.000   2.490e-20
+       50.000   2.530e-20
+       55.000   2.600e-20
+       60.000   2.660e-20
+       65.000   2.730e-20
+       70.000   2.770e-20
+       75.000   2.820e-20
+       80.000   2.840e-20
+       85.000   2.850e-20
+       90.000   2.860e-20
+      100.000   2.850e-20
+      120.000   2.810e-20
+      130.000   2.760e-20
+      150.000   2.680e-20
+      160.000   2.620e-20
+      180.000   2.520e-20
+      200.000   2.390e-20
+      250.000   2.170e-20
+      300.000   1.980e-20
+      350.000   1.810e-20
+      400.000   1.680e-20
+      500.000   1.460e-20
+      600.000   1.300e-20
+      700.000   1.160e-20
+      800.000   1.060e-20
+     1000.000   8.600e-21
+     1500.000   6.400e-21
+     2000.000   5.200e-21
+     3000.000   3.600e-21
+     5000.000   2.400e-21
+     7000.000   1.800e-21
+    10000.000   1.350e-21
+
+xxxxNNNNN.NNNxx+N.NNNe+NN   
+
+# Ionization cross sections in Argon (Ar+)
+# format 4x,f9.3,2x,e10.3
+# column # 1 - primary electron energy [eV]
+# column # 2 - cross-section, [m^2]
+# line # 1 - number of cross-section values to read
+#
+# from NIFS-DATA-72 report by M.Hayashi (for We<=800eV)
+# for 15.76eV, a very small non-zero cross section of 1e-24m^2 is added by me 
+# in order to help the code to define threshold energy of ionization 15.76 eV
+# for We>=1000eV the data are from file ELECTRON.TXT by A.V.Phelps, see 
+# http://jila.colorado.edu/~avp/collision_data/electronneutral/ELECTRON.TXT

@@ -1,0 +1,46 @@
+---dddd.ddddddd----- scale electron temperature [eV]
+     10.0000000
+---+d.dddddddE+dd--- scale electron density [m^-3]
+    1.0000000E+17
+---ddd---------- number of cells per scale electron Debye length
+     2
+---ddd---------- maximal expected velocity [units of scale thermal electron velocity]
+     6
+---ddd---------- number of blocks (processes) along the X (horizontal) direction
+     8
+---ddd---------- number of blocks (processes) along the Y (vertical) direction
+     4
+---ddd---------- number of cells along the X-direction in a block
+    64
+---ddd---------- number of cells along the Y-direction in a block
+   120
+--dddd---------- number of macroparticles per cell for the scale density
+    20
+-----d---------- number of blocks in a cluster along the X-direction
+     2
+-----d---------- number of blocks in a cluster along the Y-direction
+     2
+---ddd---------- number of boundary objects
+     4
+===dd===dd=== object type, number of segments // periodic boundary at the left, #1
+    2    1
+---dddddd---dddddd---dddddd---dddddd---segment start X/Y end X/Y [global node index]
+        0        0        0      481
+===dd===dd=== object type, number of segments // horizontal dielectric wall at the top,  #2 @@@
+    4    1
+---dddddd---dddddd---dddddd---dddddd---segment start X/Y end X/Y [global node index]
+        0      481      513      481
+===dd===dd=== object type, number of segments // periodic boundary at the right, #3
+    2    1
+---dddddd---dddddd---dddddd---dddddd---segment start X/Y end X/Y [global node index]
+      513        0      513      481
+===dd===dd=== object type, number of segments // horizontal dielectric wall at the bottom right, #4 @@@
+    4    1
+---dddddd---dddddd---dddddd---dddddd---segment start X/Y end X/Y [global node index]
+        0        0      513        0
+
+  INTEGER, PARAMETER :: VACUUM_GAP = 0
+  INTEGER, PARAMETER :: METAL_WALL = 1
+  INTEGER, PARAMETER :: PERIODIC_PIPELINE_X = 2
+  INTEGER, PARAMETER :: PERIODIC_PIPELINE_Y = 3
+  INTEGER, PARAMETER :: DIELECTRIC = 4
