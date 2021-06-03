@@ -5,7 +5,7 @@ This repository contains the 2D version of EDIPIC, a particle-in-cell code devel
 The 1D version of EDIPIC is available at [https://github.com/PrincetonUniversity/EDIPIC](https://github.com/PrincetonUniversity/EDIPIC)
 
 ## Documentation ::
-- Installing
+- [Installing](./Instructions/installing_edipic2d.md)
 - Preparing a run
 - Rnuning
 - Analyzing the output
