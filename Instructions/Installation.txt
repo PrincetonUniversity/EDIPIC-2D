@@ -2,7 +2,7 @@
 
 ## in your EDIPIC-2 code directory:
 
-module load openmpi intel
+module load intel openmpi
 rm -rf *.mod
 rm -rf *.o
 gcc -c WELL19937a_new.c
@@ -14,7 +14,7 @@ pic2d_IonMoments.f90 pic2d_Checkpoints.f90 pic2d_IonWallCollisions.f90 pic2d_Loa
 pic2d_Diagnostics.f90 pic2d_MainProgram.f90 pic2d_ElectricFieldCalc_FFT_X.f90 \
 pic2d_Materials.f90 pic2d_ElectronDynamics.f90 pic2d_ElectronExchange.f90 \
 pic2d_ElectronMoments.f90 pic2d_ElectronWallCollisions.f90 pic2d_enCollisionsGeneralProc.f90 \
-pic2d_enCollisionsSpecificProc.f90 pic2d_ExternalFields.f90 pic2d_HTSetup.f90 pic2d_IonDynamics.f90
+pic2d_enCollisionsSpecificProc.f90 pic2d_ExternalFields.f90 pic2d_HTSetup.f90 pic2d_IonDynamics.f90 pic2d_SEEmission.f90
 
 ## if you have petsc preinstalled and available as a module,
 ## load the module and finish compilation/linking with the commands below:
