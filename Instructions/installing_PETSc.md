@@ -29,7 +29,7 @@ tar -zxvf petsc-3.14.tar.gz
 cd petsc-3.14
 ```
 
-## Configuring PETsc
+## Configuring PETSc
 
 The first thing to do before running `configure` is to decide where the final libraries and include files will be installed. Ideally you want this location to be accessible by the whole group of users who will be running EDIPIC-2D. This location/directory is the value of `--prefix` below. 
 Run the following configure command within the petsc distribution top directory. It is useful to put it in a shell script:
@@ -55,7 +55,7 @@ Once the **configure** step is successful, run the following **make** commands:
 ```
 
 
-## Example: Building PETSc+HYPRE on PPPL cluster
+## Example: Building PETSc+HYPRE on the PPPL cluster
 
 Users of the PPPL cluster manage their environment with the `module` tool.
 To load the default Intel compiler and OpenMPI library, one simply uses:
@@ -87,4 +87,6 @@ step. The Intel development software comes with the highly optimized
 **Math Kernel Library (MKL)**, which includes highly optimized versions of
 the **BLAS** and **LAPACK** libraries. These library functions are used by
 PETSc and HYPRE and the lowest level so it is important to use the fastest
-version possible.
+version possible. The **MKLROOT** environment variable contains the location
+of the MKL library on the system. It is set when loading the `intel` module.
+
