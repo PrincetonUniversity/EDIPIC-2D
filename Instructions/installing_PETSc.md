@@ -31,7 +31,7 @@ cd petsc-3.14
 
 ## Configuring PETsc
 
-The first thing to do before running `configure` is to decide where the final libraries and include files will be installed. Ideally you want this location to be accessible by the whole group of people who will be running EDIPIC-2D. This location/directory is the value of `--prefix` below. 
+The first thing to do before running `configure` is to decide where the final libraries and include files will be installed. Ideally you want this location to be accessible by the whole group of users who will be running EDIPIC-2D. This location/directory is the value of `--prefix` below. 
 Run the following configure command within the petsc distribution top directory. It is useful to put it in a shell script:
 
 ```
@@ -54,3 +54,37 @@ Once the **configure** step is successful, run the following **make** commands:
    make PETSC_DIR=$PWD PETSC_ARCH=compiler_name_and_version install
 ```
 
+
+## Example: Building PETSc+HYPRE on PPPL cluster
+
+Users of the PPPL cluster manage their environment with the `module` tool.
+To load the default Intel compiler and OpenMPI library, one simply uses:
+
+```
+   module purge            # clear environment
+   module load intel       # load default Intel development tools and libraries
+   module load openmpi     # load OpenMPI library built with Intel compilers
+
+   cd software
+   git clone -b release https://gitlab.com/petsc/petsc.git petsc
+   cd petsc
+   git checkout v3.14.6    # get version 3.14.6
+
+   ./configure --with-cc=mpicc --with-cxx=mpicxx --with-fc=mpif90 \
+            COPTFLAGS='-O2' CXXOPTFLAGS='-O2' FOPTFLAGS='-O2' \
+            --with-blaslapack-dir=$MKLROOT \
+            --download-hypre \
+            --prefix=${HOME}/software  \
+            PETSC_ARCH=INTEL_2019  \
+            PETSC_DIR=${PWD}
+
+   make PETSC_DIR=${PWD} PETSC_ARCH=INTEL_2019 all
+   make PETSC_DIR=${PWD} PETSC_ARCH=INTEL_2019 install
+```
+
+Notice that we added the line `--with-blaslapack-dir=$MKLROOT` to the configure
+step. The Intel development software comes with the highly optimized
+**Math Kernel Library (MKL)**, which includes highly optimized versions of
+the **BLAS** and **LAPACK** libraries. These library functions are used by
+PETSc and HYPRE and the lowest level so it is important to use the fastest
+version possible.
