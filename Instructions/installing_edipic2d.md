@@ -1,13 +1,11 @@
 # Installing EDIPIC-2D
 
-
-
 EDIPIC-2D is a Fortran code so you need access to a Fortran compiler. The current makefile works with the Intel Fortran compiler as well as with GNU gfortran. The makefile determines which compiler is being used by looking at the "mpifort" command (see MPI section below).
 
 EDIPIC-2D requires a few libraries in order to run. These are ::
- - MPI (OpenMPI, MPICH, etc.)
- - PETSc
- - HYPRE
+ - MPI ([OpenMPI](https://www.open-mpi.org/), [MPICH](https://www.mpich.org/), etc.)
+ - [PETSc](https://www.mcs.anl.gov/petsc/)
+ - [HYPRE](https://computing.llnl.gov/projects/hypre-scalable-linear-solvers-multigrid-methods)
  - BLAS/LAPACK
 
 ## MPI
@@ -25,7 +23,13 @@ If MPI is not installed on your system, you should ask your system administrator
 
 ## PETSc + HYPRE
 
-The distributed field equations in EDIPIC-2D are solved in parallel using a multi-grid algorithm from the [HYPRE](https://computing.llnl.gov/projects/hypre-scalable-linear-solvers-multigrid-methods) library, which is called via the [PETSc](https://www.mcs.anl.gov/petsc/) framework. Fortunately, HPYRE can be installed as part of the PETSc installation. For a quick guide on how to install PETSc+HYPR, see the following document ::
+The distributed field equations in EDIPIC-2D are solved in parallel using a
+multi-grid algorithm from the [HYPRE](https://computing.llnl.gov/projects/hypre-scalable-linear-solvers-multigrid-methods) library as preconditioner,
+and GMRES for the final solve. The calls and communication between distributed
+tasks are handled by the [PETSc](https://www.mcs.anl.gov/petsc/) framework.
+While HPYRE is a separate library, it can be downloaded and built as part of
+the PETSc installation. For a quick guide on how to install PETSc+HYPRE, see
+the following document:
 
   [Installing PETSc+HYPRE](./installing_PETSc.md)
 
