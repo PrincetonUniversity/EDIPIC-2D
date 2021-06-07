@@ -59,10 +59,14 @@ srun -n 32 ./edipic2d >& output.log
 
 This job script can be found here: [slurm_script](./slurm_script)
 
-To submit this job to the queuing system, simply do:
+To submit this job to the queuing system, copy the slurm script to your run directory and do:
 
 ```
 sbatch slurm_script
 ```
 
+The examples in the repository take less than 15 minutes to run so you can reduce the time
+limit to `--time=15:00` or run interactively.
+
+\*\*NOTE\*\* You always need to set **PETSC_DIR** and **LD_LIBRARY_PATH** in order to run the code successfully.
 
