@@ -20,7 +20,7 @@ to that location (often called **scratch**) as well as the executable **edipic2d
 cd /gpfs/scratch/my_project   # for example
 cp -r ~/EDIPIC-2D/input_data_sample_periodic_ebeam EXAMPLE_EBEAM
 cd EXAMPLE_EBEAM
-cp ~/EDIPIC-2D/edipic2d .     # Copy executable
+cp ~/EDIPIC-2D/src/edipic2d .     # Copy executable
 ```
 
 If you are running on the PPPL or Princeton University clusters, you will need to use the
