@@ -1,0 +1,7 @@
+This is an example of a capacitively coupled system. The domain is a box, symmetric relative to plane x=0, bounded on other sides by three metal walls 
+with gaps between them. One metal wall (boundary object #2) has potential with a bias and harmonic oscillations. Another wall (#4) is grounded. 
+The wall at the bottom (#6) has periodic non-harmonic oscillations of the potential defined by the waveform data file init_bo_06_waveform.dat . 
+Note, if the code does not find the waveform file (init_bo_NN_waveform.dat), it assumes that the waveform potential is not applied 
+and uses only parameters (bias, harmonic oscillations amplitude, frequency, and phase) from init_bo_NN.dat to calculate the potential of boundary object NN.
+
+Important :: this example is configured to run with 16 MPI processes.
