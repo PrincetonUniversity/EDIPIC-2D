@@ -1,0 +1,46 @@
+    32
+       11.500   1.000e-24            
+       12.700   7.000e-22            
+       13.700   1.410e-21        
+       14.700   2.280e-21        
+       15.900   3.800e-21        
+       16.500   4.800e-21        
+       17.500   6.100e-21        
+       18.500   7.500e-21        
+       19.900   9.200e-21            
+       22.200   1.170e-20        
+       24.700   1.330e-20
+       27.000   1.420e-20
+       30.000   1.440e-20
+       33.000   1.410e-20
+       35.300   1.340e-20
+       42.000   1.250e-20
+       48.000   1.160e-20
+       52.000   1.110e-20
+       70.000   9.400e-21   
+      100.000   7.600e-21
+      150.000   6.000e-21
+      200.000   5.050e-21
+      300.000   3.950e-21
+      500.000   2.800e-21
+      700.000   2.250e-21
+     1000.000   1.770e-21
+     1500.000   1.360e-21
+     2000.000   1.100e-21
+     3000.000   8.300e-22
+     5000.000   5.800e-22
+     7000.000   4.500e-22
+    10000.000   3.500e-22
+
+xxxxNNNNN.NNNxx+N.NNNe+NN   
+
+# Total excitation cross sections in Argon (Ar+)
+# format 4x,f9.3,2x,e10.3
+# column # 1 - primary electron energy [eV]
+# column # 2 - cross-section, [m^2]
+# line # 1 - number of cross-section values to read
+#
+# from file ELECTRON.TXT by A.V.Phelps, see 
+# http://jila.colorado.edu/~avp/collision_data/electronneutral/ELECTRON.TXT
+# for 11.5eV, a very small non-zero cross section of 1e-24m^2 is added by me 
+# in order to help the code to define threshold energy of ionization 15.76 eV
