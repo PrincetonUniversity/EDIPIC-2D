@@ -16,4 +16,4 @@ The 1D version of EDIPIC is available at [https://github.com/PrincetonUniversity
 
 For help with installing the code, please contact `ethier_at_pppl.gov`
 
-The code has been developed with the Government sponsorship (contract DE-AC02-09CH11466). The developer grants to the Government, and others acting on its behalf, a nonexclusive, paid-up, irrevocable, world-wide license in such copyrighted data to reproduce, prepare derivative works, distribute copies to the public, and perform publicly and display publicly, by or on behalf of the Government.
+This code has been developed with the Government sponsorship (contract DE-AC02-09CH11466). The developer grants to the Government, and others acting on its behalf, a nonexclusive, paid-up, irrevocable, world-wide license in such copyrighted data to reproduce, prepare derivative works, distribute copies to the public, and perform publicly and display publicly, by or on behalf of the Government.
