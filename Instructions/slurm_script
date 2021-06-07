@@ -1,0 +1,25 @@
+#!/bin/bash
+## this is sample SLURM script 
+## Ask for 2 nodes on the cluster
+#SBATCH --nodes=2
+## Ask for a total of 32 MPI tasks
+#SBATCH --ntasks=32
+## Set a run time limit of 4 hours
+#SBATCH --time=4:00:00
+## sends mail when process begins, and when it ends. Make sure you define your email
+#SBATCH --mail-type=begin 
+#SBATCH --mail-type=end 
+#SBATCH --mail-user=your@email.aaa 
+
+# Load compiler and openmpi environments
+module load intel openmpi 
+
+# Set PETSC_DIR environment variable
+export PETSC_DIR=location_of_PETSc_installation
+
+# Add $PETSC_DIR/lib to shared libraries search path
+export LD_LIBRARY_PATH=${PETSC_DIR}/lib:${LD_LIBRARY_PATH}
+
+# Run edipic2d
+srun -n 32 ./edipic2d >& output.log
+
