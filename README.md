@@ -2,6 +2,8 @@
 
 This repository contains the 2D version of EDIPIC, a particle-in-cell code developed for low temperature plasma applications.
 
+Main developer: Dmytro Sydorenko, University of Alberta
+
 The 1D version of EDIPIC is available at [https://github.com/PrincetonUniversity/EDIPIC](https://github.com/PrincetonUniversity/EDIPIC)
 
 ## Documentation ::
