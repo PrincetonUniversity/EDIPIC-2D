@@ -90,20 +90,24 @@ SUBROUTINE SOLVE_POTENTIAL_WITH_PETSC
      IF (ibegin.EQ.indx_x_min) THEN
 ! boundary object along left border
         nn = nn + 1
-        DO n = 1, N_of_local_object_parts_left
-           m = index_of_local_object_part_left(n)
-           j_start = local_object_part(m)%jstart
-           j_end   = local_object_part(m)%jend
-           nobj   = local_object_part(m)%object_number
-           IF ((j.GE.j_start).AND.(j.LE.j_end)) THEN
-              IF (whole_object(nobj)%object_type.EQ.METAL_WALL) THEN
-                 rhsvalue(nn) = whole_object(nobj)%phi
-              ELSE IF (whole_object(nobj)%object_type.EQ.VACUUM_GAP) THEN
-                 rhsvalue(nn) = whole_object(nobj)%phi_profile(j)
+        IF (.NOT.block_has_symmetry_plane_X_left) THEN
+           DO n = 1, N_of_local_object_parts_left
+              m = index_of_local_object_part_left(n)
+              j_start = local_object_part(m)%jstart
+              j_end   = local_object_part(m)%jend
+              nobj   = local_object_part(m)%object_number
+              IF ((j.GE.j_start).AND.(j.LE.j_end)) THEN
+                 IF (whole_object(nobj)%object_type.EQ.METAL_WALL) THEN
+                    rhsvalue(nn) = whole_object(nobj)%phi
+                 ELSE IF (whole_object(nobj)%object_type.EQ.VACUUM_GAP) THEN
+                    rhsvalue(nn) = whole_object(nobj)%phi_profile(j)
+                 END IF
+                 EXIT
               END IF
-              EXIT
-           END IF
-        END DO
+           END DO
+        ELSE !IF (whole_object(nobj)%object_type.EQ.SYMMETRY_PLANE) THEN
+           rhsvalue(nn) = factor_rho * (rho_i(indx_x_min,j) - rho_e(indx_x_min,j))
+        END IF
      END IF
 
      DO i = indx_x_min+1, indx_x_max-1
@@ -507,6 +511,11 @@ SUBROUTINE CALCULATE_ELECTRIC_FIELD
         IF (ALLOCATED(rbufer)) DEALLOCATE(rbufer, STAT = ALLOC_ERR)
 
      END DO
+
+     IF (symmetry_plane_X_left) THEN
+! enforce boundary condition EX=0 at the symmetry plane
+        EX(c_indx_x_min, c_indx_y_min:c_indx_y_max) = 0.0_8
+     END IF
 
 ! exchange boundary field values with neighbor masters
 

@@ -39,6 +39,8 @@ SUBROUTINE PREPARE_SETUP_VALUES
      whole_object(n)%factor_convert_vinj_parallel_constant_emit = 0.0_8
      whole_object(n)%v_ebeam_constant_emit = 0.0_8
 
+     whole_object(n)%use_waveform = .FALSE.
+
      initbo_filename = 'init_bo_NN.dat'
      initbo_filename(9:10) = convert_int_to_txt_string(n, 2)
 
@@ -97,9 +99,135 @@ SUBROUTINE PREPARE_SETUP_VALUES
      END IF
 
      whole_object(n)%factor_convert_vinj_parallel_constant_emit = SQRT(Te_parallel_constant_emit_eV / T_e_eV) / N_max_vel
+
   END DO
 
+  CALL PREPARE_WAVEFORMS
+  
 END SUBROUTINE PREPARE_SETUP_VALUES
+
+!--------------------------------------------
+!
+SUBROUTINE PREPARE_WAVEFORMS
+
+  USE ParallelOperationValues, ONLY : Rank_of_process
+  USE CurrentProblemValues, ONLY : whole_object, N_of_boundary_objects, METAL_WALL, delta_t_s, F_scale_V
+
+  IMPLICIT NONE
+
+  INTEGER n
+
+  CHARACTER(23) initbowf_filename   ! init_bo_NN_waveform.dat
+                                    ! ----x----I----x----I---
+  LOGICAL exists
+  CHARACTER(1) buf
+  INTEGER iostatus
+  REAL rdummy
+
+  REAL(8) wf_phi_V, wf_nu_Hz
+  INTEGER wf_period
+
+  INTEGER ALLOC_ERR
+  INTEGER i
+  
+  INTERFACE
+     FUNCTION convert_int_to_txt_string(int_number, length_of_string)
+       CHARACTER*(length_of_string) convert_int_to_txt_string
+       INTEGER int_number
+       INTEGER length_of_string
+     END FUNCTION convert_int_to_txt_string
+  END INTERFACE
+
+  DO n = 1, N_of_boundary_objects
+
+     IF (whole_object(n)%object_type.NE.METAL_WALL) CYCLE 
+
+     initbowf_filename = 'init_bo_NN_waveform.dat'
+     initbowf_filename(9:10) = convert_int_to_txt_string(n, 2)
+
+     INQUIRE (FILE = initbowf_filename, EXIST = exists)
+     IF (.NOT.exists) CYCLE
+
+     IF (Rank_of_process.EQ.0) PRINT '("### PREPARE_WAVEFORMS :: found file ",A23," for boundary object ",i2," analyzing...")', initbowf_filename, n
+
+     OPEN (11, FILE = initbowf_filename)
+     READ (11, '(A1)') buf   ! potential amplitude [V], skip for now
+     READ (11, '(A1)') buf   ! frequency [Hz], skip for now
+     READ (11, '(A1)') buf   ! comment line, skip
+     READ (11, '(A1)') buf   ! comment line, skip
+     whole_object(n)%N_wf_points = 0
+     DO 
+        READ (11, *, iostat = iostatus) rdummy, rdummy
+        IF (iostatus.NE.0) EXIT
+        whole_object(n)%N_wf_points = whole_object(n)%N_wf_points + 1
+     END DO
+     CLOSE (11, STATUS = 'KEEP')
+
+     IF (whole_object(n)%N_wf_points.LE.1) THEN
+        IF (Rank_of_process.EQ.0) PRINT '("### PREPARE_WAVEFORMS :: WARNING-1 :: not enough (",i4,") valid data points in file ",A23," , waveform for boundary object ",i2," is off ###")', &
+             & whole_object(n)%N_wf_points, initbowf_filename,  n
+        CYCLE
+     END IF
+
+     OPEN (11, FILE = initbowf_filename)
+     READ (11, *) wf_phi_V                ! potential amplitude [V]
+     READ (11, *) wf_nu_Hz                ! frequency [Hz]
+
+     IF (wf_phi_V.EQ.0.0) THEN
+        IF (Rank_of_process.EQ.0) PRINT '("### PREPARE_WAVEFORMS :: WARNING-2 :: zero waveform amplitude in file ",A23," , waveform for boundary object ",i2," is off ###")', initbowf_filename,  n
+        CYCLE
+     END IF
+
+     wf_period = 1.0_8 / (wf_nu_Hz * delta_t_s) ! in units of time steps
+     IF (wf_period.LT.(whole_object(n)%N_wf_points-1)) THEN
+        IF (Rank_of_process.EQ.0) &
+             & PRINT '("### PREPARE_WAVEFORMS :: WARNING-3 :: in file ",A23," too many points (",i6,") for given waveform period of ",i6," time steps, waveform for boundary object ",i2," is off ###")', &
+             & initbowf_filename, whole_object(n)%N_wf_points, wf_period, n
+        CYCLE
+     END IF
+
+     ALLOCATE (whole_object(n)%wf_T_cntr(1:whole_object(n)%N_wf_points), STAT = ALLOC_ERR)
+     ALLOCATE (whole_object(n)%wf_phi(   1:whole_object(n)%N_wf_points), STAT = ALLOC_ERR)
+
+     READ (11, '(A1)') buf   ! comment line, skip
+     READ (11, '(A1)') buf   ! comment line, skip
+     DO i = 1, whole_object(n)%N_wf_points
+        READ (11, *) rdummy, whole_object(n)%wf_phi(i)
+        whole_object(n)%wf_T_cntr(i) = INT(rdummy * wf_period)
+        whole_object(n)%wf_phi(i) = (wf_phi_V / F_scale_V) * whole_object(n)%wf_phi(i)
+     END DO
+     CLOSE (11, STATUS = 'KEEP')
+
+! enforce the ends
+     whole_object(n)%wf_T_cntr(1) = 0
+     whole_object(n)%wf_T_cntr(whole_object(n)%N_wf_points) = wf_period
+     whole_object(n)%wf_phi(whole_object(n)%N_wf_points) = whole_object(n)%wf_phi(1)
+
+! enforce increasing times
+     DO i = 2, whole_object(n)%N_wf_points-1
+         whole_object(n)%wf_T_cntr(i) = MAX(whole_object(n)%wf_T_cntr(i), whole_object(n)%wf_T_cntr(i-1)+1)
+     END DO
+
+! final check
+     i = whole_object(n)%N_wf_points
+     IF (whole_object(n)%wf_T_cntr(i).GT.whole_object(n)%wf_T_cntr(i-1)) THEN
+! passed
+        IF (Rank_of_process.EQ.0) &
+             & PRINT '("### PREPARE_WAVEFORMS :: potential of boundary object ",i2," will be calculated with the waveform  ###")', n
+        whole_object(n)%use_waveform = .TRUE.
+     ELSE
+! did not pass
+        IF (Rank_of_process.EQ.0) &
+             & PRINT '("### PREPARE_WAVEFORMS :: WARNING-4 :: inconsistent data in file ",A23," , waveform for boundary object ",i2," is off ###")', &
+             & initbowf_filename, n
+! cleanup
+        IF (ALLOCATED(whole_object(n)%wf_T_cntr)) DEALLOCATE(whole_object(n)%wf_T_cntr, STAT = ALLOC_ERR)
+        IF (ALLOCATED(whole_object(n)%wf_phi)) DEALLOCATE(whole_object(n)%wf_phi, STAT = ALLOC_ERR)
+     END IF
+
+  END DO
+
+END SUBROUTINE PREPARE_WAVEFORMS
 
 !--------------------------------------------
 !

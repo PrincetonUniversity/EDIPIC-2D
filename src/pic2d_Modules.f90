@@ -143,6 +143,7 @@ MODULE CurrentProblemValues
   INTEGER, PARAMETER :: PERIODIC_PIPELINE_X = 2
   INTEGER, PARAMETER :: PERIODIC_PIPELINE_Y = 3
   INTEGER, PARAMETER :: DIELECTRIC = 4
+  INTEGER, PARAMETER :: SYMMETRY_PLANE = 5
 
   INTEGER, PARAMETER :: PERIODICITY_NONE = 0
   INTEGER, PARAMETER :: PERIODICITY_X    = 1
@@ -231,6 +232,12 @@ MODULE CurrentProblemValues
      REAL(8) phi_var              ! time varying part of the electrostatic potential
      REAL(8) omega                ! frequency of time varying part
      REAL(8) phase                ! phase of time varying part
+
+! waveform defines periodic non-harmonic variation of potential, the shape is defined by a user via data file
+     LOGICAL use_waveform
+     INTEGER N_wf_points                    ! number of waveform data points, must be no less than 2
+     REAL,    ALLOCATABLE :: wf_phi(:)      ! array of potential values of waveform data points
+     INTEGER, ALLOCATABLE :: wf_T_cntr(:)   ! array of times (in units of timesteps) of waveform data points
 
      INTEGER N_electron_constant_emit      ! constant number of electron macroparticles to be injected each time step (for example due to emission from a thermocathode)
      INTEGER model_constant_emit
@@ -498,6 +505,8 @@ MODULE ClusterAndItsBoundaries
   LOGICAL connect_below     ! if a cluster has connect_below=TRUE, it has a neighbor below with connect_above = TRUE
   LOGICAL connect_above     ! if a cluster has connect_above=TRUE, it has a neighbor above with connect_below = TRUE
 
+  LOGICAL symmetry_plane_X_left
+
   INTEGER n_left(1:2)       ! contain indices of objects in array c_local_object_part
   INTEGER n_right(1:2)      ! which endpoints will participate in surface charge exchange
   INTEGER n_below(1:2)      ! with left/right/below/above neighbor cluster
@@ -610,6 +619,8 @@ MODULE BlockAndItsBoundaries
   INTEGER, PARAMETER :: max_N_of_local_object_parts = 20
   INTEGER N_of_local_object_parts
   TYPE(object_link) local_object_part(1:max_N_of_local_object_parts)
+
+  LOGICAL block_has_symmetry_plane_X_left
 
   INTEGER N_of_local_object_parts_left
   INTEGER N_of_local_object_parts_right

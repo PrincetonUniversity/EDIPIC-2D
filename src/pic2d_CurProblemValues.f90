@@ -333,21 +333,30 @@ SUBROUTINE INITIATE_PARAMETERS
   CALL PREPARE_EXTERNAL_FIELDS
 
 ! calculate total length of the object (will be used to calculate number of injected particles in each cluster)
-  DO n = 1, N_of_boundary_objects
-     whole_object(n)%L = 0
-     DO m = 1, whole_object(n)%number_of_segments
-
-        whole_object(n)%L = whole_object(n)%L + ABS(whole_object(n)%segment(m)%jend - whole_object(n)%segment(m)%jstart) + &
-                                              & ABS(whole_object(n)%segment(m)%iend - whole_object(n)%segment(m)%istart)
-     END DO
-  END DO
-
-! fixmeplease
-! account that for periodic systems the boundary in the direction of periodicity has one extra cell for periodic overlapping         
   IF (periodicity_flag.EQ.PERIODICITY_X) THEN
-!### hardwired for a rectangular area ###
-     whole_object(2)%L = whole_object(2)%L-1
-     whole_object(4)%L = whole_object(4)%L-1
+! account that for periodic systems the boundary in the direction of periodicity has one extra cell for periodic overlapping
+     DO n = 1, N_of_boundary_objects
+        whole_object(n)%L = 0
+        DO m = 1, whole_object(n)%number_of_segments
+           IF (whole_object(n)%segment(m)%jend.EQ.whole_object(n)%segment(m)%jstart) THEN
+! horizontal segment
+              whole_object(n)%L = whole_object(n)%L + ABS( MIN(global_maximal_i-1, whole_object(n)%segment(m)%iend) - &  ! exclude the periodic overlapping cell
+                                                         & MIN(global_maximal_i-1, whole_object(n)%segment(m)%istart) )  ! should work when istart>iend
+           ELSE IF (whole_object(n)%segment(m)%iend.EQ.whole_object(n)%segment(m)%istart) THEN
+! vertical segment
+              whole_object(n)%L = whole_object(n)%L + ABS(whole_object(n)%segment(m)%jend - whole_object(n)%segment(m)%jstart)
+           END IF
+        END DO
+     END DO
+! the IF branch above should work for periodic systems with segmanted electrodes
+  ELSE
+     DO n = 1, N_of_boundary_objects
+        whole_object(n)%L = 0
+        DO m = 1, whole_object(n)%number_of_segments
+           whole_object(n)%L = whole_object(n)%L + ABS(whole_object(n)%segment(m)%jend - whole_object(n)%segment(m)%jstart) + &
+                                                 & ABS(whole_object(n)%segment(m)%iend - whole_object(n)%segment(m)%istart)
+        END DO
+     END DO
   END IF 
 
   N_clusters_x = N_blocks_x/cluster_N_blocks_x 
@@ -620,10 +629,10 @@ if (Rank_of_process.eq.0) print *, "SET_CLUSTER_STRUCTURE done"
 !     END DO
 !  END IF
 
-  whole_object%phi_const = whole_object%phi_const / F_scale_V
-  whole_object%phi_var   = whole_object%phi_var   / F_scale_V
-  whole_object%omega     = whole_object%omega * 2.0d6 * pi * delta_t_s    ! convert from MHz
-  whole_object%phase     = whole_object%phase * pi /180.0_8
+  whole_object%phi_const  = whole_object%phi_const / F_scale_V
+  whole_object%phi_var    = whole_object%phi_var   / F_scale_V
+  whole_object%omega      = whole_object%omega * 2.0d6 * pi * delta_t_s    ! convert from MHz
+  whole_object%phase      = whole_object%phase * pi /180.0_8
 
 ! do this here to set whole_object%phi which may be used below to calculate external electric field
   CALL UPDATE_WALL_POTENTIALS(0)
@@ -961,6 +970,8 @@ SUBROUTINE IDENTIFY_CLUSTER_BOUNDARIES
   connect_above = .FALSE.
   connect_below = .FALSE.
 
+  symmetry_plane_X_left = .FALSE.
+
   n_left = 0
   n_right = 0
   n_below = 0
@@ -1011,6 +1022,8 @@ SUBROUTINE IDENTIFY_CLUSTER_BOUNDARIES
                     c_local_object_part(c_N_of_local_object_parts)%surface_charge(jstart:jend) = 0.0_8
                  END IF
 
+                 IF (whole_object(n)%object_type.EQ.SYMMETRY_PLANE) symmetry_plane_X_left = .TRUE.
+
                  c_N_of_local_object_parts_left = c_N_of_local_object_parts_left+1
                  c_index_of_local_object_part_left(c_N_of_local_object_parts_left) = c_N_of_local_object_parts
               END IF
@@ -1018,6 +1031,10 @@ SUBROUTINE IDENTIFY_CLUSTER_BOUNDARIES
            END IF
         END DO
      END DO
+  END IF
+
+  IF (symmetry_plane_X_left) THEN
+     PRINT '("Proc ",i4," (cluster master) has a symmetry plane on its left edge" )', Rank_of_process
   END IF
 
 ! check the top edge of the cluster
@@ -1485,6 +1502,12 @@ print '("Process ",i4," :: P.B. L/R/B/A :: ",4(1x,L1))', Rank_of_process, period
   CALL MPI_BARRIER(MPI_COMM_WORLD, ierr) 
 
   IF (cluster_rank_key.NE.0) RETURN
+
+! check that periodicity along X on the left boundary is not mixed with the symmetry plane
+  IF (periodic_boundary_X_left.AND.symmetry_plane_X_left) THEN
+     PRINT '("Proc ",i4," :: Error in INCLUDE_CLUSTER_PERIODICITY, both periodicity and symmetry plane at the left edge of a cluster detected, program terminated")', Rank_of_process
+     STOP
+  END IF
 
 ! check connections 
 
@@ -2278,7 +2301,12 @@ SUBROUTINE DISTRIBUTE_CLUSTER_PARAMETERS
      ibufer(17) = 0
      ibufer(18) = 0
 
-     IF (periodic_boundary_X_left)  ibufer(15) = 1
+     IF (periodic_boundary_X_left) THEN  !### periodic_boundary_X_left and symmetry_plane_X_left cannot be .TRUE. at the same time, but both can be .FALSE.
+        ibufer(15) = 1
+     ELSE IF (symmetry_plane_X_left) THEN
+        ibufer(15) = -1
+     END IF
+
      IF (periodic_boundary_X_right) ibufer(16) = 1
      IF (periodic_boundary_Y_below) ibufer(17) = 1
      IF (periodic_boundary_Y_above) ibufer(18) = 1
@@ -2403,7 +2431,14 @@ SUBROUTINE DISTRIBUTE_CLUSTER_PARAMETERS
      periodic_boundary_Y_below = .FALSE.
      periodic_boundary_Y_above = .FALSE.
 
-     IF (ibufer(15).EQ.1) periodic_boundary_X_left  = .TRUE.
+     symmetry_plane_X_left = .FALSE.
+
+     IF (ibufer(15).EQ.1) THEN
+        periodic_boundary_X_left  = .TRUE.
+     ELSE IF (ibufer(15).EQ.-1) THEN 
+        symmetry_plane_X_left = .TRUE.
+     END IF
+
      IF (ibufer(16).EQ.1) periodic_boundary_X_right = .TRUE.
      IF (ibufer(17).EQ.1) periodic_boundary_Y_below = .TRUE.
      IF (ibufer(18).EQ.1) periodic_boundary_Y_above = .TRUE.
