@@ -65,8 +65,16 @@ To submit this job to the queuing system, copy the slurm script to your run dire
 sbatch slurm_script
 ```
 
+\*\*NOTE\*\* You always need to set **PETSC_DIR** and **LD_LIBRARY_PATH** in order to run the code successfully. Also make sure that you have the file **petsc.rc**, which contains run parameters
+for PETSc. There should be a copy in all the example directories.
+
 The examples in the repository take less than 15 minutes to run so you can reduce the time
 limit to `--time=15:00` or run interactively.
 
-\*\*NOTE\*\* You always need to set **PETSC_DIR** and **LD_LIBRARY_PATH** in order to run the code successfully.
+To run interactively on a system that is not using SLURM, try:
+
+```
+mpirun -np 32 ./edipic2d >& output.log &
+tail -f output.log    # to see the content of output.log as data is being generated
+```
 

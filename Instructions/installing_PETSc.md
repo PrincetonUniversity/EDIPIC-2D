@@ -24,9 +24,9 @@ git checkout v3.14.6
 The easiest way to get the tar file is by using `wget` if it is available on your system (`curl -O` on MacOS)
 
 ```
-wget https://ftp.mcs.anl.gov/pub/petsc/release-snapshots/petsc-3.14.tar.gz
-tar -zxvf petsc-3.14.tar.gz
-cd petsc-3.14
+wget https://ftp.mcs.anl.gov/pub/petsc/release-snapshots/petsc-3.14.6.tar.gz
+tar -zxvf petsc-3.14.6.tar.gz
+cd petsc-3.14.6
 ```
 
 ## Configuring PETSc
