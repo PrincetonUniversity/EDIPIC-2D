@@ -1,6 +1,9 @@
 # Installing EDIPIC-2D
 
-EDIPIC-2D is a Fortran code so you need access to a Fortran compiler. The current makefile works with the Intel Fortran compiler as well as with GNU gfortran. The makefile determines which compiler is being used by looking at the "mpifort" command (see MPI section below).
+EDIPIC-2D is a Fortran code so you need access to a Fortran compiler. The current makefile
+works with the Intel Fortran compiler as well as with GNU gfortran. The makefile determines
+which compiler is being used by looking at the output of the "mpifort -show" command
+(see MPI section below).
 
 EDIPIC-2D requires a few libraries in order to run. These are ::
  - MPI ([OpenMPI](https://www.open-mpi.org/), [MPICH](https://www.mpich.org/), etc.)
@@ -36,7 +39,7 @@ the following document:
 
 ## Compiling EDIPIC-2D
 
-After setting the required environment variables, EDIPIC-2D can be compiled by using **make** in the `src` directory ::
+After setting the required environment variables, EDIPIC-2D can be compiled by using `make` in the `src` directory ::
 
 ```
 export PETSC_DIR=path_to_petsc_installation
