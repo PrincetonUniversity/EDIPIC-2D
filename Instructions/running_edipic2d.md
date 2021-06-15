@@ -7,6 +7,7 @@ The example directories are:
   - [input_data_sample](../input_data_sample)
   - [input_data_sample_periodic_SEE](../input_data_sample_periodic_SEE)
   - [input_data_sample_periodic_ebeam](../input_data_sample_periodic_ebeam)
+  - [iinput_data_files_waveform](../input_data_files_waveform)
 
 A description of the input parameters can be found in the **Doc** directory:
 
