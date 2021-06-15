@@ -45,7 +45,7 @@ contains
     
     integer, intent(IN) ::  comm  !??? not used anywhere???
 
-    PetscInt :: one, five
+    PetscInt :: one, four, five
 
     character(20) :: petsc_config='petsc.rc'   ! PETSc database file
     PetscErrorCode :: ierr
@@ -67,6 +67,7 @@ contains
 !    INTEGER i_local,j_local
 
     one=1
+    four=4
     five=5
     
 ! Initializes the petsc database and mpi
@@ -148,9 +149,29 @@ contains
     IF (ibegin.EQ.indx_x_min) THEN
 ! boundary object along left border
        irow_global = irow_global + 1
-       jcolumn_global(1) = irow_global
-       value_at_jcol(1) = 1.0_8
-       call MatSetValues(Amat, one, irow_global, one, jcolumn_global(1:1), value_at_jcol(1:1), INSERT_VALUES, ierr) 
+       IF (.NOT.block_has_symmetry_plane_X_left) THEN
+! Dirichlet (given potential) boundary
+          jcolumn_global(1) = irow_global
+          value_at_jcol(1) = 1.0_8
+          call MatSetValues(Amat, one, irow_global, one, jcolumn_global(1:1), value_at_jcol(1:1), INSERT_VALUES, ierr) 
+       ELSE
+! the left border is a symmetry plane
+          IF (jbegin.EQ.indx_y_min) THEN                       ! BELOW
+! boundary object along the bottom border
+             jcolumn_global(1) = irow_global - (iend-ibegin+1)                          ! use the own node
+          ELSE
+! use a node from neighbor below
+             jcolumn_global(1) = process_below_left_top_inner_node-1                    ! use a node from the neighbor below
+          END IF
+          jcolumn_global(2) = irow_global                      ! CENTER
+          jcolumn_global(3) = irow_global+1                    ! RIGHT
+          jcolumn_global(4) = irow_global + (iend-ibegin+1)    ! ABOVE
+          value_at_jcol(1) = 0.25_8
+          value_at_jcol(2) = -1.0_8
+          value_at_jcol(3) = 0.5_8
+          value_at_jcol(4) = 0.25_8
+          call MatSetValues(Amat, one, irow_global, four, jcolumn_global(1:4), value_at_jcol(1:4), INSERT_VALUES, ierr) 
+       END IF
     END IF
 
 !    i = indx_x_min+1
@@ -255,9 +276,24 @@ contains
        IF (ibegin.EQ.indx_x_min) THEN
 ! boundary object along left border
           irow_global = irow_global + 1
-          jcolumn_global(1) = irow_global
-          value_at_jcol(1) = 1.0_8
-          call MatSetValues(Amat, one, irow_global, one, jcolumn_global(1:1), value_at_jcol(1:1), INSERT_VALUES, ierr) 
+          IF (.NOT.block_has_symmetry_plane_X_left) THEN
+! Dirichlet (given potential) boundary
+             jcolumn_global(1) = irow_global
+             value_at_jcol(1) = 1.0_8
+             call MatSetValues(Amat, one, irow_global, one, jcolumn_global(1:1), value_at_jcol(1:1), INSERT_VALUES, ierr) 
+          ELSE
+! the left border is a symmetry plane
+! use own nodes
+             jcolumn_global(1) = irow_global - (iend-ibegin+1)    ! BELOW
+             jcolumn_global(2) = irow_global                      ! CENTER
+             jcolumn_global(3) = irow_global+1                    ! RIGHT
+             jcolumn_global(4) = irow_global + (iend-ibegin+1)    ! ABOVE
+             value_at_jcol(1) = 0.25_8
+             value_at_jcol(2) = -1.0_8
+             value_at_jcol(3) = 0.5_8
+             value_at_jcol(4) = 0.25_8
+             call MatSetValues(Amat, one, irow_global, four, jcolumn_global(1:4), value_at_jcol(1:4), INSERT_VALUES, ierr) 
+          END IF
        END IF
 
 !       i = indx_x_min+1
@@ -333,9 +369,28 @@ contains
     IF (ibegin.EQ.indx_x_min) THEN
 ! boundary object along left border
        irow_global = irow_global + 1
-       jcolumn_global(1) = irow_global
-       value_at_jcol(1) = 1.0_8
-       call MatSetValues(Amat, one, irow_global, one, jcolumn_global(1:1), value_at_jcol(1:1), INSERT_VALUES, ierr) 
+       IF (.NOT.block_has_symmetry_plane_X_left) THEN
+! Dirichlet (given potential) boundary
+          jcolumn_global(1) = irow_global
+          value_at_jcol(1) = 1.0_8
+          call MatSetValues(Amat, one, irow_global, one, jcolumn_global(1:1), value_at_jcol(1:1), INSERT_VALUES, ierr) 
+       ELSE
+! the left border is a symmetry plane
+          jcolumn_global(1) = irow_global - (iend-ibegin+1)    ! BELOW
+          jcolumn_global(2) = irow_global                      ! CENTER
+          jcolumn_global(3) = irow_global+1                    ! RIGHT
+          IF (jend.EQ.indx_y_max) THEN                         ! ABOVE
+! boundary object along the top border
+             jcolumn_global(4) = irow_global + (iend-ibegin+1)                         ! use the own node
+          ELSE
+             jcolumn_global(4) = process_above_left_bottom_inner_node-1                ! use a node from the neighbor above
+          END IF
+          value_at_jcol(1) = 0.25_8
+          value_at_jcol(2) = -1.0_8
+          value_at_jcol(3) = 0.5_8
+          value_at_jcol(4) = 0.25_8
+          call MatSetValues(Amat, one, irow_global, four, jcolumn_global(1:4), value_at_jcol(1:4), INSERT_VALUES, ierr) 
+       END IF
     END IF
 
 !    i = indx_x_min+1

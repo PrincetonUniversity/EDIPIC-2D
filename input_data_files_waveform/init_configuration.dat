@@ -1,60 +1,53 @@
 ---dddd.ddddddd----- scale electron temperature [eV]
-      4.0000000 10.0000000  7.8967777
+     10.0000000
 ---+d.dddddddE+dd--- scale electron density [m^-3]
-    1.0000000E+17 0.8728003E+17
+    1.0000000E+17
 ---ddd---------- number of cells per scale electron Debye length
      2
 ---ddd---------- maximal expected velocity [units of scale thermal electron velocity]
-     6
+     5
 ---ddd---------- number of blocks (processes) along the X (horizontal) direction
      4
 ---ddd---------- number of blocks (processes) along the Y (vertical) direction
-     8
+     4
 ---ddd---------- number of cells along the X-direction in a block
-    60
+    50
 ---ddd---------- number of cells along the Y-direction in a block
-    60
+    50
 --dddd---------- number of macroparticles per cell for the scale density
-   200
+    20
 -----d---------- number of blocks in a cluster along the X-direction
      2
 -----d---------- number of blocks in a cluster along the Y-direction
      2
 ---ddd---------- number of boundary objects
-     8
-===dd===dd=== object type, number of segments // flat electrode at the left, #1
+     6
+===dd===dd=== object type, number of segments // symmetry plane at the left, #1
+    5    1
+---dddddd---dddddd---dddddd---dddddd---segment start X/Y end X/Y [global node index]
+        0        0        0      201
+===dd===dd=== object type, number of segments // horizontal metal wall at the middle top, no emission, #2 @@@
     1    1
 ---dddddd---dddddd---dddddd---dddddd---segment start X/Y end X/Y [global node index]
-        0       20        0      400
-===dd===dd=== object type, number of segments // vacuum gap left top, #2
+        0      201      100      201
+===dd===dd=== object type, number of segments // vacuum gap at the middle top, #3
     0    1
 ---dddddd---dddddd---dddddd---dddddd---segment start X/Y end X/Y [global node index]
-        0      400        0      481
-===dd===dd=== object type, number of segments // flat electrode above, #3
+      100      201      120      201
+===dd===dd=== object type, number of segments // C-shaped metal wall on the right, no emission, #4 @@@
+    1    3
+---dddddd---dddddd---dddddd---dddddd---segment start X/Y end X/Y [global node index]
+      120      201      201      201
+      201        0      201      201
+      120        0      201        0
+===dd===dd=== object type, number of segments // vacuum at the middle bottom, #5
+    0    1
+---dddddd---dddddd---dddddd---dddddd---segment start X/Y end X/Y [global node index]
+      100        0      120        0
+===dd===dd=== object type, number of segments // horizontal metal wall at the middle bottom, no emission, #6 @@@
     1    1
 ---dddddd---dddddd---dddddd---dddddd---segment start X/Y end X/Y [global node index]
-        0      481      241      481
-===dd===dd=== object type, number of segments // vacuum gap right top, #4
-    0    1
----dddddd---dddddd---dddddd---dddddd---segment start X/Y end X/Y [global node index]
-      241      400      241      481
-===dd===dd=== object type, number of segments // flat electrode at the right, #5
-    1    1
----dddddd---dddddd---dddddd---dddddd---segment start X/Y end X/Y [global node index]
-      241       20      241      400
-===dd===dd=== object type, number of segments // vacuum gap right bottom, #6
-    0    1
----dddddd---dddddd---dddddd---dddddd---segment start X/Y end X/Y [global node index]
-      241        0      241       20
-===dd===dd=== object type, number of segments // flat electrode below, #7
-    1    1    
----dddddd---dddddd---dddddd---dddddd---segment start X/Y end X/Y [global node index]
-        0        0      241        0
-===dd===dd=== object type, number of segments // vacuum gap left bottom, #8
-    0    1
----dddddd---dddddd---dddddd---dddddd---segment start X/Y end X/Y [global node index]
-        0        0        0       20
-
+        0        0      100        0
 
   INTEGER, PARAMETER :: VACUUM_GAP = 0
   INTEGER, PARAMETER :: METAL_WALL = 1

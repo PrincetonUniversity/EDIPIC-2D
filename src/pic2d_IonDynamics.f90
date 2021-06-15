@@ -155,6 +155,13 @@ SUBROUTINE ADVANCE_IONS
 
 ! since we are here, a particle crossed an area boundary
 
+        IF (symmetry_plane_X_left) THEN
+           IF (ion(s)%part(k)%X.LT.c_X_area_min) THEN
+              ion(s)%part(k)%X = MAX(c_X_area_min, c_X_area_min + c_X_area_min - ion(s)%part(k)%X)
+              ion(s)%part(k)%VX = -ion(s)%part(k)%VX
+           END IF
+        END IF
+
         IF (ion(s)%part(k)%X.LT.c_X_area_min) THEN
 
            IF (periodic_boundary_X_left.AND.periodic_boundary_X_right) THEN

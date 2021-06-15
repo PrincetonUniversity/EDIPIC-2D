@@ -162,6 +162,14 @@ end if
 
 ! since we are here, a particle crossed an area boundary
 
+     IF (symmetry_plane_X_left) THEN
+        IF (electron(k)%X.LT.c_X_area_min) THEN
+           electron(k)%X = MAX(c_X_area_min, c_X_area_min + c_X_area_min - electron(k)%X)
+           electron(k)%VX = -electron(k)%VX
+!###          electron(k)%VZ = -electron(k)%VZ   !###??? do we not have to do this when BY is on ??? 
+        END IF
+     END IF
+
      IF (electron(k)%X.LT.c_X_area_min) THEN
 
         IF (periodic_boundary_X_left.AND.periodic_boundary_X_right) THEN

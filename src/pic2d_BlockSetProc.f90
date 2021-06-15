@@ -124,6 +124,8 @@ SUBROUTINE IDENTIFY_BLOCK_BOUNDARIES
   N_of_local_object_parts_above = 0
   N_of_local_object_parts_below = 0
 
+  block_has_symmetry_plane_X_left = .FALSE.
+
   IF ( (Rank_of_process_left.GE.0).AND. &
        (Rank_of_process_right.GE.0).AND. &
        (Rank_of_process_below.GE.0).AND. &
@@ -158,6 +160,9 @@ SUBROUTINE IDENTIFY_BLOCK_BOUNDARIES
 
                  N_of_local_object_parts_left = N_of_local_object_parts_left+1
                  index_of_local_object_part_left(N_of_local_object_parts_left) = N_of_local_object_parts
+
+                 IF (whole_object(n)%object_type.EQ.SYMMETRY_PLANE) block_has_symmetry_plane_X_left = .TRUE.
+
               END IF
 
            END IF

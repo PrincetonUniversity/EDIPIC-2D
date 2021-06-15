@@ -1,0 +1,10 @@
+  50.0  waveform potential amplitude V
+  1.0e8 waveform frequency Hz
+# column 1 is time in units of the waveform period
+# column 2 is value in units of the waveform amplitude 
+  0.0   -0.7
+  0.08  -0.7
+  0.09  0.3
+  0.27  0.3
+  0.28  -0.7
+  1.0   -0.7
