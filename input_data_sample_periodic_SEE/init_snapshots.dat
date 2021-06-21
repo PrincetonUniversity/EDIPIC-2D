@@ -10,8 +10,8 @@
      1     1     1     0     1     1     1     1     1     1     1     1     1
 ---dd--- Number of groups of snapshots ( >= 0 )
     1
----ddddddd.ddd---ddddddd.ddd---dddd---d---d--- group: start (ns) / finish (ns) / number of snapshots / save VDFs (0/1/2/3 = No/1d/2d/1d+2d) / save phase planes (0/1/2/3 = No/e/i/e+i)
-         0.000        10.000      6   3   3
+---ddddddd.ddd---ddddddd.ddd---dddd---d---d---d--- group: start (ns) / finish (ns) / number of snapshots / save VDFs (0/1/2/3 = No/1d/2d/1d+2d) / save phase planes (0/1/2/3 = No/e/i/e+i) / save ionization rates (0/1 = No/Yes)
+         0.000        10.000      6   3   3   0
 -------- Parameters for calculation of velocity distribution functions
 --d-d--- Number of spatial boxes along the X / Y direction in a cluster (>=0)
   2 2
