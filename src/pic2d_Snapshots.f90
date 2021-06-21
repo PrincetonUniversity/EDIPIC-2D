@@ -8,7 +8,9 @@ SUBROUTINE INITIATE_SNAPSHOTS
   USE Diagnostics,          ONLY : Save_probes_data_T_cntr_rff, Save_probes_data_step
   USE CurrentProblemValues, ONLY : delta_t_s, Max_T_cntr
   USE Checkpoints, ONLY : use_checkpoint, current_snap_check
-  
+  USE MCCollisions
+  USE ClusterAndItsBoundaries
+
   IMPLICIT NONE
 
   INTEGER T2_old, N2_old
@@ -26,6 +28,7 @@ SUBROUTINE INITIATE_SNAPSHOTS
   INTEGER Rqst_n_of_snaps           ! requested number of snapshots in current set, read from file
   INTEGER Rqst_evdf_flag            ! requested flag defining which velocity distribution functions to save (0/1/2/3 = No/1d only/2d only/1d and 2d)
   INTEGER Rqst_pp_flag              ! requested flag defining which phase planes to save (0/1/2/3 = No/electrons only/ions only/electrons and ions)
+  INTEGER Rqst_ionrate2d_flag       ! requested flag defining whether to save ionization rates (0/1 = No/Yes)
 
   INTEGER T1, T2, N1, N2 
 
@@ -37,8 +40,11 @@ SUBROUTINE INITIATE_SNAPSHOTS
   INTEGER, ALLOCATABLE ::           timestep(:)   ! array for temporary storage of moments (timesteps) of snapshots
   INTEGER, ALLOCATABLE :: evdf_flag_timestep(:)   ! array for temporary storage of vdf save flags
   INTEGER, ALLOCATABLE ::   pp_flag_timestep(:)   ! array for temporary storage of phase planes save flags
+  INTEGER, ALLOCATABLE :: ionrate2d_flag_timestep(:)   ! array for temporary storage of ionization rate save flags
 
   INTEGER ALLOC_ERR
+
+  INTEGER p
 
   N_of_all_snaps = 0
   T2_old = -1
@@ -49,9 +55,10 @@ SUBROUTINE INITIATE_SNAPSHOTS
 
   IF (exists) THEN
 
-     ALLOCATE(          timestep(1:9999), STAT = ALLOC_ERR)
-     ALLOCATE(evdf_flag_timestep(1:9999), STAT = ALLOC_ERR)
-     ALLOCATE(  pp_flag_timestep(1:9999), STAT = ALLOC_ERR)
+     ALLOCATE(               timestep(1:9999), STAT = ALLOC_ERR)
+     ALLOCATE(     evdf_flag_timestep(1:9999), STAT = ALLOC_ERR)
+     ALLOCATE(       pp_flag_timestep(1:9999), STAT = ALLOC_ERR)
+     ALLOCATE(ionrate2d_flag_timestep(1:9999), STAT = ALLOC_ERR)
      
      IF (Rank_of_process.EQ.0) PRINT '("### File init_snapshots is found. Reading the data file... ###")'
 
@@ -75,11 +82,11 @@ SUBROUTINE INITIATE_SNAPSHOTS
 
      READ (9, '(A1)') buf !---dd--- Number of groups of snapshots ( >= 0 )
      READ (9, '(3x,i2)') N_of_snap_groups
-     READ (9, '(A1)') buf !---ddddddd.ddd---ddddddd.ddd---dddd---d---d--- group: start (ns) / finish (ns) / number of snapshots / save VDFs (0/1/2/3 = No/1d/2d/1d+2d) / save phase planes (0/1/2/3 = No/e/i/e+i)
+     READ (9, '(A1)') buf !---ddddddd.ddd---ddddddd.ddd---dddd---d---d---d--- group: start (ns) / finish (ns) / number of snapshots / save VDFs (0/1/2/3 = No/1d/2d/1d+2d) / save phase planes (0/1/2/3 = No/e/i/e+i) / save ionization rates (0/1 = No/Yes)
 
      DO i = 1, N_of_snap_groups
 ! read the parameters of current set of snapshot from the data file
-        READ (9, '(3x,f11.3,3x,f11.3,3x,i4,3x,i1,3x,i1)') Rqst_snap_start_ns, Rqst_snap_finish_ns, Rqst_n_of_snaps, Rqst_evdf_flag, Rqst_pp_flag    !!!
+        READ (9, '(3x,f11.3,3x,f11.3,3x,i4,3x,i1,3x,i1,3x,i1)') Rqst_snap_start_ns, Rqst_snap_finish_ns, Rqst_n_of_snaps, Rqst_evdf_flag, Rqst_pp_flag, Rqst_ionrate2d_flag
 ! try the next group of snapshots if the current group snapshot number is zero
         IF (Rqst_n_of_snaps.LT.1) CYCLE
 ! get the timestep, coinciding with the diagnostic output timestep and closest to Rqst_snap_start_ns
@@ -129,9 +136,10 @@ SUBROUTINE INITIATE_SNAPSHOTS
         DO n = 1, Fact_n_of_snaps
 ! Calculate and save the snapshot moment in the temporary array
            N_of_all_snaps = N_of_all_snaps + 1
-                     timestep(N_of_all_snaps) =  T1 + (n - 1) * large_step * Save_probes_data_step
-           evdf_flag_timestep(N_of_all_snaps) = MAX(0,MIN(3,Rqst_evdf_flag))
-             pp_flag_timestep(N_of_all_snaps) = MAX(0,MIN(3,Rqst_pp_flag))
+                          timestep(N_of_all_snaps) =  T1 + (n - 1) * large_step * Save_probes_data_step
+                evdf_flag_timestep(N_of_all_snaps) = MAX(0,MIN(3,Rqst_evdf_flag))
+                  pp_flag_timestep(N_of_all_snaps) = MAX(0,MIN(3,Rqst_pp_flag))
+           ionrate2d_flag_timestep(N_of_all_snaps) = MAX(0,MIN(1,Rqst_ionrate2d_flag))
         END DO        ! end of cycle over snapshots in one set
      END DO           ! end of cycle over sets of snapshots     
 
@@ -199,32 +207,59 @@ SUBROUTINE INITIATE_SNAPSHOTS
   END IF
 
 ! allocate the array of moments of snapshots
-  ALLOCATE(    Tcntr_snapshot(1:N_of_all_snaps), STAT=ALLOC_ERR)
-  ALLOCATE(save_evdf_snapshot(1:N_of_all_snaps), STAT=ALLOC_ERR)
-  ALLOCATE(  save_pp_snapshot(1:N_of_all_snaps), STAT=ALLOC_ERR)
+  ALLOCATE(Tcntr_snapshot(1:N_of_all_snaps), STAT=ALLOC_ERR)
+! allocate control arrays
+  ALLOCATE(      save_evdf_snapshot(1:N_of_all_snaps), STAT=ALLOC_ERR)
+  ALLOCATE(        save_pp_snapshot(1:N_of_all_snaps), STAT=ALLOC_ERR)
+  ALLOCATE(save_ionization_rates_2d(1:N_of_all_snaps), STAT=ALLOC_ERR)
 
 ! move the calculated snapshot moments from the temporary array to the allocated array 
       Tcntr_snapshot(1:N_of_all_snaps) =           timestep(1:N_of_all_snaps)
+! copy control flags
   save_evdf_snapshot(1:N_of_all_snaps) = evdf_flag_timestep(1:N_of_all_snaps)
     save_pp_snapshot(1:N_of_all_snaps) =   pp_flag_timestep(1:N_of_all_snaps)
+! set logical switches
+  save_ionization_rates_2d = .FALSE.
+  DO i = 1, N_of_all_snaps
+     IF (ionrate2d_flag_timestep(i).GT.0) save_ionization_rates_2d(i) = .TRUE.
+  END DO
  
-  DEALLOCATE(          timestep, STAT = ALLOC_ERR)
-  DEALLOCATE(evdf_flag_timestep, STAT = ALLOC_ERR)
-  DEALLOCATE(  pp_flag_timestep, STAT = ALLOC_ERR)
+  DEALLOCATE(               timestep, STAT = ALLOC_ERR)
+  DEALLOCATE(     evdf_flag_timestep, STAT = ALLOC_ERR)
+  DEALLOCATE(       pp_flag_timestep, STAT = ALLOC_ERR)
+  DEALLOCATE(ionrate2d_flag_timestep, STAT = ALLOC_ERR)
  
   IF (Rank_of_process.EQ.0) THEN 
      PRINT '("### The program will create ",i4," snapshots ###")', N_of_all_snaps
 
 ! write moments of snapshot creation into the file
      OPEN (41, FILE = '_snapmoments.dat')
-!                 "--****-----*******.*****----********----*----*"
-     WRITE (41, '(" number       time(ns)       T_cntr    vdf  pp")')
+!                 "--****-----*******.*****----********----*----*----*"
+     WRITE (41, '(" number       time(ns)       T_cntr    vdf  pp  ioniz")')
      DO i = 1, N_of_all_snaps
-        WRITE (41, '(2x,i4,5x,f13.5,4x,i8,4x,i1,4x,i1)') i, Tcntr_snapshot(i) * 1.0d9 * delta_t_s, Tcntr_snapshot(i), save_evdf_snapshot(i), save_pp_snapshot(i)
+        WRITE (41, '(2x,i4,5x,f13.5,4x,i8,4x,i1,4x,i1,4x,L1)') &
+             & i, Tcntr_snapshot(i) * 1.0d9 * delta_t_s, Tcntr_snapshot(i), save_evdf_snapshot(i), save_pp_snapshot(i), save_ionization_rates_2d(i)
      END DO
      CLOSE (41, STATUS = 'KEEP')
-
   END IF
+
+  IF (en_collisions_turned_off) RETURN
+  IF (no_ionization_collisions) RETURN
+  IF (cluster_rank_key.NE.0) RETURN
+  IF (.NOT.save_ionization_rates_2d(current_snap))RETURN
+
+! create ionization rates diagnostics arrays, to be stored between snapshots by cluster masters only
+  ALLOCATE(diagnostics_neutral(1:N_neutral_spec), STAT = ALLOC_ERR)
+  DO n = 1, N_neutral_spec
+     IF (collision_e_neutral(n)%N_of_activated_colproc.LE.0) CYCLE
+     ALLOCATE(diagnostics_neutral(n)%activated_collision(1:collision_e_neutral(n)%N_of_activated_colproc), STAT = ALLOC_ERR)
+     DO p = 1, collision_e_neutral(n)%N_of_activated_colproc
+! presently do ionization collisions only
+        IF (collision_e_neutral(n)%colproc_info(p)%type.LT.30) CYCLE
+        ALLOCATE(diagnostics_neutral(n)%activated_collision(p)%counter_local(c_indx_x_min:c_indx_x_max, c_indx_y_min:c_indx_y_max), STAT=ALLOC_ERR)
+        diagnostics_neutral(n)%activated_collision(p)%counter_local = 0.0
+     END DO
+  END DO
   
 END SUBROUTINE INITIATE_SNAPSHOTS
 
@@ -238,6 +273,8 @@ SUBROUTINE CREATE_SNAPSHOT
   USE ClusterAndItsBoundaries
   USE BlockAndItsBoundaries
   USE IonParticles, ONLY : N_spec
+  USE MCCollisions
+  USE ClusterAndItsBoundaries
 
   IMPLICIT NONE
 
@@ -273,6 +310,7 @@ SUBROUTINE CREATE_SNAPSHOT
   CHARACTER(22) filename_Jsum     ! _NNNN_JXsum_Am2_2D.bin
 
   INTEGER s
+  INTEGER n, p
 
   INTERFACE
      FUNCTION convert_int_to_txt_string(int_number, length_of_string)
@@ -838,6 +876,49 @@ SUBROUTINE CREATE_SNAPSHOT
   IF (Rank_of_process.EQ.0) PRINT '(/2x,"### ^^^^^^^^^^^^^^^^^^^^ Snapshot ",i4," completed :) ^^^^^^^^^^^^^^^^^^^ ###")', current_snap
 
   current_snap = current_snap + 1           ! increase the snapshots counter 
+
+  IF (cluster_rank_key.NE.0) RETURN
+  IF (en_collisions_turned_off) RETURN
+  IF (no_ionization_collisions) RETURN
+
+! the cleanup is performed below instead of the end of SAVE_en_COLLISIONS_2D because:
+! (a) CREATE_SNAPSHOT is always called ###after### SAVE_en_COLLISIONS_2D (for the same snapshot number), so the data are saved already
+! (b) when snapshots are taken at intervals less than N_subcycles, 
+!     there may be no call of SAVE_en_COLLISIONS_2D between consecutive calls of CREATE_SNAPSHOT
+!     then diagnostics_neutral may be still allocated and the code may attempt to allocate it again, causing an error
+!
+  IF (ALLOCATED(diagnostics_neutral)) THEN
+     DO n = 1, N_neutral_spec
+        IF (ALLOCATED(diagnostics_neutral(n)%activated_collision)) THEN
+           DO p = 1, collision_e_neutral(n)%N_of_activated_colproc
+              IF (ALLOCATED(diagnostics_neutral(n)%activated_collision(p)%counter_local)) DEALLOCATE(diagnostics_neutral(n)%activated_collision(p)%counter_local, STAT=ALLOC_ERR)
+           END DO
+           DEALLOCATE(diagnostics_neutral(n)%activated_collision, STAT=ALLOC_ERR)
+        END IF
+     END DO
+     DEALLOCATE(diagnostics_neutral, STAT=ALLOC_ERR)
+  END IF
+
+  IF (current_snap.GT.N_of_all_snaps) RETURN
+  IF (.NOT.save_ionization_rates_2d(current_snap)) RETURN
+
+! memory for ionization rate diagnostics arrays is allocated only
+! (a) by cluster masters 
+! (b) if the next snapshot (# current_snap) will be created 
+! (c) if the next snapshot saves the ionization rate
+! (d) if the ionization collisions are on
+
+  ALLOCATE(diagnostics_neutral(1:N_neutral_spec), STAT = ALLOC_ERR)
+  DO n = 1, N_neutral_spec
+     IF (collision_e_neutral(n)%N_of_activated_colproc.LE.0) CYCLE
+     ALLOCATE(diagnostics_neutral(n)%activated_collision(1:collision_e_neutral(n)%N_of_activated_colproc), STAT = ALLOC_ERR)
+     DO p = 1, collision_e_neutral(n)%N_of_activated_colproc
+! presently do ionization collisions only
+        IF (collision_e_neutral(n)%colproc_info(p)%type.LT.30) CYCLE
+        ALLOCATE(diagnostics_neutral(n)%activated_collision(p)%counter_local(c_indx_x_min:c_indx_x_max, c_indx_y_min:c_indx_y_max), STAT=ALLOC_ERR)
+        diagnostics_neutral(n)%activated_collision(p)%counter_local = 0.0
+     END DO
+  END DO
 
 END SUBROUTINE CREATE_SNAPSHOT
 
@@ -1632,6 +1713,296 @@ END SUBROUTINE SAVE_ION_PHASE_PLANES
 
 !---------------------------------------------------------------------------------------------------
 !
+SUBROUTINE SAVE_en_COLLISIONS_2D
+
+  USE ParallelOperationValues
+  USE CurrentProblemValues, ONLY : N_subcycles, T_cntr, N_plasma_m3, N_of_particles_cell, delta_t_s
+  USE ClusterAndItsBoundaries
+!  USE IonParticles
+  USE MCCollisions
+  USE Snapshots
+
+  IMPLICIT NONE
+
+  INCLUDE 'mpif.h'
+
+  INTEGER ierr
+  INTEGER stattus(MPI_STATUS_SIZE)
+  INTEGER request
+
+  INTEGER T_start
+  REAL conversion_factor_m3s
+
+  CHARACTER(40) filename      ! _NNNN_neutral_AAAAAA_coll_id_NN_i_NN.bin
+                              ! ----x----I----x----I----x----I----x----I
+
+  INTEGER n, p, i, j
+
+  INTEGER n1  ! number of nodes in the y-direction
+  INTEGER n3  ! number of nodes in the x-direction
+
+  REAL, ALLOCATABLE :: rbufer(:)
+  INTEGER ALLOC_ERR
+
+  INTERFACE
+     FUNCTION convert_int_to_txt_string(int_number, length_of_string)
+       CHARACTER*(length_of_string) convert_int_to_txt_string
+       INTEGER int_number
+       INTEGER length_of_string
+     END FUNCTION convert_int_to_txt_string
+  END INTERFACE
+
+  IF (cluster_rank_key.NE.0) RETURN
+  IF (en_collisions_turned_off) RETURN
+  IF (no_ionization_collisions) RETURN
+
+  IF (current_snap.GT.N_of_all_snaps) RETURN
+  IF (.NOT.save_ionization_rates_2d(current_snap)) RETURN
+
+! this procedure is called at the end of the ion advance 
+! save ionization rates at the ion advance time step which is the closest to (and precede) the time step of the current snapshot
+  IF ((Tcntr_snapshot(current_snap)-T_cntr).GT.N_subcycles) RETURN
+
+! calculate conversion factor
+  IF (current_snap.EQ.1) THEN
+     T_start = -1
+  ELSE
+     T_start = N_subcycles * (Tcntr_snapshot(current_snap-1) / N_subcycles)-1  ! timestep when ions were advanced before the previous snapshot
+  END IF
+  conversion_factor_m3s = 0.0
+  IF (T_cntr.GT.T_start) conversion_factor_m3s = REAL(N_plasma_m3 / (N_of_particles_cell * (T_cntr - T_start) * delta_t_s))
+
+  n1 = c_indx_y_max - c_indx_y_min + 1
+  n3 = c_indx_x_max - c_indx_x_min + 1
+
+  DO n = 1, N_neutral_spec
+
+     DO p = 1, collision_e_neutral(n)%N_of_activated_colproc
+        IF (collision_e_neutral(n)%colproc_info(p)%type.LT.30) CYCLE  ! skip non-ionizing collisions
+
+! exchange information about collisions in overlapping nodes    
+
+        IF (WHITE_CLUSTER) THEN  
+! "white processes"
+
+           IF (ALLOCATED(rbufer)) DEALLOCATE(rbufer, STAT=ALLOC_ERR)
+           ALLOCATE(rbufer(1:n1), STAT=ALLOC_ERR)
+
+           IF (Rank_horizontal_right.GE.0) THEN
+! ## 1 ## send right densities in the right edge
+              rbufer(1:n1) = diagnostics_neutral(n)%activated_collision(p)%counter_local(c_indx_x_max, c_indx_y_min:c_indx_y_max)
+              CALL MPI_SEND(rbufer, n1, MPI_REAL, Rank_horizontal_right, Rank_horizontal, COMM_HORIZONTAL, request, ierr) 
+           END IF
+
+           IF (Rank_horizontal_left.GE.0) THEN
+! ## 2 ## send left densities in the left edge
+              rbufer(1:n1) = diagnostics_neutral(n)%activated_collision(p)%counter_local(c_indx_x_min, c_indx_y_min:c_indx_y_max)
+              CALL MPI_SEND(rbufer, n1, MPI_REAL, Rank_horizontal_left, Rank_horizontal, COMM_HORIZONTAL, request, ierr) 
+           END IF
+
+           IF (Rank_horizontal_left.GE.0) THEN
+! ## 3 ## receive from left densities in the vertical line next to the left edge
+              CALL MPI_RECV(rbufer, n1, MPI_REAL, Rank_horizontal_left, Rank_horizontal_left, COMM_HORIZONTAL, stattus, ierr)
+              DO j = c_indx_y_min, c_indx_y_max
+                 diagnostics_neutral(n)%activated_collision(p)%counter_local(c_indx_x_min+1, j) = diagnostics_neutral(n)%activated_collision(p)%counter_local(c_indx_x_min+1, j) + rbufer(j-c_indx_y_min+1)
+              END DO
+           END IF
+
+           IF (Rank_horizontal_right.GE.0) THEN
+! ## 4 ## receive from right densities in the vertical line next to the right edge
+              CALL MPI_RECV(rbufer, n1, MPI_REAL, Rank_horizontal_right, Rank_horizontal_right, COMM_HORIZONTAL, stattus, ierr)
+              DO j = c_indx_y_min, c_indx_y_max
+                 diagnostics_neutral(n)%activated_collision(p)%counter_local(c_indx_x_max-1, j) = diagnostics_neutral(n)%activated_collision(p)%counter_local(c_indx_x_max-1, j) + rbufer(j-c_indx_y_min+1)
+              END DO
+           END IF
+
+           IF (ALLOCATED(rbufer)) DEALLOCATE(rbufer, STAT=ALLOC_ERR)
+           ALLOCATE(rbufer(1:n3), STAT=ALLOC_ERR)
+
+           IF (Rank_horizontal_above.GE.0) THEN
+! ## 5 ## send up densities in the top edge
+              rbufer(1:n3) = diagnostics_neutral(n)%activated_collision(p)%counter_local(c_indx_x_min:c_indx_x_max, c_indx_y_max)
+              CALL MPI_SEND(rbufer, n3, MPI_REAL, Rank_horizontal_above, Rank_horizontal, COMM_HORIZONTAL, request, ierr) 
+           END IF
+
+           IF (Rank_horizontal_below.GE.0) THEN
+! ## 6 ## send down densities in the bottom edge
+              rbufer(1:n3) = diagnostics_neutral(n)%activated_collision(p)%counter_local(c_indx_x_min:c_indx_x_max, c_indx_y_min)
+              CALL MPI_SEND(rbufer, n3, MPI_REAL, Rank_horizontal_below, Rank_horizontal, COMM_HORIZONTAL, request, ierr) 
+           END IF
+
+           IF (Rank_horizontal_below.GE.0) THEN
+! ## 7 ## receive from below densities in the vertical line above the bottom line
+              CALL MPI_RECV(rbufer, n3, MPI_REAL, Rank_horizontal_below, Rank_horizontal_below, COMM_HORIZONTAL, stattus, ierr)
+              DO i = c_indx_x_min, c_indx_x_max
+                 diagnostics_neutral(n)%activated_collision(p)%counter_local(i, c_indx_y_min+1) = diagnostics_neutral(n)%activated_collision(p)%counter_local(i, c_indx_y_min+1) + rbufer(i-c_indx_x_min+1)
+              END DO
+           END IF
+
+           IF (Rank_horizontal_above.GE.0) THEN
+! ## 8 ## receive from above densities in the vertical line under the top line
+              CALL MPI_RECV(rbufer, n3, MPI_REAL, Rank_horizontal_above, Rank_horizontal_above, COMM_HORIZONTAL, stattus, ierr)
+              DO i = c_indx_x_min, c_indx_x_max
+                 diagnostics_neutral(n)%activated_collision(p)%counter_local(i, c_indx_y_max-1) = diagnostics_neutral(n)%activated_collision(p)%counter_local(i, c_indx_y_max-1) + rbufer(i-c_indx_x_min+1)
+              END DO
+           END IF
+
+        ELSE
+! "black" processes
+
+           IF (ALLOCATED(rbufer)) DEALLOCATE(rbufer, STAT=ALLOC_ERR)
+           ALLOCATE(rbufer(1:n1), STAT=ALLOC_ERR)
+
+           IF (Rank_horizontal_left.GE.0) THEN
+! ## 1 ## receive from left densities in the vertical line next to the left edge
+              CALL MPI_RECV(rbufer, n1, MPI_REAL, Rank_horizontal_left, Rank_horizontal_left, COMM_HORIZONTAL, stattus, ierr)
+              DO j = c_indx_y_min, c_indx_y_max
+                 diagnostics_neutral(n)%activated_collision(p)%counter_local(c_indx_x_min+1, j) = diagnostics_neutral(n)%activated_collision(p)%counter_local(c_indx_x_min+1, j) + rbufer(j-c_indx_y_min+1)
+              END DO
+           END IF
+
+           IF (Rank_horizontal_right.GE.0) THEN
+! ## 2 ## receive from right densities in the vertical line next to the right edge
+              CALL MPI_RECV(rbufer, n1, MPI_REAL, Rank_horizontal_right, Rank_horizontal_right, COMM_HORIZONTAL, stattus, ierr)
+              DO j = c_indx_y_min, c_indx_y_max
+                 diagnostics_neutral(n)%activated_collision(p)%counter_local(c_indx_x_max-1, j) = diagnostics_neutral(n)%activated_collision(p)%counter_local(c_indx_x_max-1, j) + rbufer(j-c_indx_y_min+1)
+              END DO
+           END IF
+
+           IF (Rank_horizontal_right.GE.0) THEN
+! ## 3 ## send right densities in the right edge
+              rbufer(1:n1) = diagnostics_neutral(n)%activated_collision(p)%counter_local(c_indx_x_max, c_indx_y_min:c_indx_y_max)
+              CALL MPI_SEND(rbufer, n1, MPI_REAL, Rank_horizontal_right, Rank_horizontal, COMM_HORIZONTAL, request, ierr) 
+           END IF
+
+           IF (Rank_horizontal_left.GE.0) THEN
+! ## 4 ## send left densities in the left edge
+              rbufer(1:n1) = diagnostics_neutral(n)%activated_collision(p)%counter_local(c_indx_x_min, c_indx_y_min:c_indx_y_max)
+              CALL MPI_SEND(rbufer, n1, MPI_REAL, Rank_horizontal_left, Rank_horizontal, COMM_HORIZONTAL, request, ierr) 
+           END IF
+
+           IF (ALLOCATED(rbufer)) DEALLOCATE(rbufer, STAT=ALLOC_ERR)
+           ALLOCATE(rbufer(1:n3), STAT=ALLOC_ERR)
+
+           IF (Rank_horizontal_below.GE.0) THEN
+! ## 5 ## receive from below densities in the vertical line above the bottom line
+              CALL MPI_RECV(rbufer, n3, MPI_REAL, Rank_horizontal_below, Rank_horizontal_below, COMM_HORIZONTAL, stattus, ierr)
+              DO i = c_indx_x_min, c_indx_x_max
+                 diagnostics_neutral(n)%activated_collision(p)%counter_local(i, c_indx_y_min+1) = diagnostics_neutral(n)%activated_collision(p)%counter_local(i, c_indx_y_min+1) + rbufer(i-c_indx_x_min+1)
+              END DO
+           END IF
+
+           IF (Rank_horizontal_above.GE.0) THEN
+! ## 6 ## receive from above densities in the vertical line under the top line
+              CALL MPI_RECV(rbufer, n3, MPI_REAL, Rank_horizontal_above, Rank_horizontal_above, COMM_HORIZONTAL, stattus, ierr)
+              DO i = c_indx_x_min, c_indx_x_max
+                 diagnostics_neutral(n)%activated_collision(p)%counter_local(i, c_indx_y_max-1) = diagnostics_neutral(n)%activated_collision(p)%counter_local(i, c_indx_y_max-1) + rbufer(i-c_indx_x_min+1)
+              END DO
+           END IF
+
+           IF (Rank_horizontal_above.GE.0) THEN
+! ## 7 ## send up densities in the top edge
+              rbufer(1:n3) = diagnostics_neutral(n)%activated_collision(p)%counter_local(c_indx_x_min:c_indx_x_max, c_indx_y_max)
+              CALL MPI_SEND(rbufer, n3, MPI_REAL, Rank_horizontal_above, Rank_horizontal, COMM_HORIZONTAL, request, ierr) 
+           END IF
+
+           IF (Rank_horizontal_below.GE.0) THEN
+! ## 8 ## send down densities in the bottom edge
+              rbufer(1:n3) = diagnostics_neutral(n)%activated_collision(p)%counter_local(c_indx_x_min:c_indx_x_max, c_indx_y_min)
+              CALL MPI_SEND(rbufer, n3, MPI_REAL, Rank_horizontal_below, Rank_horizontal, COMM_HORIZONTAL, request, ierr) 
+           END IF
+
+        END IF
+
+! adjust values at the boundaries with material walls (where the cell area may be 3/4, 1/2, or 1/4 of an inner cell)
+
+        IF (Rank_of_master_left.LT.0) THEN
+           DO j = c_indx_y_min+1, c_indx_y_max-1
+              diagnostics_neutral(n)%activated_collision(p)%counter_local(c_indx_x_min, j) = 2.0 * diagnostics_neutral(n)%activated_collision(p)%counter_local(c_indx_x_min, j)
+           END DO
+        END IF
+
+        IF (Rank_of_master_right.LT.0) THEN
+           DO j = c_indx_y_min+1, c_indx_y_max-1
+              diagnostics_neutral(n)%activated_collision(p)%counter_local(c_indx_x_max, j) = 2.0 * diagnostics_neutral(n)%activated_collision(p)%counter_local(c_indx_x_max, j)
+           END DO
+        END IF
+  
+        IF (Rank_of_master_above.LT.0) THEN
+           DO i = c_indx_x_min+1, c_indx_x_max-1
+              diagnostics_neutral(n)%activated_collision(p)%counter_local(i, c_indx_y_max) = 2.0 * diagnostics_neutral(n)%activated_collision(p)%counter_local(i, c_indx_y_max)
+           END DO
+        END IF
+  
+        IF (Rank_of_master_below.LT.0) THEN
+           DO i = c_indx_x_min+1, c_indx_x_max-1
+              diagnostics_neutral(n)%activated_collision(p)%counter_local(i, c_indx_y_min) = 2.0 * diagnostics_neutral(n)%activated_collision(p)%counter_local(i, c_indx_y_min)
+           END DO
+        END IF
+
+        SELECT CASE (c_left_bottom_corner_type)
+           CASE (SURROUNDED_BY_WALL)
+              diagnostics_neutral(n)%activated_collision(p)%counter_local(c_indx_x_min, c_indx_y_min) = 4.0 * diagnostics_neutral(n)%activated_collision(p)%counter_local(c_indx_x_min, c_indx_y_min) 
+           CASE (EMPTY_CORNER_WALL_LEFT)
+              diagnostics_neutral(n)%activated_collision(p)%counter_local(c_indx_x_min, c_indx_y_min+1) = 0.66666666666666 * diagnostics_neutral(n)%activated_collision(p)%counter_local(c_indx_x_min, c_indx_y_min+1)    ! 2*2/3=4/3=1/(3/4)
+           CASE (EMPTY_CORNER_WALL_BELOW)
+              diagnostics_neutral(n)%activated_collision(p)%counter_local(c_indx_x_min+1, c_indx_y_min) = 0.66666666666666 * diagnostics_neutral(n)%activated_collision(p)%counter_local(c_indx_x_min+1, c_indx_y_min)    ! 2*2/3=4/3=1/(3/4)
+        END SELECT
+     
+        SELECT CASE (c_left_top_corner_type)
+           CASE (SURROUNDED_BY_WALL)
+              diagnostics_neutral(n)%activated_collision(p)%counter_local(c_indx_x_min, c_indx_y_max) = 4.0 * diagnostics_neutral(n)%activated_collision(p)%counter_local(c_indx_x_min, c_indx_y_max) 
+           CASE (EMPTY_CORNER_WALL_LEFT)
+              diagnostics_neutral(n)%activated_collision(p)%counter_local(c_indx_x_min, c_indx_y_max-1) = 0.66666666666666 * diagnostics_neutral(n)%activated_collision(p)%counter_local(c_indx_x_min, c_indx_y_max-1)    ! 2*2/3=4/3=1/(3/4)
+           CASE (EMPTY_CORNER_WALL_ABOVE)
+              diagnostics_neutral(n)%activated_collision(p)%counter_local(c_indx_x_min+1, c_indx_y_max) = 0.66666666666666 * diagnostics_neutral(n)%activated_collision(p)%counter_local(c_indx_x_min+1, c_indx_y_max)    ! 2*2/3=4/3=1/(3/4)
+        END SELECT
+
+        SELECT CASE (c_right_bottom_corner_type)
+           CASE (SURROUNDED_BY_WALL)
+              diagnostics_neutral(n)%activated_collision(p)%counter_local(c_indx_x_max, c_indx_y_min) = 4.0 * diagnostics_neutral(n)%activated_collision(p)%counter_local(c_indx_x_max, c_indx_y_min) 
+           CASE (EMPTY_CORNER_WALL_RIGHT)
+              diagnostics_neutral(n)%activated_collision(p)%counter_local(c_indx_x_max, c_indx_y_min+1) = 0.66666666666666 * diagnostics_neutral(n)%activated_collision(p)%counter_local(c_indx_x_max, c_indx_y_min+1)    ! 2*2/3=4/3=1/(3/4)
+           CASE (EMPTY_CORNER_WALL_BELOW)
+              diagnostics_neutral(n)%activated_collision(p)%counter_local(c_indx_x_max-1, c_indx_y_min) = 0.66666666666666 * diagnostics_neutral(n)%activated_collision(p)%counter_local(c_indx_x_max-1, c_indx_y_min)    ! 2*2/3=4/3=1/(3/4)
+        END SELECT
+     
+        SELECT CASE (c_right_top_corner_type)
+           CASE (SURROUNDED_BY_WALL)
+              diagnostics_neutral(n)%activated_collision(p)%counter_local(c_indx_x_max, c_indx_y_max) = 4.0 * diagnostics_neutral(n)%activated_collision(p)%counter_local(c_indx_x_max, c_indx_y_max) 
+           CASE (EMPTY_CORNER_WALL_RIGHT)
+              diagnostics_neutral(n)%activated_collision(p)%counter_local(c_indx_x_max, c_indx_y_max-1) = 0.66666666666666 * diagnostics_neutral(n)%activated_collision(p)%counter_local(c_indx_x_max, c_indx_y_max-1)    ! 2*2/3=4/3=1/(3/4)
+           CASE (EMPTY_CORNER_WALL_ABOVE)
+              diagnostics_neutral(n)%activated_collision(p)%counter_local(c_indx_x_max-1, c_indx_y_max) = 0.66666666666666 * diagnostics_neutral(n)%activated_collision(p)%counter_local(c_indx_x_max-1, c_indx_y_max)    ! 2*2/3=4/3=1/(3/4)
+        END SELECT
+
+        filename = '_NNNN_neutral_AAAAAA_coll_id_NN_i_NN.bin'
+        filename(2:5) = convert_int_to_txt_string(current_snap, 4)
+        filename(15:20) = neutral(n)%name
+        filename(30:31) = convert_int_to_txt_string(collision_e_neutral(n)%colproc_info(p)%id_number, 2)
+        filename(35:36) = convert_int_to_txt_string(collision_e_neutral(n)%colproc_info(p)%ion_species_produced, 2)
+
+        DO j = c_indx_y_min, c_indx_y_max
+           DO i = c_indx_x_min, c_indx_x_max
+              diagnostics_neutral(n)%activated_collision(p)%counter_local(i,j) = diagnostics_neutral(n)%activated_collision(p)%counter_local(i,j) * conversion_factor_m3s
+           END DO
+        END DO
+
+        CALL SAVE_GLOBAL_2D_ARRAY(diagnostics_neutral(n)%activated_collision(p)%counter_local, filename)
+
+! complete cleanup (deallocate + zeroing) is performed in the end of CREATE_SNAPSHOT
+!        diagnostics_neutral(n)%activated_collision(p)%counter_local = 0.0
+
+        IF (Rank_of_process.EQ.0) PRINT '("created file ",A40)', filename
+
+     END DO  !###    DO p = 1, collision_e_neutral(n)%N_of_activated_colproc
+  END DO     !### DO n = 1, N_neutral_spec
+
+
+END SUBROUTINE SAVE_en_COLLISIONS_2D
+
+!---------------------------------------------------------------------------------------------------
+!
 SUBROUTINE FINISH_SNAPSHOTS
 
   USE Snapshots
@@ -1642,5 +2013,6 @@ SUBROUTINE FINISH_SNAPSHOTS
   IF (ALLOCATED(    Tcntr_snapshot)) DEALLOCATE(    Tcntr_snapshot, STAT=DEALLOC_ERR)
   IF (ALLOCATED(save_evdf_snapshot)) DEALLOCATE(save_evdf_snapshot, STAT=DEALLOC_ERR)
   IF (ALLOCATED(save_pp_snapshot)) DEALLOCATE(save_pp_snapshot, STAT=DEALLOC_ERR)
+  IF (ALLOCATED(save_ionization_rates_2d)) DEALLOCATE(save_ionization_rates_2d, STAT=DEALLOC_ERR)
 
 END SUBROUTINE FINISH_SNAPSHOTS

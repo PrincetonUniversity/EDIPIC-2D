@@ -585,3 +585,40 @@ SUBROUTINE READ_CHECKPOINT_MPIIO_2
   IF (ALLOCATED(jbufer)) DEALLOCATE(jbufer, STAT = ALLOC_ERR)
 
 END SUBROUTINE READ_CHECKPOINT_MPIIO_2
+
+!--------------------------------------------------
+!
+SUBROUTINE ADJUST_T_CNTR_SAVE_CHECKPOINT
+
+  USE CurrentProblemValues, ONLY : N_subcycles
+  USE ParallelOperationValues, ONLY : Rank_of_process
+  USE Snapshots, ONLY : current_snap, N_of_all_snaps, Tcntr_snapshot, save_ionization_rates_2d
+  USE Checkpoints, ONLY : T_cntr_save_checkpoint
+  USE MCCollisions, ONLY : en_collisions_turned_off, no_ionization_collisions
+
+  IMPLICIT NONE
+
+  INTEGER T_cntr_save_checkpoint_old
+  INTEGER n
+
+  IF (en_collisions_turned_off) RETURN
+  IF (no_ionization_collisions) RETURN
+
+  T_cntr_save_checkpoint_old = T_cntr_save_checkpoint
+
+! find first snapshot after the desired checkpoint time
+
+  DO n = current_snap, N_of_all_snaps
+     IF (Tcntr_snapshot(n).GE.T_cntr_save_checkpoint) THEN
+        IF (.NOT.save_ionization_rates_2d(n)) RETURN
+! if the snapshot saves ionization rates, move checkpoint save to the timestep following the last ion advance before the snapshot save
+        T_cntr_save_checkpoint = N_subcycles * (Tcntr_snapshot(n) / N_subcycles)
+        IF (T_cntr_save_checkpoint.NE.T_cntr_save_checkpoint_old) THEN
+           IF (Rank_of_process.EQ.0) PRINT '("### ADJUST_T_CNTR_SAVE_CHECKPOINT :: changed T_cntr_save_checkpoint from ",i9," : to ",i9," ###")', &
+                & T_cntr_save_checkpoint_old, T_cntr_save_checkpoint
+        END IF
+        RETURN
+     END IF
+  END DO
+
+END SUBROUTINE ADJUST_T_CNTR_SAVE_CHECKPOINT

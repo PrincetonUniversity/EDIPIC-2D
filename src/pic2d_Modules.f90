@@ -706,8 +706,10 @@ MODULE Snapshots
 
   INTEGER N_of_all_snaps                        ! number of all snapshots  
   INTEGER, ALLOCATABLE ::     Tcntr_snapshot(:)     ! timesteps when the snapshot files are written
-  INTEGER, ALLOCATABLE :: save_evdf_snapshot(:)     ! timesteps when the snapshot files are written
-  INTEGER, ALLOCATABLE ::   save_pp_snapshot(:)     ! timesteps when the snapshot files are written
+  INTEGER, ALLOCATABLE :: save_evdf_snapshot(:)     ! flags controlling how evdf is saved
+  INTEGER, ALLOCATABLE ::   save_pp_snapshot(:)     ! flags controlling saving of phase planes
+
+  LOGICAL, ALLOCATABLE :: save_ionization_rates_2d(:)   ! turns on/off accumulation and saving of ioniization rates
 
   INTEGER current_snap                          ! index of current snapshot (which must be created)
 
@@ -790,6 +792,17 @@ MODULE Snapshots
 
   TYPE(index_limits), ALLOCATABLE :: pp_box(:)
 
+  TYPE specific_coll_diag
+     REAL, ALLOCATABLE :: counter_local(:,:)
+  END TYPE specific_coll_diag
+
+  TYPE coll_diag
+!     INTEGER N_of_activated_colproc
+     TYPE(specific_coll_diag), ALLOCATABLE :: activated_collision(:)
+  END TYPE coll_diag
+
+  TYPE(coll_diag), ALLOCATABLE :: diagnostics_neutral(:)
+
 END MODULE Snapshots
 
 !*******************************************************************************************
@@ -868,6 +881,7 @@ END MODULE Checkpoints
 MODULE MCCollisions
 
   LOGICAL en_collisions_turned_off
+  LOGICAL no_ionization_collisions
 
   INTEGER N_neutral_spec
 
@@ -923,6 +937,10 @@ MODULE MCCollisions
 
   TYPE binary_tree
      INTEGER number
+
+     INTEGER neutral
+     INTEGER indx_coll
+
      TYPE (binary_tree), POINTER :: Larger
      TYPE (binary_tree), POINTER :: Smaller     
   END TYPE binary_tree

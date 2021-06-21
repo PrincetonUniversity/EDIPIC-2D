@@ -6,6 +6,7 @@ SUBROUTINE INITIATE_ELECTRON_NEUTRAL_COLLISIONS
   USE MCCollisions
   USE CurrentProblemValues, ONLY : kB_JK, e_Cl, N_max_vel, T_e_eV, N_max_vel
   USE IonParticles, ONLY : N_spec, Ms
+!  USE ClusterAndItsBoundaries
 
   IMPLICIT NONE
 
@@ -48,6 +49,7 @@ SUBROUTINE INITIATE_ELECTRON_NEUTRAL_COLLISIONS
   END INTERFACE
 
   en_collisions_turned_off = .TRUE.
+  no_ionization_collisions = .TRUE.
 
   INQUIRE (FILE = 'init_neutrals.dat', EXIST = exists)
 
@@ -155,7 +157,9 @@ SUBROUTINE INITIATE_ELECTRON_NEUTRAL_COLLISIONS
 
         IF (.NOT.neutral(n)%en_colproc(p)%activated) CYCLE
 
-        en_collisions_turned_off = .FALSE.    ! flip the general collision switch
+        en_collisions_turned_off = .FALSE.                                           !### flip the general collision switch
+
+        IF (neutral(n)%en_colproc(p)%type.GE.30) no_ionization_collisions = .FALSE.  !### enable ionization collision counting
 
         initneutral_crsect_filename = 'init_neutral_AAAAAA_crsect_coll_id_NN_type_NN.dat'
         initneutral_crsect_filename(14:19) = neutral(n)%name
@@ -317,14 +321,23 @@ END SUBROUTINE INITIATE_ELECTRON_NEUTRAL_COLLISIONS
 !
 SUBROUTINE PERFORM_ELECTRON_NEUTRAL_COLLISIONS
 
+  USE ParallelOperationValues
   USE MCCollisions
   USE ElectronParticles
   USE CurrentProblemValues, ONLY : V_scale_ms, m_e_kg, e_Cl
+  USE ClusterAndItsBoundaries
   USE rng_wrapper
+  USE Snapshots
 
 !  USE ParallelOperationValues
 
   IMPLICIT NONE
+
+  INCLUDE 'mpif.h'
+
+  INTEGER ierr
+  INTEGER stattus(MPI_STATUS_SIZE)
+  INTEGER request
 
   INTEGER ALLOC_ERR
 
@@ -345,6 +358,9 @@ SUBROUTINE PERFORM_ELECTRON_NEUTRAL_COLLISIONS
 
   INTEGER k, indx_coll
 
+  INTEGER n1, n2, n3, bufsize, pos
+  REAL, ALLOCATABLE :: rbufer(:), rbufer2(:)
+
 ! functions
   LOGICAL Find_in_stored_list
   REAL(8) neutral_density_normalized
@@ -354,6 +370,15 @@ SUBROUTINE PERFORM_ELECTRON_NEUTRAL_COLLISIONS
        USE MCCollisions
        TYPE (binary_tree), POINTER :: node
      END SUBROUTINE Node_Killer
+
+     RECURSIVE SUBROUTINE Transfer_collisions_from_stored_list(node, n_neutral, indx_coll, bufsize, n1, n2, n3, rbufer)
+       USE MCCollisions
+       USE ElectronParticles
+       USE ClusterAndItsBoundaries
+       TYPE (binary_tree), POINTER :: node
+       INTEGER, INTENT(IN) :: n_neutral, indx_coll, bufsize, n1, n2, n3
+       REAL, DIMENSION(bufsize), INTENT(INOUT) :: rbufer
+     END SUBROUTINE Transfer_collisions_from_stored_list
   END INTERFACE
 
   IF (en_collisions_turned_off) RETURN
@@ -438,7 +463,7 @@ SUBROUTINE PERFORM_ELECTRON_NEUTRAL_COLLISIONS
 
         IF (indx_coll.GT.collision_e_neutral(n)%N_of_activated_colproc) CYCLE   ! the null collision
 
-        CALL Add_to_stored_list(random_j)
+        CALL Add_to_stored_list(random_j, n, indx_coll)
 
         SELECT CASE (collision_e_neutral(n)%colproc_info(indx_coll)%type)
         CASE (10)
@@ -459,6 +484,70 @@ SUBROUTINE PERFORM_ELECTRON_NEUTRAL_COLLISIONS
 
      END DO
   END DO
+
+!### exit if there is no ionization collisions
+  IF (no_ionization_collisions) THEN
+     CALL Node_Killer(Collided_particle)
+     RETURN
+  END IF
+
+!### exit if the last snapshot has been saved alread, also works when no snapshots are requested (N_of_all_snaps=0)
+  IF (current_snap.GT.N_of_all_snaps) THEN
+     CALL Node_Killer(Collided_particle)
+     RETURN
+  END IF
+
+!### exit if 2d-collision diagnostics not requested
+  IF (.NOT.save_ionization_rates_2d(current_snap)) THEN
+     CALL Node_Killer(Collided_particle)
+     RETURN
+  END IF
+
+! account for collisions in diagnostics arrays
+
+  n1 = c_indx_y_max - c_indx_y_min + 1
+  n3 = c_indx_x_max - c_indx_x_min + 1
+  n2 = -c_indx_x_min + 1 - c_indx_y_min * n3
+  bufsize = n1 * n3
+  ALLOCATE(rbufer(1:bufsize), STAT=ALLOC_ERR)
+  IF (Rank_cluster.EQ.0) THEN
+     ALLOCATE(rbufer2(1:bufsize), STAT=ALLOC_ERR)
+  ELSE
+! MPI_REDUCE requires a separate receiver array for all processes, 
+! but in all processes except the one where the final result (e.g. sum) is assembled 
+! it is sufficient to have a valid array of minimal size. 
+! The same is done in CREATE_SNAPSHOT.
+     ALLOCATE(rbufer2(1), STAT=ALLOC_ERR)
+  END IF
+
+  DO n = 1, N_neutral_spec
+     DO p = 1, collision_e_neutral(n)%N_of_activated_colproc
+        IF (collision_e_neutral(n)%colproc_info(p)%type.LT.30) CYCLE  ! skip non-ionizing collisions
+
+        rbufer = 0.0
+        rbufer2 = 0.0
+
+        CALL Transfer_collisions_from_stored_list(Collided_particle, n, p, bufsize, n1, n2, n3, rbufer)
+
+        CALL MPI_REDUCE(rbufer, rbufer2, bufsize, MPI_REAL, MPI_SUM, 0, COMM_CLUSTER, ierr)
+
+        IF (cluster_rank_key.EQ.0) THEN
+           pos=1
+           DO j = c_indx_y_min, c_indx_y_max
+              DO i = c_indx_x_min, c_indx_x_max
+                 diagnostics_neutral(n)%activated_collision(p)%counter_local(i,j) = diagnostics_neutral(n)%activated_collision(p)%counter_local(i,j) + rbufer2(pos)
+                 pos=pos+1
+              END DO
+           END DO
+        END IF
+  
+        CALL MPI_BARRIER(COMM_CLUSTER, ierr) !??????????
+
+     END DO
+  END DO
+
+  IF (ALLOCATED(rbufer)) DEALLOCATE(rbufer, STAT = ALLOC_ERR)
+  IF (ALLOCATED(rbufer2)) DEALLOCATE(rbufer2, STAT = ALLOC_ERR)
 
   CALL Node_Killer(Collided_particle)
 
@@ -695,12 +784,16 @@ END FUNCTION Find_in_stored_list
 !-----------------------------------------------------------------
 ! subroutine adds number to the binary tree
 ! we assume that there are no nodes in the tree with the same value yet
-SUBROUTINE Add_to_stored_list(number)
+SUBROUTINE Add_to_stored_list(number, n_neutral, indx_coll)
 
   USE MCCollisions
 
   IMPLICIT NONE
+
   INTEGER number
+  INTEGER n_neutral
+  INTEGER indx_coll
+
   TYPE (binary_tree), POINTER :: current
   INTEGER ALLOC_ERR
 
@@ -732,11 +825,73 @@ SUBROUTINE Add_to_stored_list(number)
      
   END DO
 
-  current%number = number                       ! store the number
+  current%number    = number                       ! collided electron particle number
+  current%neutral   = n_neutral                    ! neutral species number
+  current%indx_coll = indx_coll                    ! index of activated collision [not collision id]
+
   NULLIFY(current%Larger)
   NULLIFY(current%Smaller)
 
 END SUBROUTINE Add_to_stored_list
+
+!-----------------------------------------------------------------
+!
+RECURSIVE SUBROUTINE Transfer_collisions_from_stored_list(node, n_neutral, indx_coll, bufsize, n1, n2, n3, rbufer)
+
+  USE MCCollisions
+  USE ElectronParticles
+  USE ClusterAndItsBoundaries
+
+  IMPLICIT NONE
+
+  TYPE (binary_tree), POINTER :: node
+
+  INTEGER, INTENT(IN) :: n_neutral, indx_coll, bufsize, n1, n2, n3
+  REAL, DIMENSION(bufsize), INTENT(INOUT) :: rbufer
+
+  INTEGER i, j, k
+  INTEGER pos_i_j, pos_ip1_j, pos_i_jp1, pos_ip1_jp1
+  REAL ax_ip1, ax_i, ay_jp1, ay_j
+  REAL vij, vip1j, vijp1
+
+  IF ((node%neutral.EQ.n_neutral).AND.(node%indx_coll.EQ.indx_coll)) THEN
+
+     k = node%number
+
+     i = INT(electron(k)%X)
+     j = INT(electron(k)%Y)
+     IF (electron(k)%X.EQ.c_X_area_max) i = c_indx_x_max-1
+     IF (electron(k)%Y.EQ.c_Y_area_max) j = c_indx_y_max-1
+     
+     pos_i_j     = i + j * n3 + n2
+     pos_ip1_j   = pos_i_j + 1
+     pos_i_jp1   = pos_i_j + n3
+     pos_ip1_jp1 = pos_i_jp1 + 1
+
+     ax_ip1 = REAL(electron(k)%X) - REAL(i)
+     ax_i   = 1.0 - ax_ip1
+
+     ay_jp1 = REAL(electron(k)%Y) - REAL(j)
+     ay_j   = 1.0 - ay_jp1
+
+     vij   = ax_i   * ay_j
+     vip1j = ax_ip1 * ay_j
+     vijp1 = ax_i   * ay_jp1
+
+     rbufer(pos_i_j)     = rbufer(pos_i_j)     + vij                         !ax_i   * ay_j
+     rbufer(pos_ip1_j)   = rbufer(pos_ip1_j)   + vip1j                       !ax_ip1 * ay_j
+     rbufer(pos_i_jp1)   = rbufer(pos_i_jp1)   + vijp1                       !ax_i   * ay_jp1
+     rbufer(pos_ip1_jp1) = rbufer(pos_ip1_jp1) + 1.0 - vij - vip1j - vijp1   !ax_ip1 * ay_jp1
+
+  END IF
+
+  IF (ASSOCIATED(node%Larger)) CALL Transfer_collisions_from_stored_list(node%Larger, n_neutral, indx_coll, bufsize, n1, n2, n3, rbufer)
+
+  IF (ASSOCIATED(node%Smaller)) CALL Transfer_collisions_from_stored_list(node%Smaller, n_neutral, indx_coll, bufsize, n1, n2, n3, rbufer)
+
+  RETURN
+
+END SUBROUTINE Transfer_collisions_from_stored_list
 
 !---------------------------------------------------
 ! this subroutine kills the nodes of the binary tree

@@ -45,6 +45,8 @@ PROGRAM MainProg
 
   CALL INITIATE_SNAPSHOTS
 
+  CALL ADJUST_T_CNTR_SAVE_CHECKPOINT
+
   start = MPI_WTIME()
 
   n_sub = 0
@@ -58,6 +60,7 @@ if (Rank_of_process.eq.0) print *, T_cntr
      IF (T_cntr.EQ.T_cntr_save_checkpoint) THEN
         CALL SAVE_CHECKPOINT_MPIIO_2(n_sub)
         T_cntr_save_checkpoint = T_cntr_save_checkpoint + dT_save_checkpoint
+        CALL ADJUST_T_CNTR_SAVE_CHECKPOINT
      END IF
 
      CALL MPI_BARRIER(MPI_COMM_WORLD, ierr) 
@@ -192,6 +195,10 @@ call report_total_number_of_particles
         CALL MPI_BARRIER(MPI_COMM_WORLD, ierr) 
 
         CALL SAVE_en_COLLISIONS
+
+        CALL MPI_BARRIER(MPI_COMM_WORLD, ierr) 
+
+        CALL SAVE_en_COLLISIONS_2D
 
         CALL MPI_BARRIER(MPI_COMM_WORLD, ierr) 
 
