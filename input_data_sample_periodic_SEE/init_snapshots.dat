@@ -25,10 +25,9 @@
   100
 -------- Parameters for saving phase planes
 --dd---- Number of rectangular spatial boxes (>=0)
-   3
+   1
 --dddd--dddd----dddd--dddd--- left bottom corner X/Y (node index) / right top corner X/Y (node index)
-    55     0      57   481
-   255     0     257   481
-   455     0     457   481
+     0     0      10   481
+
 
 

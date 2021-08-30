@@ -20,8 +20,8 @@
      2
 -----d---------- number of blocks in a cluster along the Y-direction
      2
----ddd---------- number of boundary objects
-     4
+---ddd---ddd---- number of objects along domain boundary // number of material inner objects (>=0), each inner objects is a rectangle
+     4     0
 ===dd===dd=== object type, number of segments // periodic boundary at the left, #1
     2    1
 ---dddddd---dddddd---dddddd---dddddd---segment start X/Y end X/Y [global node index]
