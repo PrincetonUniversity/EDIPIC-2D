@@ -8,8 +8,8 @@
        0.000
 ---ddddd.ddd--- phase [deg] for sin(omega*t+phase)
        0.000
-----dddd------- number of electron macroparticles injected each timestep, constant [dim-less]
-    1000
+---ddddd.ddd--- number of electron macroparticles injected each timestep, constant [dim-less]
+      10.000
 -------d------- emission model (0 = thermal emission, 1 = electron beam)
        1
 ----dddd.ddd--- temperature of emitted electrons / half-energy-spread of the beam (Tb) normal to the wall [eV] (>=0)
