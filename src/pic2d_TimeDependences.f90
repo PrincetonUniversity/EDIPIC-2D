@@ -282,9 +282,9 @@ SUBROUTINE INITIATE_PROBE_DIAGNOSTICS
 
   CALL MPI_BARRIER(MPI_COMM_WORLD, ierr)
 
-  IF (periodicity_flag.EQ.PERIODICITY_NONE) THEN
+  IF ((periodicity_flag.EQ.PERIODICITY_NONE).OR.(periodicity_flag.EQ.PERIODICITY_X_PETSC).OR.(periodicity_flag.EQ.PERIODICITY_X_Y)) THEN
 
-! field calculators will be providing electrostatic potential (in non-periodic systems) and also must identify which probes belong to their domains
+! field calculators will be providing electrostatic potential (unless FFT-based solver is on) and also must identify which probes belong to their domains
   
      ALLOCATE(ibufer(1:N_of_probes), STAT = ALLOC_ERR)
 
@@ -647,9 +647,9 @@ SUBROUTINE DO_PROBE_DIAGNOSTICS(n_sub)
   
   CALL MPI_BARRIER(MPI_COMM_WORLD, ierr) 
 
-! collect potential from field calculators (for non-periodic system only) ---------------------------------------------
+! collect potential from field calculators (for systems which do not use FFT solver) ---------------------------------------------
 
-  IF (periodicity_flag.EQ.PERIODICITY_NONE) THEN
+  IF ((periodicity_flag.EQ.PERIODICITY_NONE).OR.(periodicity_flag.EQ.PERIODICITY_X_PETSC).OR.(periodicity_flag.EQ.PERIODICITY_X_Y)) THEN
 
      IF (cluster_rank_key.EQ.0) THEN
         IF (N_of_probes_cluster.GT.0) THEN

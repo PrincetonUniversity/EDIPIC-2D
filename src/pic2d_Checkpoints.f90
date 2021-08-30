@@ -124,6 +124,14 @@ SUBROUTINE SAVE_CHECKPOINT_MPIIO_2(n_sub)
            END IF
         END IF
      END DO
+! include dielectric inner objects, only for left bottom cluster master (all masters have same copy)
+     IF (Rank_of_process.EQ.Rank_of_bottom_left_cluster_master) THEN
+        DO nwo = N_of_boundary_objects+1, N_of_boundary_and_inner_objects
+           IF (whole_object(nwo)%object_type.EQ.DIELECTRIC) THEN
+              len_surf_charge = len_surf_charge + whole_object(nwo)%N_boundary_nodes
+           END IF
+        END DO
+     END IF
   END IF
 
   ibufer(pos) = len_surf_charge
@@ -154,6 +162,16 @@ SUBROUTINE SAVE_CHECKPOINT_MPIIO_2(n_sub)
            END IF
         END IF
      END DO
+! include dielectric inner objects, only for left bottom cluster master (all masters have same copy)
+     IF (Rank_of_process.EQ.Rank_of_bottom_left_cluster_master) THEN
+        DO nwo = N_of_boundary_objects+1, N_of_boundary_and_inner_objects
+           IF (whole_object(nwo)%object_type.EQ.DIELECTRIC) THEN
+              pos = pos2 + 1
+              pos2 = pos2 + whole_object(nwo)%N_boundary_nodes
+              rbufer(pos:pos2) = whole_object(nwo)%surface_charge(1:whole_object(nwo)%N_boundary_nodes)
+           END IF
+        END DO
+     END IF
   END IF
 
   CALL MPI_BARRIER(MPI_COMM_WORLD, ierr)
@@ -458,7 +476,17 @@ SUBROUTINE READ_CHECKPOINT_MPIIO_2
            END IF
         END IF
      END DO
-  END IF
+! get surface charge on dielectric inner objects, only for left bottom cluster master (all other masters will get the copy later, after SET_COMMUNICATIONS is called)
+     IF (Rank_of_process.EQ.Rank_of_bottom_left_cluster_master) THEN
+        DO nwo = N_of_boundary_objects+1, N_of_boundary_and_inner_objects
+           IF (whole_object(nwo)%object_type.EQ.DIELECTRIC) THEN
+              pos = pos2 + 1
+              pos2 = pos2 + whole_object(nwo)%N_boundary_nodes
+              whole_object(nwo)%surface_charge(1:whole_object(nwo)%N_boundary_nodes) = rbufer(pos:pos2)
+           END IF
+        END DO
+     END IF
+ END IF
 
   bufsize = 5 * N_electrons
   ALLOCATE(dbufer(1:bufsize), STAT = ALLOC_ERR)

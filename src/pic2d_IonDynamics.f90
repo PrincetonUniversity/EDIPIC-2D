@@ -19,6 +19,10 @@ SUBROUTINE ADVANCE_IONS
   REAL(8) K11, K12, K13, K21, K22, K23, K31, K32, K33
   REAL(8) VX_minus, VY_minus, VZ_minus
   REAL(8) VX_plus, VY_plus, VZ_plus
+
+  INTEGER n
+  LOGICAL collision_with_inner_object_occurred
+
 ! functions
   REAL(8) Bx, By, Bz, Ez
 
@@ -29,7 +33,7 @@ SUBROUTINE ADVANCE_IONS
   N_ions_to_send_below = 0
 
 ! clear counters of particles that hit the boundary objects
-  DO k = 1, N_of_boundary_objects
+  DO k = 1, N_of_boundary_and_inner_objects
      whole_object(k)%ion_hit_count(1:N_spec) = 0
   END DO
 
@@ -145,22 +149,39 @@ SUBROUTINE ADVANCE_IONS
         ion(s)%part(k)%X = ion(s)%part(k)%X + ion(s)%part(k)%VX * N_subcycles
         ion(s)%part(k)%Y = ion(s)%part(k)%Y + ion(s)%part(k)%VY * N_subcycles
 
-! most probable situation when the particle stays inside the area
-        IF ( (ion(s)%part(k)%X.GE.c_X_area_min) .AND. &
-           & (ion(s)%part(k)%X.LE.c_X_area_max) .AND. &
-           & (ion(s)%part(k)%Y.GE.c_Y_area_min) .AND. &
-           & (ion(s)%part(k)%Y.LE.c_Y_area_max) ) THEN
-           CYCLE
-        END IF
-
-! since we are here, a particle crossed an area boundary
-
+! a particle crossed symmetry plane, reflect it
         IF (symmetry_plane_X_left) THEN
            IF (ion(s)%part(k)%X.LT.c_X_area_min) THEN
               ion(s)%part(k)%X = MAX(c_X_area_min, c_X_area_min + c_X_area_min - ion(s)%part(k)%X)
               ion(s)%part(k)%VX = -ion(s)%part(k)%VX
            END IF
         END IF
+
+! check whether a collision with an inner object occurred
+        collision_with_inner_object_occurred = .FALSE.
+        DO n = N_of_boundary_objects+1, N_of_boundary_and_inner_objects
+           IF (ion(s)%part(k)%X.LE.whole_object(n)%Xmin) CYCLE
+           IF (ion(s)%part(k)%X.GE.whole_object(n)%Xmax) CYCLE
+           IF (ion(s)%part(k)%Y.LE.whole_object(n)%Ymin) CYCLE
+           IF (ion(s)%part(k)%Y.GE.whole_object(n)%Ymax) CYCLE
+! collision detected
+           CALL TRY_ION_COLL_WITH_INNER_OBJECT(s, ion(s)%part(k)%X, ion(s)%part(k)%Y, ion(s)%part(k)%VX, ion(s)%part(k)%VY, ion(s)%part(k)%VZ, ion(s)%part(k)%tag) !, whole_object(n))
+           CALL REMOVE_ION(s, k)  ! this subroutine does  N_ions(s) = N_ions(s) - 1 and k = k-1
+           collision_with_inner_object_occurred = .TRUE.
+           EXIT
+        END DO
+
+        IF (collision_with_inner_object_occurred) CYCLE
+
+! most probable situation when the particle remains inside the area
+        IF ( (ion(s)%part(k)%X.GE.c_X_area_min) .AND. &
+           & (ion(s)%part(k)%X.LE.c_X_area_max) .AND. &
+           & (ion(s)%part(k)%Y.GE.c_Y_area_min) .AND. &
+           & (ion(s)%part(k)%Y.LE.c_Y_area_max) ) CYCLE
+
+! since we are here, a particle did not collide with an inner object but crossed an area boundary
+! note, in a periodic system the particle still may collide with an inner object after transfer to the other domain
+! therefore it is still necessary to check add list for collisions after process receives particles from neighbors
 
         IF (ion(s)%part(k)%X.LT.c_X_area_min) THEN
 
@@ -911,6 +932,522 @@ END SUBROUTINE ADD_ION_TO_ADD_LIST
 
 !----------------------------------------
 !
+SUBROUTINE REMOVE_ION_FROM_ADD_LIST(s, k)
+
+  USE ParallelOperationValues
+  USE IonParticles
+
+  IMPLICIT NONE
+
+  INTEGER, INTENT(IN)    :: s
+  INTEGER, INTENT(INOUT) :: k
+
+  IF ((k.LT.1).OR.(k.GT.N_ions_to_add(s))) THEN
+     PRINT '("Process ",i6," : ERROR in REMOVE_ION_FROM_ADD_LIST : index k invalid")', Rank_of_process
+     PRINT '("Process ",i6," : k= ", i7," N_ions_to_add(",i2,")= ",i7)', Rank_of_process, k, s, N_ions_to_add(s)
+     PRINT '("Process ",i6," : PROGRAM TERMINATED")', Rank_of_process
+     STOP
+  END IF
+
+  IF (k.LT.N_ions_to_add(s)) THEN
+
+     ion_to_add(s)%part(k)%X   = ion_to_add(s)%part(N_ions_to_add(s))%X
+     ion_to_add(s)%part(k)%Y   = ion_to_add(s)%part(N_ions_to_add(s))%Y
+     ion_to_add(s)%part(k)%VX  = ion_to_add(s)%part(N_ions_to_add(s))%VX
+     ion_to_add(s)%part(k)%VY  = ion_to_add(s)%part(N_ions_to_add(s))%VY
+     ion_to_add(s)%part(k)%VZ  = ion_to_add(s)%part(N_ions_to_add(s))%VZ
+     ion_to_add(s)%part(k)%tag = ion_to_add(s)%part(N_ions_to_add(s))%tag
+
+  END IF
+
+  N_ions_to_add(s) = N_ions_to_add(s) - 1
+  k = k-1                  ! to ensure that the new k-particle is processed
+
+!print '("Process ",i4," called REMOVE_ION_FROM_ADD_LIST(k), T_cntr= ",i7," k= ",i4)', Rank_of_process, T_cntr, k
+
+END SUBROUTINE REMOVE_ION_FROM_ADD_LIST
+
+!----------------------------------------
+! This subroutine is called after ADVANCE_IONS, before exchange of ions takes place.
+! It removes particles which do not belong to the cluster domain.
+! Such particles may appear after emission from surface of inner objects.
+! It is expected that the emission is never directed into boundary objects aligned along the main simulation domain's boundary.
+! The algorithm below, which places alien particles into proper SEND* lists is the same as in ADVANCE_IONS.
+! However, collision with a boundary object at this stage is not expected and is considered an error.
+!
+SUBROUTINE FIND_ALIENS_IN_ION_ADD_LIST
+
+  USE ParallelOperationValues
+  USE CurrentProblemValues
+  USE ClusterAndItsBoundaries
+  USE IonParticles, ONLY : N_ions_to_add, ion_to_add, N_spec
+
+  IMPLICIT NONE
+
+  INTEGER s, k, n 
+
+  IF (N_of_inner_objects.EQ.0) RETURN
+
+! cycle over ion species
+  DO s = 1, N_spec
+! cycle over particles of the ion species
+     k=0
+     DO WHILE (k.LT.N_ions_to_add(s))
+        k = k + 1
+
+        IF (symmetry_plane_X_left) THEN
+           IF (ion_to_add(s)%part(k)%X.LT.c_X_area_min) THEN
+! a particle crossed symmetry plane... this is an ion!!! YIKES !!!!
+! since we are here, a particle to be added is beyond the symmetry plane at X=0
+! the reason may be injection of ions from surfaces of inner material objects, which is not implemented
+! so, presently, this should not happen, and we report it as an error
+! note that for electrons this is possible (due to SEE), and such particles are moved symmetrically relative to plane x=0
+!              ion_to_add(s)%part(k)%X = MAX(c_X_area_min, c_X_area_min + c_X_area_min - ion_to_add(s)%part(k)%X)
+!              ion(s)%part(k)%VX = -ion(s)%part(k)%VX
+              PRINT '("Proc ",i4," Error-00 in FIND_ALIENS_IN_ION_ADD_LIST, particle ",i8," of species ",i2," is beyond symmetry plane ",5(2x,e12.5),2x,i2)', Rank_of_process, k, s, &
+                   & ion_to_add(s)%part(k)%X, ion_to_add(s)%part(k)%Y, ion_to_add(s)%part(k)%VX, ion_to_add(s)%part(k)%VY, ion_to_add(s)%part(k)%VZ, ion_to_add(s)%part(k)%tag
+              STOP
+           END IF
+        END IF
+
+! most probable situation when the particle is inside the area
+        IF ( (ion_to_add(s)%part(k)%X.GE.c_X_area_min) .AND. &
+           & (ion_to_add(s)%part(k)%X.LE.c_X_area_max) .AND. &
+           & (ion_to_add(s)%part(k)%Y.GE.c_Y_area_min) .AND. &
+           & (ion_to_add(s)%part(k)%Y.LE.c_Y_area_max) ) CYCLE
+
+! since we are here, particle s,k is outside the domain of this cluster
+
+        IF (ion_to_add(s)%part(k)%X.LT.c_X_area_min) THEN
+
+           IF (periodic_boundary_X_left.AND.periodic_boundary_X_right) THEN
+! if the cluster is periodically [X] connected on itself we avoid exchange in the X-direction
+! shift the ion by the period length
+              ion_to_add(s)%part(k)%X = ion_to_add(s)%part(k)%X + L_period_X
+              IF (ion_to_add(s)%part(k)%Y.LT.c_Y_area_min) THEN
+! particle is below the bottom side of the area
+                 IF (Rank_of_master_below.LT.0) THEN
+!                    CALL PROCESS_ION_COLL_WITH_BOUNDARY_BELOW(s, ion_to_add(s)%part(k)%X, ion_to_add(s)%part(k)%Y, ion_to_add(s)%part(k)%VX, ion_to_add(s)%part(k)%VY, ion_to_add(s)%part(k)%VZ, ion_to_add(s)%part(k)%tag)
+! error
+                    print '("error-1 in FIND_ALIENS_IN_ION_ADD_LIST")'
+                    stop
+                 ELSE
+                    CALL ADD_ION_TO_SEND_BELOW(s, ion_to_add(s)%part(k)%X, ion_to_add(s)%part(k)%Y, ion_to_add(s)%part(k)%VX, ion_to_add(s)%part(k)%VY, ion_to_add(s)%part(k)%VZ, ion_to_add(s)%part(k)%tag)                       
+                 END IF
+                 CALL REMOVE_ION_FROM_ADD_LIST(s, k)  ! this subroutine does  N_ions(s) = N_ions(s) - 1 and k = k-1
+              ELSE IF (ion_to_add(s)%part(k)%Y.GT.c_Y_area_max) THEN
+! particle is somewhere near the top left cell of the area
+                 IF (Rank_of_master_above.LT.0) THEN
+!                    CALL PROCESS_ION_COLL_WITH_BOUNDARY_ABOVE(s, ion_to_add(s)%part(k)%X, ion_to_add(s)%part(k)%Y, ion_to_add(s)%part(k)%VX, ion_to_add(s)%part(k)%VY, ion_to_add(s)%part(k)%VZ, ion_to_add(s)%part(k)%tag)
+! error
+                    print '("error-2 in FIND_ALIENS_IN_ION_ADD_LIST")'
+                    stop
+                 ELSE
+                    CALL ADD_ION_TO_SEND_ABOVE(s, ion_to_add(s)%part(k)%X, ion_to_add(s)%part(k)%Y, ion_to_add(s)%part(k)%VX, ion_to_add(s)%part(k)%VY, ion_to_add(s)%part(k)%VZ, ion_to_add(s)%part(k)%tag)
+                 END IF
+                 CALL REMOVE_ION_FROM_ADD_LIST(s, k)  ! this subroutine does  N_ions(s) = N_ions(s) - 1 and k = k-1
+              END IF
+              CYCLE
+           END IF
+
+           IF ( (ion_to_add(s)%part(k)%Y.GE.(c_Y_area_min+1.0_8)).AND. &
+              & (ion_to_add(s)%part(k)%Y.LE.(c_Y_area_max-1.0_8)) ) THEN
+! most probable situation when the particle stays at least one cell away from the Y-boundaries of the area
+
+              IF (Rank_of_master_left.GE.0) THEN
+! left neighbor cluster exists
+                 CALL ADD_ION_TO_SEND_LEFT(s, ion_to_add(s)%part(k)%X, ion_to_add(s)%part(k)%Y, ion_to_add(s)%part(k)%VX, ion_to_add(s)%part(k)%VY, ion_to_add(s)%part(k)%VZ, ion_to_add(s)%part(k)%tag)
+              ELSE
+! left neighbor cluster does not exist
+!                 CALL PROCESS_ION_COLL_WITH_BOUNDARY_LEFT(s, ion_to_add(s)%part(k)%X, ion_to_add(s)%part(k)%Y, ion_to_add(s)%part(k)%VX,  ion_to_add(s)%part(k)%VY, ion_to_add(s)%part(k)%VZ, ion_to_add(s)%part(k)%tag)   ! left
+! error
+                 print '("error-3 in FIND_ALIENS_IN_ION_ADD_LIST")'
+                 stop
+              END IF
+
+           ELSE IF (ion_to_add(s)%part(k)%Y.LT.(c_Y_area_min+1.0_8)) THEN
+! particle is somewhere near the left bottom cell of the area
+
+              SELECT CASE (c_left_bottom_corner_type)
+                 CASE (HAS_TWO_NEIGHBORS)
+                    IF ((c_X_area_min-ion_to_add(s)%part(k)%X).LT.(c_Y_area_min-ion_to_add(s)%part(k)%Y)) THEN
+                       CALL ADD_ION_TO_SEND_BELOW(s, ion_to_add(s)%part(k)%X, ion_to_add(s)%part(k)%Y, ion_to_add(s)%part(k)%VX, ion_to_add(s)%part(k)%VY, ion_to_add(s)%part(k)%VZ, ion_to_add(s)%part(k)%tag)
+                    ELSE
+                       CALL ADD_ION_TO_SEND_LEFT(s, ion_to_add(s)%part(k)%X, ion_to_add(s)%part(k)%Y, ion_to_add(s)%part(k)%VX, ion_to_add(s)%part(k)%VY, ion_to_add(s)%part(k)%VZ, ion_to_add(s)%part(k)%tag)
+                    END IF
+
+                 CASE (FLAT_WALL_BELOW)
+                    CALL ADD_ION_TO_SEND_LEFT(s, ion_to_add(s)%part(k)%X, ion_to_add(s)%part(k)%Y, ion_to_add(s)%part(k)%VX, ion_to_add(s)%part(k)%VY, ion_to_add(s)%part(k)%VZ, ion_to_add(s)%part(k)%tag)
+
+                 CASE (FLAT_WALL_LEFT)
+                    IF (ion_to_add(s)%part(k)%Y.GE.c_Y_area_min) THEN                 
+!                       CALL PROCESS_ION_COLL_WITH_BOUNDARY_LEFT(s, ion_to_add(s)%part(k)%X, ion_to_add(s)%part(k)%Y, ion_to_add(s)%part(k)%VX, ion_to_add(s)%part(k)%VY, ion_to_add(s)%part(k)%VZ, ion_to_add(s)%part(k)%tag)
+! error
+                       print '("error-4 in FIND_ALIENS_IN_ION_ADD_LIST")'
+                       stop
+                    ELSE
+                       CALL ADD_ION_TO_SEND_BELOW(s, ion_to_add(s)%part(k)%X, ion_to_add(s)%part(k)%Y, ion_to_add(s)%part(k)%VX, ion_to_add(s)%part(k)%VY, ion_to_add(s)%part(k)%VZ, ion_to_add(s)%part(k)%tag)                       
+                    END IF
+
+                 CASE (SURROUNDED_BY_WALL)
+!                    IF ((c_X_area_min-ion_to_add(s)%part(k)%X).LT.(c_Y_area_min-ion_to_add(s)%part(k)%Y)) THEN
+!                       CALL PROCESS_ION_COLL_WITH_BOUNDARY_BELOW(s, ion_to_add(s)%part(k)%X, ion_to_add(s)%part(k)%Y, ion_to_add(s)%part(k)%VX, ion_to_add(s)%part(k)%VY, ion_to_add(s)%part(k)%VZ, ion_to_add(s)%part(k)%tag)
+!                    ELSE
+!                       CALL PROCESS_ION_COLL_WITH_BOUNDARY_LEFT(s, ion_to_add(s)%part(k)%X, ion_to_add(s)%part(k)%Y, ion_to_add(s)%part(k)%VX, ion_to_add(s)%part(k)%VY, ion_to_add(s)%part(k)%VZ, ion_to_add(s)%part(k)%tag)
+!                    END IF
+! error
+                    print '("error-5 in FIND_ALIENS_IN_ION_ADD_LIST")'
+                    stop
+
+                 CASE (EMPTY_CORNER_WALL_LEFT)
+                    CALL ADD_ION_TO_SEND_BELOW(s, ion_to_add(s)%part(k)%X, ion_to_add(s)%part(k)%Y, ion_to_add(s)%part(k)%VX, ion_to_add(s)%part(k)%VY, ion_to_add(s)%part(k)%VZ, ion_to_add(s)%part(k)%tag)
+               
+                 CASE (EMPTY_CORNER_WALL_BELOW)
+                    CALL ADD_ION_TO_SEND_LEFT(s, ion_to_add(s)%part(k)%X, ion_to_add(s)%part(k)%Y, ion_to_add(s)%part(k)%VX, ion_to_add(s)%part(k)%VY, ion_to_add(s)%part(k)%VZ, ion_to_add(s)%part(k)%tag)
+
+              END SELECT
+
+           ELSE IF (ion_to_add(s)%part(k)%Y.GT.(c_Y_area_max-1.0_8)) THEN
+! particle is somewhere near the top left cell of the area
+
+              SELECT CASE (c_left_top_corner_type)
+                 CASE (HAS_TWO_NEIGHBORS)
+                    IF ((c_X_area_min-ion_to_add(s)%part(k)%X).LT.(ion_to_add(s)%part(k)%Y-c_Y_area_max)) THEN
+                       CALL ADD_ION_TO_SEND_ABOVE(s, ion_to_add(s)%part(k)%X, ion_to_add(s)%part(k)%Y, ion_to_add(s)%part(k)%VX, ion_to_add(s)%part(k)%VY, ion_to_add(s)%part(k)%VZ, ion_to_add(s)%part(k)%tag)
+                    ELSE
+                       CALL ADD_ION_TO_SEND_LEFT(s, ion_to_add(s)%part(k)%X, ion_to_add(s)%part(k)%Y, ion_to_add(s)%part(k)%VX, ion_to_add(s)%part(k)%VY, ion_to_add(s)%part(k)%VZ, ion_to_add(s)%part(k)%tag)
+                    END IF
+
+                 CASE (FLAT_WALL_ABOVE)
+                    CALL ADD_ION_TO_SEND_LEFT(s, ion_to_add(s)%part(k)%X, ion_to_add(s)%part(k)%Y, ion_to_add(s)%part(k)%VX, ion_to_add(s)%part(k)%VY, ion_to_add(s)%part(k)%VZ, ion_to_add(s)%part(k)%tag)
+
+                 CASE (FLAT_WALL_LEFT)
+                    IF (ion_to_add(s)%part(k)%Y.LE.c_Y_area_max) THEN                 
+!                       CALL PROCESS_ION_COLL_WITH_BOUNDARY_LEFT(s, ion_to_add(s)%part(k)%X, ion_to_add(s)%part(k)%Y, ion_to_add(s)%part(k)%VX, ion_to_add(s)%part(k)%VY, ion_to_add(s)%part(k)%VZ, ion_to_add(s)%part(k)%tag)
+! error
+                       print '("error-6 in FIND_ALIENS_IN_ION_ADD_LIST")'
+                       stop
+                    ELSE
+                       CALL ADD_ION_TO_SEND_ABOVE(s, ion_to_add(s)%part(k)%X, ion_to_add(s)%part(k)%Y, ion_to_add(s)%part(k)%VX, ion_to_add(s)%part(k)%VY, ion_to_add(s)%part(k)%VZ, ion_to_add(s)%part(k)%tag)
+                    END IF
+
+                 CASE (SURROUNDED_BY_WALL)
+!                    IF ((c_X_area_min-ion_to_add(s)%part(k)%X).LT.(ion_to_add(s)%part(k)%Y-c_Y_area_max)) THEN
+!                       CALL PROCESS_ION_COLL_WITH_BOUNDARY_ABOVE(s, ion_to_add(s)%part(k)%X, ion_to_add(s)%part(k)%Y, ion_to_add(s)%part(k)%VX, ion_to_add(s)%part(k)%VY, ion_to_add(s)%part(k)%VZ, ion_to_add(s)%part(k)%tag)
+!                    ELSE
+!                       CALL PROCESS_ION_COLL_WITH_BOUNDARY_LEFT(s, ion_to_add(s)%part(k)%X, ion_to_add(s)%part(k)%Y, ion_to_add(s)%part(k)%VX, ion_to_add(s)%part(k)%VY, ion_to_add(s)%part(k)%VZ, ion_to_add(s)%part(k)%tag)
+!                    END IF
+! error
+                    print '("error-7 in FIND_ALIENS_IN_ION_ADD_LIST")'
+                    stop
+
+                 CASE (EMPTY_CORNER_WALL_LEFT)
+                    CALL ADD_ION_TO_SEND_ABOVE(s, ion_to_add(s)%part(k)%X, ion_to_add(s)%part(k)%Y, ion_to_add(s)%part(k)%VX, ion_to_add(s)%part(k)%VY, ion_to_add(s)%part(k)%VZ, ion_to_add(s)%part(k)%tag)
+
+                 CASE (EMPTY_CORNER_WALL_ABOVE)
+                    CALL ADD_ION_TO_SEND_LEFT(s, ion_to_add(s)%part(k)%X, ion_to_add(s)%part(k)%Y, ion_to_add(s)%part(k)%VX, ion_to_add(s)%part(k)%VY, ion_to_add(s)%part(k)%VZ, ion_to_add(s)%part(k)%tag)
+
+              END SELECT
+           END IF
+           CALL REMOVE_ION_FROM_ADD_LIST(s, k)  ! this subroutine does  N_ions(s) = N_ions(s) - 1 and k = k-1
+           CYCLE
+        END IF   !### IF (ion_to_add(s)%part(k)%X.LT.c_X_area_min) THEN
+
+        IF (ion_to_add(s)%part(k)%X.GT.c_X_area_max) THEN
+
+           IF (periodic_boundary_X_left.AND.periodic_boundary_X_right) THEN
+! if the cluster is periodically [X] connected on itself we avoid exchange in the X-direction
+! shift the ion by the period length
+              ion_to_add(s)%part(k)%X = ion_to_add(s)%part(k)%X - L_period_X
+              IF (ion_to_add(s)%part(k)%Y.LT.c_Y_area_min) THEN
+! particle is somewhere near the left bottom cell of the area
+                 IF (Rank_of_master_below.LT.0) THEN
+!                    CALL PROCESS_ION_COLL_WITH_BOUNDARY_BELOW(s, ion_to_add(s)%part(k)%X, ion_to_add(s)%part(k)%Y, ion_to_add(s)%part(k)%VX, ion_to_add(s)%part(k)%VY, ion_to_add(s)%part(k)%VZ, ion_to_add(s)%part(k)%tag)
+! error
+                    print '("error-8 in FIND_ALIENS_IN_ION_ADD_LIST")'
+                    stop
+                 ELSE
+                    CALL ADD_ION_TO_SEND_BELOW(s, ion_to_add(s)%part(k)%X, ion_to_add(s)%part(k)%Y, ion_to_add(s)%part(k)%VX, ion_to_add(s)%part(k)%VY, ion_to_add(s)%part(k)%VZ, ion_to_add(s)%part(k)%tag)                       
+                 END IF
+                 CALL REMOVE_ION_FROM_ADD_LIST(s, k)  ! this subroutine does  N_ions(s) = N_ions(s) - 1 and k = k-1
+              ELSE IF (ion_to_add(s)%part(k)%Y.GT.c_Y_area_max) THEN
+! particle is somewhere near the top left cell of the area
+                 IF (Rank_of_master_above.LT.0) THEN
+!                    CALL PROCESS_ION_COLL_WITH_BOUNDARY_ABOVE(s, ion_to_add(s)%part(k)%X, ion_to_add(s)%part(k)%Y, ion_to_add(s)%part(k)%VX, ion_to_add(s)%part(k)%VY, ion_to_add(s)%part(k)%VZ, ion_to_add(s)%part(k)%tag)
+! error
+                    print '("error-9 in FIND_ALIENS_IN_ION_ADD_LIST")'
+                    stop
+                 ELSE
+                    CALL ADD_ION_TO_SEND_ABOVE(s, ion_to_add(s)%part(k)%X, ion_to_add(s)%part(k)%Y, ion_to_add(s)%part(k)%VX, ion_to_add(s)%part(k)%VY, ion_to_add(s)%part(k)%VZ, ion_to_add(s)%part(k)%tag)
+                 END IF
+                 CALL REMOVE_ION_FROM_ADD_LIST(s, k)  ! this subroutine does  N_ions(s) = N_ions(s) - 1 and k = k-1
+              END IF
+              CYCLE
+           END IF
+           
+           IF ( (ion_to_add(s)%part(k)%Y.GE.(c_Y_area_min+1.0_8)).AND. &
+              & (ion_to_add(s)%part(k)%Y.LE.(c_Y_area_max-1.0_8)) ) THEN
+! most probable situation when the particle stays at least one cell away from the Y-boundaries of the area
+
+              IF (Rank_of_master_right.GE.0) THEN
+! right neighbor cluster exists
+                 CALL ADD_ION_TO_SEND_RIGHT(s, ion_to_add(s)%part(k)%X, ion_to_add(s)%part(k)%Y, ion_to_add(s)%part(k)%VX, ion_to_add(s)%part(k)%VY, ion_to_add(s)%part(k)%VZ, ion_to_add(s)%part(k)%tag)
+              ELSE
+! right neighbor cluster does not exist
+!                 CALL PROCESS_ION_COLL_WITH_BOUNDARY_RIGHT(s, ion_to_add(s)%part(k)%X, ion_to_add(s)%part(k)%Y, ion_to_add(s)%part(k)%VX, ion_to_add(s)%part(k)%VY, ion_to_add(s)%part(k)%VZ, ion_to_add(s)%part(k)%tag)
+! error
+                 print '("error-10 in FIND_ALIENS_IN_ION_ADD_LIST")'
+                 stop
+              END IF
+
+           ELSE IF (ion_to_add(s)%part(k)%Y.LT.(c_Y_area_min+1.0_8)) THEN
+! particle is somewhere near the right bottom cell of the area
+
+              SELECT CASE (c_right_bottom_corner_type)
+                 CASE (HAS_TWO_NEIGHBORS)
+                    IF ((ion_to_add(s)%part(k)%X-c_X_area_max).LT.(c_Y_area_min-ion_to_add(s)%part(k)%Y)) THEN
+                       CALL ADD_ION_TO_SEND_BELOW(s, ion_to_add(s)%part(k)%X, ion_to_add(s)%part(k)%Y, ion_to_add(s)%part(k)%VX, ion_to_add(s)%part(k)%VY, ion_to_add(s)%part(k)%VZ, ion_to_add(s)%part(k)%tag)
+                    ELSE
+                       CALL ADD_ION_TO_SEND_RIGHT(s, ion_to_add(s)%part(k)%X, ion_to_add(s)%part(k)%Y, ion_to_add(s)%part(k)%VX, ion_to_add(s)%part(k)%VY, ion_to_add(s)%part(k)%VZ, ion_to_add(s)%part(k)%tag)
+                    END IF
+
+                 CASE (FLAT_WALL_BELOW)
+                    CALL ADD_ION_TO_SEND_RIGHT(s, ion_to_add(s)%part(k)%X, ion_to_add(s)%part(k)%Y, ion_to_add(s)%part(k)%VX, ion_to_add(s)%part(k)%VY, ion_to_add(s)%part(k)%VZ, ion_to_add(s)%part(k)%tag)
+                
+                 CASE (FLAT_WALL_RIGHT)
+                    IF (ion_to_add(s)%part(k)%Y.GE.c_Y_area_min) THEN
+!                       CALL PROCESS_ION_COLL_WITH_BOUNDARY_RIGHT(s, ion_to_add(s)%part(k)%X, ion_to_add(s)%part(k)%Y, ion_to_add(s)%part(k)%VX, ion_to_add(s)%part(k)%VY, ion_to_add(s)%part(k)%VZ, ion_to_add(s)%part(k)%tag)
+! error
+                       print '("error-11 in FIND_ALIENS_IN_ION_ADD_LIST")'
+                       stop
+
+                    ELSE
+                       CALL ADD_ION_TO_SEND_BELOW(s, ion_to_add(s)%part(k)%X, ion_to_add(s)%part(k)%Y, ion_to_add(s)%part(k)%VX, ion_to_add(s)%part(k)%VY, ion_to_add(s)%part(k)%VZ, ion_to_add(s)%part(k)%tag)                       
+                    END IF
+
+                 CASE (SURROUNDED_BY_WALL)
+!                    IF ((ion_to_add(s)%part(k)%X-c_X_area_max).LT.(c_Y_area_min-ion_to_add(s)%part(k)%Y)) THEN
+!                       CALL PROCESS_ION_COLL_WITH_BOUNDARY_BELOW(s, ion_to_add(s)%part(k)%X, ion_to_add(s)%part(k)%Y, ion_to_add(s)%part(k)%VX, ion_to_add(s)%part(k)%VY, ion_to_add(s)%part(k)%VZ, ion_to_add(s)%part(k)%tag)
+!                    ELSE
+!                       CALL PROCESS_ION_COLL_WITH_BOUNDARY_RIGHT(s, ion_to_add(s)%part(k)%X, ion_to_add(s)%part(k)%Y, ion_to_add(s)%part(k)%VX, ion_to_add(s)%part(k)%VY, ion_to_add(s)%part(k)%VZ, ion_to_add(s)%part(k)%tag)
+!                    END IF
+! error
+                       print '("error-12 in FIND_ALIENS_IN_ION_ADD_LIST")'
+                       stop
+
+                 CASE (EMPTY_CORNER_WALL_RIGHT)
+                    CALL ADD_ION_TO_SEND_BELOW(s, ion_to_add(s)%part(k)%X, ion_to_add(s)%part(k)%Y, ion_to_add(s)%part(k)%VX, ion_to_add(s)%part(k)%VY, ion_to_add(s)%part(k)%VZ, ion_to_add(s)%part(k)%tag)
+
+                 CASE (EMPTY_CORNER_WALL_BELOW)
+                    CALL ADD_ION_TO_SEND_RIGHT(s, ion_to_add(s)%part(k)%X, ion_to_add(s)%part(k)%Y, ion_to_add(s)%part(k)%VX, ion_to_add(s)%part(k)%VY, ion_to_add(s)%part(k)%VZ, ion_to_add(s)%part(k)%tag)
+
+              END SELECT
+
+           ELSE IF (ion_to_add(s)%part(k)%Y.GT.(c_Y_area_max-1.0_8)) THEN
+! particle is somewhere near the top right cell of the area
+
+              SELECT CASE (c_right_top_corner_type)
+                 CASE (HAS_TWO_NEIGHBORS)
+                    IF ((ion_to_add(s)%part(k)%X-c_X_area_max).LT.(ion_to_add(s)%part(k)%Y-c_Y_area_max)) THEN
+                       CALL ADD_ION_TO_SEND_ABOVE(s, ion_to_add(s)%part(k)%X, ion_to_add(s)%part(k)%Y, ion_to_add(s)%part(k)%VX, ion_to_add(s)%part(k)%VY, ion_to_add(s)%part(k)%VZ, ion_to_add(s)%part(k)%tag)
+                    ELSE
+                       CALL ADD_ION_TO_SEND_RIGHT(s, ion_to_add(s)%part(k)%X, ion_to_add(s)%part(k)%Y, ion_to_add(s)%part(k)%VX, ion_to_add(s)%part(k)%VY, ion_to_add(s)%part(k)%VZ, ion_to_add(s)%part(k)%tag)
+                    END IF
+
+                 CASE (FLAT_WALL_ABOVE)
+                    CALL ADD_ION_TO_SEND_RIGHT(s, ion_to_add(s)%part(k)%X, ion_to_add(s)%part(k)%Y, ion_to_add(s)%part(k)%VX, ion_to_add(s)%part(k)%VY, ion_to_add(s)%part(k)%VZ, ion_to_add(s)%part(k)%tag)
+
+                 CASE (FLAT_WALL_RIGHT)
+                    IF (ion_to_add(s)%part(k)%Y.LE.c_Y_area_max) THEN
+!                       CALL PROCESS_ION_COLL_WITH_BOUNDARY_RIGHT(s, ion_to_add(s)%part(k)%X, ion_to_add(s)%part(k)%Y, ion_to_add(s)%part(k)%VX, ion_to_add(s)%part(k)%VY, ion_to_add(s)%part(k)%VZ, ion_to_add(s)%part(k)%tag)
+! error
+                       print '("error-13 in FIND_ALIENS_IN_ION_ADD_LIST")'
+                       stop
+                    ELSE
+                       CALL ADD_ION_TO_SEND_ABOVE(s, ion_to_add(s)%part(k)%X, ion_to_add(s)%part(k)%Y, ion_to_add(s)%part(k)%VX, ion_to_add(s)%part(k)%VY, ion_to_add(s)%part(k)%VZ, ion_to_add(s)%part(k)%tag)                    
+                    END IF
+
+                 CASE (SURROUNDED_BY_WALL)
+!                    IF ((ion_to_add(s)%part(k)%X-c_X_area_max).LT.(ion_to_add(s)%part(k)%Y-c_Y_area_max)) THEN
+!                       CALL PROCESS_ION_COLL_WITH_BOUNDARY_ABOVE(s, ion_to_add(s)%part(k)%X, ion_to_add(s)%part(k)%Y, ion_to_add(s)%part(k)%VX, ion_to_add(s)%part(k)%VY, ion_to_add(s)%part(k)%VZ, ion_to_add(s)%part(k)%tag)
+!                    ELSE
+!                       CALL PROCESS_ION_COLL_WITH_BOUNDARY_RIGHT(s, ion_to_add(s)%part(k)%X, ion_to_add(s)%part(k)%Y, ion_to_add(s)%part(k)%VX, ion_to_add(s)%part(k)%VY, ion_to_add(s)%part(k)%VZ, ion_to_add(s)%part(k)%tag)
+!                    END IF
+! error
+                       print '("error-14 in FIND_ALIENS_IN_ION_ADD_LIST")'
+                       stop
+
+                 CASE (EMPTY_CORNER_WALL_RIGHT)
+                    CALL ADD_ION_TO_SEND_ABOVE(s, ion_to_add(s)%part(k)%X, ion_to_add(s)%part(k)%Y, ion_to_add(s)%part(k)%VX, ion_to_add(s)%part(k)%VY, ion_to_add(s)%part(k)%VZ, ion_to_add(s)%part(k)%tag)
+
+                 CASE (EMPTY_CORNER_WALL_ABOVE)
+                    CALL ADD_ION_TO_SEND_RIGHT(s, ion_to_add(s)%part(k)%X, ion_to_add(s)%part(k)%Y, ion_to_add(s)%part(k)%VX, ion_to_add(s)%part(k)%VY, ion_to_add(s)%part(k)%VZ, ion_to_add(s)%part(k)%tag)
+
+              END SELECT
+
+           END IF
+           CALL REMOVE_ION_FROM_ADD_LIST(s, k)  !       this subroutine does  N_ions(s) = N_ions(s) - 1 and k = k-1
+           CYCLE
+        END IF        !###  IF (ion_to_add(s)%part(k)%X.GT.c_X_area_max) THEN
+
+! since we are here, c_X_area_min <= ion_to_add(s)&part(k)%Y <= c_X_area_max
+
+        IF (ion_to_add(s)%part(k)%Y.GT.c_Y_area_max) THEN
+
+           IF (periodic_boundary_X_left.AND.periodic_boundary_X_right) THEN
+              IF (Rank_of_master_above.GE.0) THEN
+! neighbor cluster above exists
+                 CALL ADD_ION_TO_SEND_ABOVE(s, ion_to_add(s)%part(k)%X, ion_to_add(s)%part(k)%Y, ion_to_add(s)%part(k)%VX, ion_to_add(s)%part(k)%VY, ion_to_add(s)%part(k)%VZ, ion_to_add(s)%part(k)%tag)
+              ELSE
+!                 CALL PROCESS_ION_COLL_WITH_BOUNDARY_ABOVE(s, ion_to_add(s)%part(k)%X, ion_to_add(s)%part(k)%Y, ion_to_add(s)%part(k)%VX, ion_to_add(s)%part(k)%VY, ion_to_add(s)%part(k)%VZ, ion_to_add(s)%part(k)%tag)
+! error
+                 print '("error-15 in FIND_ALIENS_IN_ION_ADD_LIST")'
+                 stop
+              END IF
+              CALL REMOVE_ION_FROM_ADD_LIST(s, k)  !       this subroutine does  N_ions(s) = N_ions(s) - 1 and k = k-1
+              CYCLE
+           END IF
+
+           IF (Rank_of_master_above.GE.0) THEN
+! neighbor cluster above exists
+              CALL ADD_ION_TO_SEND_ABOVE(s, ion_to_add(s)%part(k)%X, ion_to_add(s)%part(k)%Y, ion_to_add(s)%part(k)%VX, ion_to_add(s)%part(k)%VY, ion_to_add(s)%part(k)%VZ, ion_to_add(s)%part(k)%tag)
+           ELSE
+! neighbor cluster above does not exist
+              IF ((ion_to_add(s)%part(k)%X.GE.(c_X_area_min+1.0_8)).AND.(ion_to_add(s)%part(k)%X.LE.(c_X_area_max-1.0_8))) THEN
+! most probable situation when the particle stays at least one cell away from the X-boundaries of the area
+!                 CALL PROCESS_ION_COLL_WITH_BOUNDARY_ABOVE(s, ion_to_add(s)%part(k)%X, ion_to_add(s)%part(k)%Y, ion_to_add(s)%part(k)%VX, ion_to_add(s)%part(k)%VY, ion_to_add(s)%part(k)%VZ, ion_to_add(s)%part(k)%tag)
+! error
+                 print '("error-16 in FIND_ALIENS_IN_ION_ADD_LIST")'
+                 stop
+              ELSE IF (ion_to_add(s)%part(k)%X.LT.(c_X_area_min+1.0_8)) THEN
+! particle near the left top corner
+                 IF (c_left_top_corner_type.EQ.EMPTY_CORNER_WALL_ABOVE) THEN
+                    CALL ADD_ION_TO_SEND_LEFT(s, ion_to_add(s)%part(k)%X, ion_to_add(s)%part(k)%Y, ion_to_add(s)%part(k)%VX, ion_to_add(s)%part(k)%VY, ion_to_add(s)%part(k)%VZ, ion_to_add(s)%part(k)%tag)
+                 ELSE
+!                    CALL PROCESS_ION_COLL_WITH_BOUNDARY_ABOVE(s, ion_to_add(s)%part(k)%X, ion_to_add(s)%part(k)%Y, ion_to_add(s)%part(k)%VX, ion_to_add(s)%part(k)%VY, ion_to_add(s)%part(k)%VZ, ion_to_add(s)%part(k)%tag)
+! error
+                    print '("error-17 in FIND_ALIENS_IN_ION_ADD_LIST")'
+                    stop
+                 END IF
+              ELSE IF (ion_to_add(s)%part(k)%X.GT.(c_X_area_max-1.0_8)) THEN
+! particle near the right top corner
+                 IF (c_right_top_corner_type.EQ.EMPTY_CORNER_WALL_ABOVE) THEN
+                    CALL ADD_ION_TO_SEND_RIGHT(s, ion_to_add(s)%part(k)%X, ion_to_add(s)%part(k)%Y, ion_to_add(s)%part(k)%VX,  ion_to_add(s)%part(k)%VY, ion_to_add(s)%part(k)%VZ, ion_to_add(s)%part(k)%tag)
+                 ELSE
+!                    CALL PROCESS_ION_COLL_WITH_BOUNDARY_ABOVE(s, ion_to_add(s)%part(k)%X, ion_to_add(s)%part(k)%Y, ion_to_add(s)%part(k)%VX, ion_to_add(s)%part(k)%VY, ion_to_add(s)%part(k)%VZ, ion_to_add(s)%part(k)%tag)
+! error
+                    print '("error-18 in FIND_ALIENS_IN_ION_ADD_LIST")'
+                    stop
+                 END IF
+              END IF
+           END IF
+           CALL REMOVE_ION_FROM_ADD_LIST(s, k)  !       this subroutine does  N_ions(s) = N_ions(s) - 1 and k = k-1
+           CYCLE
+        END IF    !### IF (ion_to_add(s)%part(k)%Y.GT.c_Y_area_max) THEN
+
+        IF (ion_to_add(s)%part(k)%Y.LT.c_Y_area_min) THEN
+
+           IF (periodic_boundary_X_left.AND.periodic_boundary_X_right) THEN
+              IF (Rank_of_master_below.GE.0) THEN
+! neighbor cluster above exists
+                 CALL ADD_ION_TO_SEND_BELOW(s, ion_to_add(s)%part(k)%X, ion_to_add(s)%part(k)%Y, ion_to_add(s)%part(k)%VX, ion_to_add(s)%part(k)%VY, ion_to_add(s)%part(k)%VZ, ion_to_add(s)%part(k)%tag)
+              ELSE
+!                 CALL PROCESS_ION_COLL_WITH_BOUNDARY_BELOW(s, ion_to_add(s)%part(k)%X, ion_to_add(s)%part(k)%Y, ion_to_add(s)%part(k)%VX, ion_to_add(s)%part(k)%VY, ion_to_add(s)%part(k)%VZ, ion_to_add(s)%part(k)%tag)
+! error
+                 print '("error-19 in FIND_ALIENS_IN_ION_ADD_LIST")'
+                 stop
+              END IF
+              CALL REMOVE_ION(s, k)  !       this subroutine does  N_ions(s) = N_ions(s) - 1 and k = k-1
+              CYCLE
+           END IF
+
+           IF (Rank_of_master_below.GE.0) THEN
+! neighbor cluster below exists, remove particle and prepare to send it to the neighbor below
+              CALL ADD_ION_TO_SEND_BELOW(s, ion_to_add(s)%part(k)%X, ion_to_add(s)%part(k)%Y, ion_to_add(s)%part(k)%VX, ion_to_add(s)%part(k)%VY, ion_to_add(s)%part(k)%VZ, ion_to_add(s)%part(k)%tag)
+           ELSE
+! neighbor cluster below does not exist
+              IF ((ion_to_add(s)%part(k)%X.GE.(c_X_area_min+1.0_8)).AND.(ion_to_add(s)%part(k)%X.LE.(c_X_area_max-1.0_8))) THEN
+! most probable situation when the particle stays at least one cell away from the X-boundaries of the area
+!                 CALL PROCESS_ION_COLL_WITH_BOUNDARY_BELOW(s, ion_to_add(s)%part(k)%X, ion_to_add(s)%part(k)%Y, ion_to_add(s)%part(k)%VX, ion_to_add(s)%part(k)%VY, ion_to_add(s)%part(k)%VZ, ion_to_add(s)%part(k)%tag)
+! error
+                 print '("error-20 in FIND_ALIENS_IN_ION_ADD_LIST")'
+                 stop
+              ELSE IF (ion_to_add(s)%part(k)%X.LT.(c_X_area_min+1.0_8)) THEN
+! particle near the left bottom corner
+                 IF (c_left_bottom_corner_type.EQ.EMPTY_CORNER_WALL_BELOW) THEN
+                    CALL ADD_ION_TO_SEND_LEFT(s, ion_to_add(s)%part(k)%X, ion_to_add(s)%part(k)%Y, ion_to_add(s)%part(k)%VX, ion_to_add(s)%part(k)%VY, ion_to_add(s)%part(k)%VZ, ion_to_add(s)%part(k)%tag)
+                 ELSE
+!                    CALL PROCESS_ION_COLL_WITH_BOUNDARY_BELOW(s, ion_to_add(s)%part(k)%X, ion_to_add(s)%part(k)%Y, ion_to_add(s)%part(k)%VX, ion_to_add(s)%part(k)%VY, ion_to_add(s)%part(k)%VZ, ion_to_add(s)%part(k)%tag)
+! error
+                    print '("error-21 in FIND_ALIENS_IN_ION_ADD_LIST")'
+                    stop
+                 END IF
+              ELSE IF (ion_to_add(s)%part(k)%X.GT.(c_X_area_max-1.0_8)) THEN
+! particle near the right bottom corner
+                 IF (c_right_bottom_corner_type.EQ.EMPTY_CORNER_WALL_BELOW) THEN
+                    CALL ADD_ION_TO_SEND_RIGHT(s, ion_to_add(s)%part(k)%X, ion_to_add(s)%part(k)%Y, ion_to_add(s)%part(k)%VX, ion_to_add(s)%part(k)%VY, ion_to_add(s)%part(k)%VZ, ion_to_add(s)%part(k)%tag)
+                 ELSE
+!                    CALL PROCESS_ION_COLL_WITH_BOUNDARY_BELOW(s, ion_to_add(s)%part(k)%X, ion_to_add(s)%part(k)%Y, ion_to_add(s)%part(k)%VX, ion_to_add(s)%part(k)%VY, ion_to_add(s)%part(k)%VZ, ion_to_add(s)%part(k)%tag)
+! error
+                    print '("error-22 in FIND_ALIENS_IN_ION_ADD_LIST")'
+                    stop
+                END IF
+              END IF
+           END IF
+           CALL REMOVE_ION_FROM_ADD_LIST(s, k)  !       this subroutine does  N_ions(s) = N_ions(s) - 1 and k = k-1
+           CYCLE
+        END IF   !### IF (ion_to_add(s)%part(k)%Y.LT.c_Y_area_min) THEN
+
+     END DO   !### DO WHILE (k.LT.N_ions_to_add(s))
+  END DO    !### DO s = 1, N_spec
+
+END SUBROUTINE FIND_ALIENS_IN_ION_ADD_LIST
+
+!----------------------------------------
+!
+SUBROUTINE FIND_INNER_OBJECT_COLL_IN_ION_ADD_LIST
+
+!  USE ParallelOperationValues
+  USE CurrentProblemValues
+  USE IonParticles, ONLY : N_ions_to_add, ion_to_add, N_spec
+
+  IMPLICIT NONE
+
+  INTEGER s, k, n 
+
+  IF (N_of_inner_objects.EQ.0) RETURN
+
+  DO s = 1, N_spec
+  
+! find, process, and exclude ions which collided with inner objects
+     k=0
+     DO WHILE (k.LT.N_ions_to_add(s))
+        k = k+1
+        DO n = N_of_boundary_objects+1, N_of_boundary_and_inner_objects
+           IF (ion_to_add(s)%part(k)%X.LE.whole_object(n)%Xmin) CYCLE
+           IF (ion_to_add(s)%part(k)%X.GE.whole_object(n)%Xmax) CYCLE
+           IF (ion_to_add(s)%part(k)%Y.LE.whole_object(n)%Ymin) CYCLE
+           IF (ion_to_add(s)%part(k)%Y.GE.whole_object(n)%Ymax) CYCLE
+! collision detected
+           CALL TRY_ION_COLL_WITH_INNER_OBJECT( s, &
+                                              & ion_to_add(s)%part(k)%X, &
+                                              & ion_to_add(s)%part(k)%Y, &
+                                              & ion_to_add(s)%part(k)%VX, &
+                                              & ion_to_add(s)%part(k)%VY, &
+                                              & ion_to_add(s)%part(k)%VZ, &
+                                              & ion_to_add(s)%part(k)%tag )  !, &
+!                                                  & whole_object(n) )
+           CALL REMOVE_ION_FROM_ADD_LIST(s, k)  ! this subroutine does  N_ions_to_add(s) = N_ions_to_add(s) - 1 and k = k-1
+           EXIT
+        END DO
+     END DO
+
+  END DO
+
+END SUBROUTINE FIND_INNER_OBJECT_COLL_IN_ION_ADD_LIST
+
+!----------------------------------------
+!
 SUBROUTINE PROCESS_ADDED_IONS
 
   USE ParallelOperationValues
@@ -1020,11 +1557,15 @@ SUBROUTINE GATHER_ION_CHARGE_DENSITY
 
   INTEGER pos
 
+  INTEGER nio, position_flag
+
   IF ( (cluster_rank_key.NE.0) &                     ! this array is needed only temporarily for non-master processes
      & .OR. &
-     & (periodicity_flag.EQ.PERIODICITY_NONE) &     ! if SOR is used, master processes don't need this array outside this sub
+     & (periodicity_flag.EQ.PERIODICITY_NONE) &      ! if PETSc is used, master processes don't need this array outside this sub
      & .OR. &
-     & (periodicity_flag.EQ.PERIODICITY_X_Y) ) &     ! if SOR is used, master processes don't need this array outside this sub
+     & (periodicity_flag.EQ.PERIODICITY_X_PETSC) &
+     & .OR. &
+     & (periodicity_flag.EQ.PERIODICITY_X_Y) ) &
      & THEN
      ALLOCATE(c_rho_i(c_indx_x_min:c_indx_x_max, c_indx_y_min:c_indx_y_max), STAT=ALLOC_ERR)
   END IF
@@ -1362,10 +1903,11 @@ SUBROUTINE GATHER_ION_CHARGE_DENSITY
 
   END IF
 
-  IF ((periodicity_flag.EQ.PERIODICITY_NONE).OR.(periodicity_flag.EQ.PERIODICITY_X_Y)) THEN
+  IF ((periodicity_flag.EQ.PERIODICITY_NONE).OR.(periodicity_flag.EQ.PERIODICITY_X_PETSC).OR.(periodicity_flag.EQ.PERIODICITY_X_Y)) THEN
 
      IF (cluster_rank_key.EQ.0) THEN
 
+! prepare and send charge density to field calculators
         DO k = 2, cluster_N_blocks
            bufsize = (field_calculator(k)%indx_x_max - field_calculator(k)%indx_x_min + 1) * &
                    & (field_calculator(k)%indx_y_max - field_calculator(k)%indx_y_min + 1)
@@ -1376,13 +1918,43 @@ SUBROUTINE GATHER_ION_CHARGE_DENSITY
               DO i = field_calculator(k)%indx_x_min, field_calculator(k)%indx_x_max
                  pos = pos+1
                  rbufer(pos) = c_rho_i(i,j)
+
+!                 CALL FIND_INNER_OBJECT_CONTAINING_POINT(i,j,nio,position_flag)
+!                 SELECT CASE (position_flag)
+!                    CASE (1,3,5,7)
+!! point at the corner of a dielectric object
+!                       rbufer(pos) = (1.0_8) * c_rho_i(i,j)
+!                    CASE (2,4,6,8)
+!! point on the surface of a dielectric object
+!! the factor used here allows to use common factor -1/4*N_of_particles_cell in SOLVE_POTENTIAL_WITH_PETSC
+!! it also allows to use uncorrected values of volume charge density in nodes on the flat material surface
+!                       rbufer(pos) = 2.0_8 * c_rho_i(i,j) / (1.0_8 + whole_object(nio)%eps_diel)
+!                 END SELECT
+
               END DO
            END DO
            CALL MPI_SEND(rbufer, bufsize, MPI_DOUBLE_PRECISION, field_calculator(k)%rank, Rank_of_process, MPI_COMM_WORLD, request, ierr) 
         END DO
 
+! cluster master is a field calaculator too, prepare its own charge density
         DO j = indx_y_min, indx_y_max
-           rho_i(indx_x_min:indx_x_max, j) = c_rho_i(indx_x_min:indx_x_max, j)
+!           rho_i(indx_x_min:indx_x_max, j) = c_rho_i(indx_x_min:indx_x_max, j)
+           DO i = indx_x_min, indx_x_max
+              rho_i(i, j) = c_rho_i(i, j)
+
+!              CALL FIND_INNER_OBJECT_CONTAINING_POINT(i,j,nio,position_flag)
+!              SELECT CASE (position_flag)
+!                 CASE (1,3,5,7)
+!! point at the corner of a dielectric object
+!                    rho_i(i, j) = (1.0_8) * c_rho_i(i,j)
+!                 CASE (2,4,6,8)
+!! point on the surface of a dielectric object
+!! the factor used here allows to use common factor -1/4*N_of_particles_cell in SOLVE_POTENTIAL_WITH_PETSC
+!! it also allows to use uncorrected values of volume charge density in nodes on the flat material surface
+!                    rho_i(i, j) = 2.0_8 * c_rho_i(i,j) / (1.0_8 + whole_object(nio)%eps_diel)
+!              END SELECT
+
+           END DO
         END DO
 
      ELSE
@@ -1407,7 +1979,7 @@ SUBROUTINE GATHER_ION_CHARGE_DENSITY
   
   IF (ALLOCATED(rbufer))  DEALLOCATE(rbufer,  STAT=ALLOC_ERR)
 
-  IF ( (cluster_rank_key.NE.0) .OR. (periodicity_flag.EQ.PERIODICITY_NONE).OR.(periodicity_flag.EQ.PERIODICITY_X_Y)) THEN
+  IF ( (cluster_rank_key.NE.0).OR.(periodicity_flag.EQ.PERIODICITY_NONE).OR.(periodicity_flag.EQ.PERIODICITY_X_PETSC).OR.(periodicity_flag.EQ.PERIODICITY_X_Y)) THEN
      IF (ALLOCATED(c_rho_i)) DEALLOCATE(c_rho_i, STAT=ALLOC_ERR)
   END IF
 

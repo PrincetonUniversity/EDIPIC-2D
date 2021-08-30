@@ -329,7 +329,7 @@ SUBROUTINE CREATE_SNAPSHOT
 
   IF (Rank_of_process.EQ.0) PRINT '("### ^^^^^^^^^^^^^^^ Snapshot ",i4," will be created now ... ^^^^^^^^^^^^^^^^ ###")', current_snap
 
-  IF ((periodicity_flag.EQ.PERIODICITY_NONE).OR.(periodicity_flag.EQ.PERIODICITY_X_Y)) THEN
+  IF ((periodicity_flag.EQ.PERIODICITY_NONE).OR.(periodicity_flag.EQ.PERIODICITY_X_PETSC).OR.(periodicity_flag.EQ.PERIODICITY_X_Y)) THEN
 
 ! collect potential from field calculators ---------------------------------------------
      IF (cluster_rank_key.EQ.0) THEN

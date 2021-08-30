@@ -34,7 +34,7 @@ SUBROUTINE IDENTIFY_BLOCK_NEIGHBOURS
   indx_y_min = (block_row-1) * N_grid_block_y
   indx_y_max =  block_row    * N_grid_block_y + 1 
 
-  IF ((periodicity_flag.EQ.PERIODICITY_NONE).OR.(periodicity_flag.EQ.PERIODICITY_X_Y)) THEN
+  IF ((periodicity_flag.EQ.PERIODICITY_NONE).OR.(periodicity_flag.EQ.PERIODICITY_X_PETSC).OR.(periodicity_flag.EQ.PERIODICITY_X_Y)) THEN
 ! these arrays are used in SOR
      ALLOCATE(rho_i(indx_x_min:indx_x_max, indx_y_min:indx_y_max), STAT=ALLOC_ERR)  !
      ALLOCATE(rho_e(indx_x_min:indx_x_max, indx_y_min:indx_y_max), STAT=ALLOC_ERR)  ! these arrays will never be resized or removed

@@ -1,6 +1,6 @@
 SUBROUTINE UPDATE_WALL_POTENTIALS(T_cntr)
 
-  USE CurrentProblemValues, ONLY : whole_object, N_of_boundary_objects, METAL_WALL, VACUUM_GAP
+  USE CurrentProblemValues, ONLY : whole_object, N_of_boundary_objects, N_of_boundary_and_inner_objects, METAL_WALL, VACUUM_GAP
 
   IMPLICIT NONE
 
@@ -11,7 +11,7 @@ SUBROUTINE UPDATE_WALL_POTENTIALS(T_cntr)
   REAL(8) Custom_Waveform
 
 ! set potentials of metal electrodes
-  DO n = 1, N_of_boundary_objects
+  DO n = 1, N_of_boundary_and_inner_objects
      IF (whole_object(n)%object_type.NE.METAL_WALL) CYCLE   
      whole_object(n)%phi = whole_object(n)%phi_const + whole_object(n)%phi_var * SIN(whole_object(n)%omega * T_cntr + whole_object(n)%phase) + Custom_Waveform(n, T_cntr)
   END DO

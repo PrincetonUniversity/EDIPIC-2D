@@ -77,6 +77,8 @@ MODULE ParallelOperationValues
   INTEGER Rank_horizontal_above
   INTEGER Rank_horizontal_below
 
+  INTEGER Rank_of_bottom_left_cluster_master
+
 END MODULE  ParallelOperationValues
 
 !------------------------------------
@@ -145,9 +147,10 @@ MODULE CurrentProblemValues
   INTEGER, PARAMETER :: DIELECTRIC = 4
   INTEGER, PARAMETER :: SYMMETRY_PLANE = 5
 
-  INTEGER, PARAMETER :: PERIODICITY_NONE = 0
-  INTEGER, PARAMETER :: PERIODICITY_X    = 1
-  INTEGER, PARAMETER :: PERIODICITY_X_Y  = 2
+  INTEGER, PARAMETER :: PERIODICITY_NONE    = 0
+  INTEGER, PARAMETER :: PERIODICITY_X       = 1
+  INTEGER, PARAMETER :: PERIODICITY_X_PETSC = 10
+  INTEGER, PARAMETER :: PERIODICITY_X_Y     = 2
 
   REAL(8), PARAMETER :: e_Cl     = 1.602189d-19      ! Charge of single electron [Cl]
   REAL(8), PARAMETER :: m_e_kg   = 9.109534d-31      ! Mass of single electron [kg]
@@ -157,6 +160,10 @@ MODULE CurrentProblemValues
   REAL(8), PARAMETER :: kB_JK    = 1.38064852d-23    ! Boltzmann constant [J/K]
 
   REAL(8), PARAMETER :: pi = 3.141592653589793_8
+
+  INTEGER i_given_F_double_period_sys    ! in a system which is periodic in both X and Y directions, if there is no metal objects with given potential
+  INTEGER j_given_F_double_period_sys    ! it is necessary to specify a point with some given potential, otherwise the field solver converges only if no dielectric objects are inside (pure plasma)
+  REAL(8) given_F_double_period_sys      ! so here we specify the node (i,j) and the potential in the node
 
   INTEGER periodicity_flag   ! shows the presence of periodicity, is used to switch between periodic and non-periodic field solvers
 
@@ -214,6 +221,8 @@ MODULE CurrentProblemValues
      INTEGER jend
 !     REAL(8), ALLOCATABLE :: surface_charge(:)
 
+     LOGICAL, ALLOCATABLE :: cell_is_covered(:)
+
 ! surface_n_flux_e(:)
 ! surface_n_flux_i(:,:)
 ! surface_energy_flux_e(:)
@@ -222,6 +231,7 @@ MODULE CurrentProblemValues
   END TYPE segment_of_object
 
   TYPE boundary_object
+     INTEGER object_id_number
      INTEGER object_type
      INTEGER electron_hit_count
      INTEGER electron_emit_count
@@ -239,15 +249,13 @@ MODULE CurrentProblemValues
      REAL,    ALLOCATABLE :: wf_phi(:)      ! array of potential values of waveform data points
      INTEGER, ALLOCATABLE :: wf_T_cntr(:)   ! array of times (in units of timesteps) of waveform data points
 
-     INTEGER N_electron_constant_emit      ! constant number of electron macroparticles to be injected each time step (for example due to emission from a thermocathode)
+     REAL    N_electron_constant_emit      ! constant number of electron macroparticles to be injected each time step (for example due to emission from a thermocathode)
      INTEGER model_constant_emit
      REAL(8) factor_convert_vinj_normal_constant_emit    ! factor to be used to convert values provided by Get*Velocity procedures to desired temperature
      REAL(8) factor_convert_vinj_parallel_constant_emit  ! factor to be used to convert values provided by Get*Velocity procedures to desired temperature
      REAL(8) v_ebeam_constant_emit                       ! velocity of the electron beam
 
      REAL(8) eps_diel                 ! relative dielectric permittivity, used with dielectric walls only
-     LOGICAL SEE_enabled              ! switches on/off secondary electron emission
-     LOGICAL ion_induced_EE_enabled   ! switches on/off electron emission caused by ions hitting the wall
 
      INTEGER number_of_segments
      INTEGER L                    ! total length of the boundary object
@@ -255,6 +263,27 @@ MODULE CurrentProblemValues
      INTEGER n_connected_to_end   ! number of the boundary object connected to the start point of this boundary object
      TYPE(segment_of_object), ALLOCATABLE :: segment(:)
      REAL(8), ALLOCATABLE :: phi_profile(:)   ! ######## must be redone ??? #######, just put it here to compile now, must be in the segment
+
+     INTEGER ileft               ! for a rectangular inner object we specify only left, right, bottom, and top index limits
+     INTEGER iright
+     INTEGER jbottom
+     INTEGER jtop
+     INTEGER N_boundary_nodes    ! number of nodes 
+
+     REAL(8) Xmin
+     REAL(8) Xmax
+     REAL(8) Ymin
+     REAL(8) Ymax
+
+! are -1 by default
+! for inner objects placed across periodic boundaries
+     INTEGER object_copy_periodic_X_right  ! number of a copy inner object placed across opposite X periodic boundary (on the right)
+     INTEGER object_copy_periodic_Y_above  ! number of a copy inner object placed across opposite Y periodic boundary (above)
+
+     LOGICAL object_does_NOT_cross_symmetry_plane_X  ! default is .TRUE.
+
+     REAL(8), ALLOCATABLE :: surface_charge(:)
+     REAL(8), ALLOCATABLE :: surface_charge_variation(:)
 
      CHARACTER(6) material
 
@@ -265,6 +294,8 @@ MODULE CurrentProblemValues
 ! 1 - elastic backscattering
 ! 2 - inelastic backscattering
 ! 3 - true secondary emission
+
+     LOGICAL SEE_enabled              ! switches on/off secondary electron emission
 
      INTEGER Emitted_model(1:3)          ! for each possible process determines the way of processing
      
@@ -305,11 +336,30 @@ MODULE CurrentProblemValues
      REAL(8) factor_convert_seetrue_vinj ! factor to be used to convert values provided by Get*Velocity procedures to desired temperature
      REAL(8) lowest_energy_for_see       ! threshold energy below which no emission occurs
 
+! variables below define emission of electrons caused by ion impact on the material surface
+! based on the 1D EDIPIC
+! here ii_ee stands for ion-induced-electron-emission
+
+     LOGICAL reflects_all_ions        ! switches on/off reflection of all ions (presently specular)
+     LOGICAL ion_induced_EE_enabled   ! switches on/off electron emission caused by ions hitting the wall
+
+     REAL(8), ALLOCATABLE :: setD_ii_ee_true(:)                    ! the coefficient (ratio of emitted to incident electrons)
+     REAL(8), ALLOCATABLE :: minE_ii_ee_true(:)                    ! LOWER energy boundary, [dimensionless] 
+     REAL(8), ALLOCATABLE :: maxE_ii_ee_true(:)                    ! UPPER energy boundary, [dimensionless]
+     REAL(8), ALLOCATABLE :: T_ii_ee_true_eV(:)                    ! Temperature of injected true secondary electrons, [eV]
+     REAL(8), ALLOCATABLE :: factor_convert_ii_ee_true_vinj(:)     ! factor to be used to convert values provided by Get*Velocity procedures to desired temperature
+
   END TYPE boundary_object
 
   INTEGER N_of_boundary_objects
+  INTEGER N_of_inner_objects
+  INTEGER N_of_boundary_and_inner_objects  ! = N_of_boundary_objects + N_of_inner_objects
 
   TYPE(boundary_object), ALLOCATABLE :: whole_object(:)
+
+!  TYPE(boundary_object), ALLOCATABLE :: inner_object(:) ! inner objects can only be of type METAL_WALL or DIELECTRIC
+!                                                        ! inner objects may overlap
+!                                                        ! inner objects may touch the boundary of the domain
 
   REAL(8), ALLOCATABLE :: EX(:,:)        ! these arrays cover the whole cluster
   REAL(8), ALLOCATABLE :: EY(:,:)        !

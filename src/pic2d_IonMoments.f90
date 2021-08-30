@@ -199,9 +199,9 @@ end if
            cs_WY(i, j) = REAL(Ms(s) * energy_factor_eV) * (cs_WY(i, j) / cs_N(i,j))
            cs_WZ(i, j) = REAL(Ms(s) * energy_factor_eV) * (cs_WZ(i, j) / cs_N(i,j))
 
-           cs_TX(i, j) = 2.0 * cs_WX(i, j) - REAL(Ms(s) * m_e_kg / e_Cl) * cs_VX(i, j)**2
-           cs_TY(i, j) = 2.0 * cs_WY(i, j) - REAL(Ms(s) * m_e_kg / e_Cl) * cs_VY(i, j)**2
-           cs_TZ(i, j) = 2.0 * cs_WZ(i, j) - REAL(Ms(s) * m_e_kg / e_Cl) * cs_VZ(i, j)**2
+           cs_TX(i, j) = MAX(0.0, 2.0 * cs_WX(i, j) - REAL(Ms(s) * m_e_kg / e_Cl) * cs_VX(i, j)**2)
+           cs_TY(i, j) = MAX(0.0, 2.0 * cs_WY(i, j) - REAL(Ms(s) * m_e_kg / e_Cl) * cs_VY(i, j)**2)
+           cs_TZ(i, j) = MAX(0.0, 2.0 * cs_WZ(i, j) - REAL(Ms(s) * m_e_kg / e_Cl) * cs_VZ(i, j)**2)
 
         ELSE
            cs_VX(i, j) = 0.0

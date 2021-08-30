@@ -244,6 +244,7 @@ end subroutine save_E
 subroutine report_total_number_of_particles
 
   USE ParallelOperationValues
+  USE CurrentProblemValues
   USE ElectronParticles, ONLY : N_electrons, electron
   USE IonParticles, ONLY : N_spec, N_ions, ion
 
@@ -262,6 +263,9 @@ subroutine report_total_number_of_particles
   INTEGER pos1, pos2
 
   INTEGER N_particles_cluster(0:N_spec), N_particles_total(0:N_spec)
+
+  INTEGER n
+  real(8) surf_char
 
   ALLOCATE(    rbufer(1:4*(N_spec+1)), STAT = ALLOC_ERR)
   ALLOCATE(   pwbufer(1:4*(N_spec+1)), STAT = ALLOC_ERR)
@@ -321,6 +325,16 @@ subroutine report_total_number_of_particles
            pos1=pos2+1
            pos2=pos2+4
         END DO
+        
+        surf_char = 0.0_8
+        DO n = N_of_boundary_objects+1, N_of_boundary_and_inner_objects
+           IF (whole_object(n)%object_type.NE.DIELECTRIC) CYCLE
+           DO k = 1, whole_object(n)%N_boundary_nodes
+              surf_char = surf_char + whole_object(n)%surface_charge(k)
+           END DO
+        END DO
+        PRINT '("Surface charge on inner dielectric objects ",f12.3," total charge ",f12.3)', surf_char, dble(-N_particles_total(0)+N_particles_total(1))+surf_char
+
      END IF
   END IF
 

@@ -19,6 +19,10 @@ SUBROUTINE ADVANCE_ELECTRONS
   REAL(8) K11, K12, K13, K21, K22, K23, K31, K32, K33
   REAL(8) VX_minus, VY_minus, VZ_minus
   REAL(8) VX_plus, VY_plus, VZ_plus
+
+  INTEGER n
+  LOGICAL collision_with_inner_object_occurred
+
 ! functions
   REAL(8) Bx, By, Bz, Ez
 
@@ -29,10 +33,10 @@ SUBROUTINE ADVANCE_ELECTRONS
   N_e_to_send_below = 0
 
 ! clear counters of particles that hit boundary objects
-  whole_object(1:N_of_boundary_objects)%electron_hit_count = 0
+  whole_object(1:N_of_boundary_and_inner_objects)%electron_hit_count = 0
 
 ! clear counters of particles emitted by boundary objects in order to account for the secondary electron emission
-  whole_object(1:N_of_boundary_objects)%electron_emit_count = 0  !### ?????
+  whole_object(1:N_of_boundary_and_inner_objects)%electron_emit_count = 0  !### ?????
 
 !print *, "enter", Rank_of_process, N_electrons, max_N_electrons
 
@@ -139,29 +143,7 @@ end if
      electron(k)%X = electron(k)%X + electron(k)%VX
      electron(k)%Y = electron(k)%Y + electron(k)%VY
 
-! most probable situation when the particle stays inside the area
-     IF ( (electron(k)%X.GE.c_X_area_min) .AND. &
-        & (electron(k)%X.LE.c_X_area_max) .AND. &
-        & (electron(k)%Y.GE.c_Y_area_min) .AND. &
-        & (electron(k)%Y.LE.c_Y_area_max) ) THEN
-!! calculate contribution to the charge density in surrounding nodes
-!        i = INT(electron(k)%X)
-!        j = INT(electron(k)%Y)
-!        IF (electron(k)%X.EQ.c_X_area_max) i = c_indx_x_max-1
-!        IF (electron(k)%Y.EQ.c_Y_area_max) j = c_indx_y_max-1
-!        ax_ip1 = electron(k)%X - DBLE(i)
-!        ax_i   = 1.0_8 - ax_ip1
-!        ay_jp1 = electron(k)%Y - DBLE(j)
-!        ay_j = 1.0_8 - ay_jp1
-!        c_rho_e(i  ,j)   = c_rho_e(i  ,j)   + ax_i   * ay_j
-!        c_rho_e(i+1,j)   = c_rho_e(i+1,j)   + ax_ip1 * ay_j
-!        c_rho_e(i  ,j+1) = c_rho_e(i  ,j+1) + ax_i   * ay_jp1
-!        c_rho_e(i+1,j+1) = c_rho_e(i+1,j+1) + ax_ip1 * ay_jp1   
-        CYCLE
-     END IF
-
-! since we are here, a particle crossed an area boundary
-
+! a particle crossed symmetry plane, reflect it
      IF (symmetry_plane_X_left) THEN
         IF (electron(k)%X.LT.c_X_area_min) THEN
            electron(k)%X = MAX(c_X_area_min, c_X_area_min + c_X_area_min - electron(k)%X)
@@ -169,6 +151,32 @@ end if
 !###          electron(k)%VZ = -electron(k)%VZ   !###??? do we not have to do this when BY is on ??? 
         END IF
      END IF
+
+! check whether a collision with an inner object occurred
+     collision_with_inner_object_occurred = .FALSE.
+     DO n = N_of_boundary_objects+1, N_of_boundary_and_inner_objects
+        IF (electron(k)%X.LE.whole_object(n)%Xmin) CYCLE
+        IF (electron(k)%X.GE.whole_object(n)%Xmax) CYCLE
+        IF (electron(k)%Y.LE.whole_object(n)%Ymin) CYCLE
+        IF (electron(k)%Y.GE.whole_object(n)%Ymax) CYCLE
+! collision detected
+        CALL TRY_ELECTRON_COLL_WITH_INNER_OBJECT(electron(k)%X, electron(k)%Y, electron(k)%VX, electron(k)%VY, electron(k)%VZ, electron(k)%tag) !, whole_object(n))
+        CALL REMOVE_ELECTRON(k)  ! this subroutine does  N_electrons = N_electrons - 1 and k = k-1
+        collision_with_inner_object_occurred = .TRUE.
+        EXIT
+     END DO
+
+     IF (collision_with_inner_object_occurred) CYCLE
+
+! most probable situation when the particle remains inside the area
+     IF ( (electron(k)%X.GE.c_X_area_min) .AND. &
+        & (electron(k)%X.LE.c_X_area_max) .AND. &
+        & (electron(k)%Y.GE.c_Y_area_min) .AND. &
+        & (electron(k)%Y.LE.c_Y_area_max) ) CYCLE
+
+! since we are here, a particle did not collide with an inner object but crossed an area boundary
+! note, in a periodic system the particle still may collide with an inner object after transfer to the other domain
+! therefore it is still necessary to check add list for collisions after process receives particles from neighbors
 
      IF (electron(k)%X.LT.c_X_area_min) THEN
 
@@ -893,6 +901,514 @@ END SUBROUTINE ADD_ELECTRON_TO_ADD_LIST
 
 !----------------------------------------
 !
+SUBROUTINE REMOVE_ELECTRON_FROM_ADD_LIST(k)
+
+  USE ParallelOperationValues
+  USE ElectronParticles
+
+  IMPLICIT NONE
+
+  INTEGER, INTENT(INOUT) :: k
+
+  IF ((k.LT.1).OR.(k.GT.N_e_to_add)) THEN
+     PRINT '("Process ",i6," : ERROR in REMOVE_ELECTRON_FROM_ADD_LIST : index k invalid")', Rank_of_process
+     PRINT '("Process ",i6," : k= ", i7," N_e_to_add= ",i7)', Rank_of_process, k, N_e_to_add
+     PRINT '("Process ",i6," : PROGRAM TERMINATED")', Rank_of_process
+     STOP
+  END IF
+
+  IF (k.LT.N_e_to_add) THEN
+
+     electron_to_add(k)%X   = electron_to_add(N_e_to_add)%X
+     electron_to_add(k)%Y   = electron_to_add(N_e_to_add)%Y
+     electron_to_add(k)%VX  = electron_to_add(N_e_to_add)%VX
+     electron_to_add(k)%VY  = electron_to_add(N_e_to_add)%VY
+     electron_to_add(k)%VZ  = electron_to_add(N_e_to_add)%VZ
+     electron_to_add(k)%tag = electron_to_add(N_e_to_add)%tag
+
+  END IF
+
+  N_e_to_add = N_e_to_add - 1
+  k = k-1                  ! to ensure that the new k-particle is processed
+
+!print '("Process ",i4," called REMOVE_ELECTRON_FROM_ADD_LIST(k), T_cntr= ",i7," k= ",i4)', Rank_of_process, T_cntr, k
+
+END SUBROUTINE REMOVE_ELECTRON_FROM_ADD_LIST
+
+!----------------------------------------
+! This subroutine is called after ADVANCE_ELECTRONS, before exchange of electrons takes place.
+! It removes particles which do not belong to the cluster domain.
+! Such particles may appear after emission from surface of inner objects.
+! It is expected that the emission is never directed into boundary objects aligned along the main simulation domain's boundary.
+! The algorithm below, which places alien particles into proper SEND* lists is the same as in ADVANCE_ELECTRONS.
+! However, collision with a boundary object at this stage is not expected and is considered an error.
+!
+SUBROUTINE FIND_ALIENS_IN_ELECTRON_ADD_LIST
+
+  USE ParallelOperationValues
+  USE CurrentProblemValues
+  USE ClusterAndItsBoundaries
+  USE ElectronParticles, ONLY : N_e_to_add, electron_to_add
+
+  IMPLICIT NONE
+
+  INTEGER k, n 
+
+  IF (N_of_inner_objects.EQ.0) RETURN
+
+! find, process, and exclude electrons which collided with inner objects
+  k=0
+  DO WHILE (k.LT.N_e_to_add)
+     k = k+1
+
+     IF (symmetry_plane_X_left) THEN
+        IF (electron_to_add(k)%X.LT.c_X_area_min) THEN
+! since we are here, a particle to be added is beyond the symmetry plane at X=0
+! this is a rare but possible situation, for example:
+! a particle crosses the symmetry plane and collides with an inner object at the same time
+! such a particle is reflected before trying for collision, but the crossing point for the reflected particle may still be at X<0
+! [because for collisions with inner objects we do "ray tracing" to find the point of collision]
+! if the collision is followed by emission of a secondary electron, then the emitted electron will have X<0
+! so we simply move this particle rightward, symmetrically relative to plane X=0
+           electron_to_add(k)%X = MAX(c_X_area_min, c_X_area_min + c_X_area_min - electron_to_add(k)%X)
+! unlike in ADVANCE_ELECTRONS, here we do not change velocity because it is random
+!           electron(k)%VX = -electron(k)%VX
+!!###          electron(k)%VZ = -electron(k)%VZ   !###??? do we not have to do this when BY is on ??? 
+        END IF
+     END IF
+
+
+! most probable situation when the particle is inside the area
+     IF ( (electron_to_add(k)%X.GE.c_X_area_min) .AND. &
+        & (electron_to_add(k)%X.LE.c_X_area_max) .AND. &
+        & (electron_to_add(k)%Y.GE.c_Y_area_min) .AND. &
+        & (electron_to_add(k)%Y.LE.c_Y_area_max) ) CYCLE
+
+! since we are here, particle k is outside the domain of this cluster
+
+     IF (electron_to_add(k)%X.LT.c_X_area_min) THEN
+
+        IF (periodic_boundary_X_left.AND.periodic_boundary_X_right) THEN
+! if the cluster is periodically [X] connected on itself we avoid exchange in the X-direction
+! shift the electron by the period length
+           electron_to_add(k)%X = electron_to_add(k)%X + L_period_X
+           IF (electron_to_add(k)%Y.LT.c_Y_area_min) THEN
+! particle is below the bottom side of the area
+              IF (Rank_of_master_below.LT.0) THEN
+!                 CALL PROCESS_ELECTRON_COLL_WITH_BOUNDARY_BELOW(electron_to_add(k)%X, electron_to_add(k)%Y, electron_to_add(k)%VX, electron_to_add(k)%VY, electron_to_add(k)%VZ, electron_to_add(k)%tag)
+! error
+                 print '("error-1 in FIND_ALIENS_IN_ELECTRON_ADD_LIST")'
+                 stop
+              ELSE
+                 CALL ADD_ELECTRON_TO_SEND_BELOW(electron_to_add(k)%X, electron_to_add(k)%Y, electron_to_add(k)%VX, electron_to_add(k)%VY, electron_to_add(k)%VZ, electron_to_add(k)%tag)                       
+              END IF
+              CALL REMOVE_ELECTRON_FROM_ADD_LIST(k)  ! this subroutine does  N_e_to_add = N_e_to_add - 1 and k = k-1
+           ELSE IF (electron_to_add(k)%Y.GT.c_Y_area_max) THEN
+! particle is above the top side of the area
+              IF (Rank_of_master_above.LT.0) THEN
+!                 CALL PROCESS_ELECTRON_COLL_WITH_BOUNDARY_ABOVE(electron_to_add(k)%X, electron_to_add(k)%Y, electron_to_add(k)%VX, electron_to_add(k)%VY, electron_to_add(k)%VZ, electron_to_add(k)%tag)
+! error
+                 print '("error-2 in FIND_ALIENS_IN_ELECTRON_ADD_LIST")'
+                 stop
+              ELSE
+                 CALL ADD_ELECTRON_TO_SEND_ABOVE(electron_to_add(k)%X, electron_to_add(k)%Y, electron_to_add(k)%VX, electron_to_add(k)%VY, electron_to_add(k)%VZ, electron_to_add(k)%tag)
+              END IF
+              CALL REMOVE_ELECTRON_FROM_ADD_LIST(k)  ! this subroutine does  N_e_to_add = N_e_to_add - 1 and k = k-1
+           END IF
+           CYCLE
+        END IF
+
+        IF ( (electron_to_add(k)%Y.GE.(c_Y_area_min+1.0_8)).AND. &
+           & (electron_to_add(k)%Y.LE.(c_Y_area_max-1.0_8)) ) THEN
+! most probable situation when the particle stays at least one cell away from the Y-boundaries of the area
+
+           IF (Rank_of_master_left.GE.0) THEN
+! left neighbor cluster exists
+              CALL ADD_ELECTRON_TO_SEND_LEFT(electron_to_add(k)%X, electron_to_add(k)%Y, electron_to_add(k)%VX, electron_to_add(k)%VY, electron_to_add(k)%VZ, electron_to_add(k)%tag)
+           ELSE
+! left neighbor cluster does not exist
+!#              CALL PROCESS_ELECTRON_COLL_WITH_BOUNDARY_LEFT(electron_to_add(k)%X, electron_to_add(k)%Y, electron_to_add(k)%VX,  electron_to_add(k)%VY, electron_to_add(k)%VZ, electron_to_add(k)%tag)   ! left
+! error
+                 print '("error-3 in FIND_ALIENS_IN_ELECTRON_ADD_LIST")'
+                 stop
+           END IF
+
+        ELSE IF (electron_to_add(k)%Y.LT.(c_Y_area_min+1.0_8)) THEN
+! particle is somewhere near the left bottom cell of the area
+
+           SELECT CASE (c_left_bottom_corner_type)
+              CASE (HAS_TWO_NEIGHBORS)
+                 IF ((c_X_area_min-electron_to_add(k)%X).LT.(c_Y_area_min-electron_to_add(k)%Y)) THEN
+                    CALL ADD_ELECTRON_TO_SEND_BELOW(electron_to_add(k)%X, electron_to_add(k)%Y, electron_to_add(k)%VX, electron_to_add(k)%VY, electron_to_add(k)%VZ, electron_to_add(k)%tag)
+                 ELSE
+                    CALL ADD_ELECTRON_TO_SEND_LEFT(electron_to_add(k)%X, electron_to_add(k)%Y, electron_to_add(k)%VX, electron_to_add(k)%VY, electron_to_add(k)%VZ, electron_to_add(k)%tag)
+                 END IF
+
+              CASE (FLAT_WALL_BELOW)
+                 CALL ADD_ELECTRON_TO_SEND_LEFT(electron_to_add(k)%X, electron_to_add(k)%Y, electron_to_add(k)%VX, electron_to_add(k)%VY, electron_to_add(k)%VZ, electron_to_add(k)%tag)
+
+              CASE (FLAT_WALL_LEFT)
+                 IF (electron_to_add(k)%Y.GE.c_Y_area_min) THEN                 
+!                    CALL PROCESS_ELECTRON_COLL_WITH_BOUNDARY_LEFT(electron_to_add(k)%X, electron_to_add(k)%Y, electron_to_add(k)%VX, electron_to_add(k)%VY, electron_to_add(k)%VZ, electron_to_add(k)%tag)
+! error
+                    print '("error-4 in FIND_ALIENS_IN_ELECTRON_ADD_LIST")'
+                    stop
+                 ELSE
+                    CALL ADD_ELECTRON_TO_SEND_BELOW(electron_to_add(k)%X, electron_to_add(k)%Y, electron_to_add(k)%VX, electron_to_add(k)%VY, electron_to_add(k)%VZ, electron_to_add(k)%tag)                       
+                 END IF
+
+              CASE (SURROUNDED_BY_WALL)
+!                 IF ((c_X_area_min-electron_to_add(k)%X).LT.(c_Y_area_min-electron_to_add(k)%Y)) THEN
+!                    CALL PROCESS_ELECTRON_COLL_WITH_BOUNDARY_BELOW(electron_to_add(k)%X, electron_to_add(k)%Y, electron_to_add(k)%VX, electron_to_add(k)%VY, electron_to_add(k)%VZ, electron_to_add(k)%tag)
+!                 ELSE
+!                    CALL PROCESS_ELECTRON_COLL_WITH_BOUNDARY_LEFT(electron_to_add(k)%X, electron_to_add(k)%Y, electron_to_add(k)%VX, electron_to_add(k)%VY, electron_to_add(k)%VZ, electron_to_add(k)%tag)
+!                 END IF
+! error
+                 print '("error-5 in FIND_ALIENS_IN_ELECTRON_ADD_LIST")'
+                 stop
+
+              CASE (EMPTY_CORNER_WALL_LEFT)
+                 CALL ADD_ELECTRON_TO_SEND_BELOW(electron_to_add(k)%X, electron_to_add(k)%Y, electron_to_add(k)%VX, electron_to_add(k)%VY, electron_to_add(k)%VZ, electron_to_add(k)%tag)
+
+              CASE (EMPTY_CORNER_WALL_BELOW)
+                 CALL ADD_ELECTRON_TO_SEND_LEFT(electron_to_add(k)%X, electron_to_add(k)%Y, electron_to_add(k)%VX, electron_to_add(k)%VY, electron_to_add(k)%VZ, electron_to_add(k)%tag)
+
+           END SELECT
+
+        ELSE IF (electron_to_add(k)%Y.GT.(c_Y_area_max-1.0_8)) THEN
+! particle is somewhere near the top left cell of the area
+
+           SELECT CASE (c_left_top_corner_type)
+              CASE (HAS_TWO_NEIGHBORS)
+                 IF ((c_X_area_min-electron_to_add(k)%X).LT.(electron_to_add(k)%Y-c_Y_area_max)) THEN
+                    CALL ADD_ELECTRON_TO_SEND_ABOVE(electron_to_add(k)%X, electron_to_add(k)%Y, electron_to_add(k)%VX, electron_to_add(k)%VY, electron_to_add(k)%VZ, electron_to_add(k)%tag)
+                 ELSE
+                    CALL ADD_ELECTRON_TO_SEND_LEFT(electron_to_add(k)%X, electron_to_add(k)%Y, electron_to_add(k)%VX, electron_to_add(k)%VY, electron_to_add(k)%VZ, electron_to_add(k)%tag)
+                 END IF
+
+              CASE (FLAT_WALL_ABOVE)
+                 CALL ADD_ELECTRON_TO_SEND_LEFT(electron_to_add(k)%X, electron_to_add(k)%Y, electron_to_add(k)%VX, electron_to_add(k)%VY, electron_to_add(k)%VZ, electron_to_add(k)%tag)
+
+              CASE (FLAT_WALL_LEFT)
+                 IF (electron_to_add(k)%Y.LE.c_Y_area_max) THEN                 
+!                    CALL PROCESS_ELECTRON_COLL_WITH_BOUNDARY_LEFT(electron_to_add(k)%X, electron_to_add(k)%Y, electron_to_add(k)%VX, electron_to_add(k)%VY, electron_to_add(k)%VZ, electron_to_add(k)%tag)
+! error
+                    print '("error-6 in FIND_ALIENS_IN_ELECTRON_ADD_LIST")'
+                    stop
+                 ELSE
+                    CALL ADD_ELECTRON_TO_SEND_ABOVE(electron_to_add(k)%X, electron_to_add(k)%Y, electron_to_add(k)%VX, electron_to_add(k)%VY, electron_to_add(k)%VZ, electron_to_add(k)%tag)
+                 END IF
+
+              CASE (SURROUNDED_BY_WALL)
+!                 IF ((c_X_area_min-electron_to_add(k)%X).LT.(electron_to_add(k)%Y-c_Y_area_max)) THEN
+!                    CALL PROCESS_ELECTRON_COLL_WITH_BOUNDARY_ABOVE(electron_to_add(k)%X, electron_to_add(k)%Y, electron_to_add(k)%VX, electron_to_add(k)%VY, electron_to_add(k)%VZ, electron_to_add(k)%tag)
+!                 ELSE
+!                    CALL PROCESS_ELECTRON_COLL_WITH_BOUNDARY_LEFT(electron_to_add(k)%X, electron_to_add(k)%Y, electron_to_add(k)%VX, electron_to_add(k)%VY, electron_to_add(k)%VZ, electron_to_add(k)%tag)
+!                 END IF
+! error
+                 print '("error-7 in FIND_ALIENS_IN_ELECTRON_ADD_LIST")'
+                 stop
+
+              CASE (EMPTY_CORNER_WALL_LEFT)
+                 CALL ADD_ELECTRON_TO_SEND_ABOVE(electron_to_add(k)%X, electron_to_add(k)%Y, electron_to_add(k)%VX, electron_to_add(k)%VY, electron_to_add(k)%VZ, electron_to_add(k)%tag)
+
+              CASE (EMPTY_CORNER_WALL_ABOVE)
+                 CALL ADD_ELECTRON_TO_SEND_LEFT(electron_to_add(k)%X, electron_to_add(k)%Y, electron_to_add(k)%VX, electron_to_add(k)%VY, electron_to_add(k)%VZ, electron_to_add(k)%tag)
+
+           END SELECT
+        END IF
+        CALL REMOVE_ELECTRON_FROM_ADD_LIST(k)  ! this subroutine does  N_e_to_add = N_e_to_add - 1 and k = k-1
+        CYCLE
+     END IF         !### IF (electron_to_add(k)%X.LT.c_X_area_min) THEN
+
+     IF (electron_to_add(k)%X.GT.c_X_area_max) THEN
+
+        IF (periodic_boundary_X_left.AND.periodic_boundary_X_right) THEN
+! if the cluster is periodically [X] connected on itself we avoid exchange in the X-direction
+! shift the electron by the period length
+           electron_to_add(k)%X = electron_to_add(k)%X - L_period_X
+           IF (electron_to_add(k)%Y.LT.c_Y_area_min) THEN
+! particle is below the bottom side of the area
+              IF (Rank_of_master_below.LT.0) THEN
+!                 CALL PROCESS_ELECTRON_COLL_WITH_BOUNDARY_BELOW(electron_to_add(k)%X, electron_to_add(k)%Y, electron_to_add(k)%VX, electron_to_add(k)%VY, electron_to_add(k)%VZ, electron_to_add(k)%tag)
+! error
+                 print '("error-8 in FIND_ALIENS_IN_ELECTRON_ADD_LIST")'
+                 stop
+              ELSE
+                 CALL ADD_ELECTRON_TO_SEND_BELOW(electron_to_add(k)%X, electron_to_add(k)%Y, electron_to_add(k)%VX, electron_to_add(k)%VY, electron_to_add(k)%VZ, electron_to_add(k)%tag)                       
+              END IF
+              CALL REMOVE_ELECTRON_FROM_ADD_LIST(k)  ! this subroutine does  N_e_to_add = N_e_to_add - 1 and k = k-1
+           ELSE IF (electron_to_add(k)%Y.GT.c_Y_area_max) THEN
+! particle is somewhere near the top left cell of the area
+              IF (Rank_of_master_above.LT.0) THEN
+!                 CALL PROCESS_ELECTRON_COLL_WITH_BOUNDARY_ABOVE(electron_to_add(k)%X, electron_to_add(k)%Y, electron_to_add(k)%VX, electron_to_add(k)%VY, electron_to_add(k)%VZ, electron_to_add(k)%tag)
+! error
+                 print '("error-9 in FIND_ALIENS_IN_ELECTRON_ADD_LIST")'
+                 stop
+              ELSE
+                 CALL ADD_ELECTRON_TO_SEND_ABOVE(electron_to_add(k)%X, electron_to_add(k)%Y, electron_to_add(k)%VX, electron_to_add(k)%VY, electron_to_add(k)%VZ, electron_to_add(k)%tag)
+              END IF
+              CALL REMOVE_ELECTRON_FROM_ADD_LIST(k)  ! this subroutine does  N_e_to_add = N_e_to_add - 1 and k = k-1
+           END IF
+           CYCLE
+        END IF
+
+        IF ( (electron_to_add(k)%Y.GE.(c_Y_area_min+1.0_8)).AND. &
+           & (electron_to_add(k)%Y.LE.(c_Y_area_max-1.0_8)) ) THEN
+! most probable situation when the particle stays at least one cell away from the Y-boundaries of the area
+
+           IF (Rank_of_master_right.GE.0) THEN
+! right neighbor cluster exists
+              CALL ADD_ELECTRON_TO_SEND_RIGHT(electron_to_add(k)%X, electron_to_add(k)%Y, electron_to_add(k)%VX, electron_to_add(k)%VY, electron_to_add(k)%VZ, electron_to_add(k)%tag)
+           ELSE
+! right neighbor cluster does not exist
+!              CALL PROCESS_ELECTRON_COLL_WITH_BOUNDARY_RIGHT(electron_to_add(k)%X, electron_to_add(k)%Y, electron_to_add(k)%VX, electron_to_add(k)%VY, electron_to_add(k)%VZ, electron_to_add(k)%tag)
+! error
+              print '("error-10 in FIND_ALIENS_IN_ELECTRON_ADD_LIST")'
+              stop
+           END IF
+
+        ELSE IF (electron_to_add(k)%Y.LT.(c_Y_area_min+1.0_8)) THEN
+! particle is somewhere near the right bottom cell of the area
+
+           SELECT CASE (c_right_bottom_corner_type)
+              CASE (HAS_TWO_NEIGHBORS)
+                 IF ((electron_to_add(k)%X-c_X_area_max).LT.(c_Y_area_min-electron_to_add(k)%Y)) THEN
+                    CALL ADD_ELECTRON_TO_SEND_BELOW(electron_to_add(k)%X, electron_to_add(k)%Y, electron_to_add(k)%VX, electron_to_add(k)%VY, electron_to_add(k)%VZ, electron_to_add(k)%tag)
+                 ELSE
+                    CALL ADD_ELECTRON_TO_SEND_RIGHT(electron_to_add(k)%X, electron_to_add(k)%Y, electron_to_add(k)%VX, electron_to_add(k)%VY, electron_to_add(k)%VZ, electron_to_add(k)%tag)
+                 END IF
+
+              CASE (FLAT_WALL_BELOW)
+                 CALL ADD_ELECTRON_TO_SEND_RIGHT(electron_to_add(k)%X, electron_to_add(k)%Y, electron_to_add(k)%VX, electron_to_add(k)%VY, electron_to_add(k)%VZ, electron_to_add(k)%tag)
+                
+              CASE (FLAT_WALL_RIGHT)
+                 IF (electron_to_add(k)%Y.GE.c_Y_area_min) THEN
+!                    CALL PROCESS_ELECTRON_COLL_WITH_BOUNDARY_RIGHT(electron_to_add(k)%X, electron_to_add(k)%Y, electron_to_add(k)%VX, electron_to_add(k)%VY, electron_to_add(k)%VZ, electron_to_add(k)%tag)
+! error
+                    print '("error-11 in FIND_ALIENS_IN_ELECTRON_ADD_LIST")'
+                    stop
+                 ELSE
+                    CALL ADD_ELECTRON_TO_SEND_BELOW(electron_to_add(k)%X, electron_to_add(k)%Y, electron_to_add(k)%VX, electron_to_add(k)%VY, electron_to_add(k)%VZ, electron_to_add(k)%tag)                       
+                 END IF
+
+              CASE (SURROUNDED_BY_WALL)
+!                 IF ((electron_to_add(k)%X-c_X_area_max).LT.(c_Y_area_min-electron_to_add(k)%Y)) THEN
+!                    CALL PROCESS_ELECTRON_COLL_WITH_BOUNDARY_BELOW(electron_to_add(k)%X, electron_to_add(k)%Y, electron_to_add(k)%VX, electron_to_add(k)%VY, electron_to_add(k)%VZ, electron_to_add(k)%tag)
+!                 ELSE
+!                    CALL PROCESS_ELECTRON_COLL_WITH_BOUNDARY_RIGHT(electron_to_add(k)%X, electron_to_add(k)%Y, electron_to_add(k)%VX, electron_to_add(k)%VY, electron_to_add(k)%VZ, electron_to_add(k)%tag)
+!                 END IF
+! error
+                    print '("error-12 in FIND_ALIENS_IN_ELECTRON_ADD_LIST")'
+                    stop
+
+              CASE (EMPTY_CORNER_WALL_RIGHT)
+                 CALL ADD_ELECTRON_TO_SEND_BELOW(electron_to_add(k)%X, electron_to_add(k)%Y, electron_to_add(k)%VX, electron_to_add(k)%VY, electron_to_add(k)%VZ, electron_to_add(k)%tag)
+
+              CASE (EMPTY_CORNER_WALL_BELOW)
+                 CALL ADD_ELECTRON_TO_SEND_RIGHT(electron_to_add(k)%X, electron_to_add(k)%Y, electron_to_add(k)%VX, electron_to_add(k)%VY, electron_to_add(k)%VZ, electron_to_add(k)%tag)
+
+           END SELECT
+
+        ELSE IF (electron_to_add(k)%Y.GT.(c_Y_area_max-1.0_8)) THEN
+! particle is somewhere near the top right cell of the area
+
+           SELECT CASE (c_right_top_corner_type)
+              CASE (HAS_TWO_NEIGHBORS)
+                 IF ((electron_to_add(k)%X-c_X_area_max).LT.(electron_to_add(k)%Y-c_Y_area_max)) THEN
+                    CALL ADD_ELECTRON_TO_SEND_ABOVE(electron_to_add(k)%X, electron_to_add(k)%Y, electron_to_add(k)%VX, electron_to_add(k)%VY, electron_to_add(k)%VZ, electron_to_add(k)%tag)
+                 ELSE
+                    CALL ADD_ELECTRON_TO_SEND_RIGHT(electron_to_add(k)%X, electron_to_add(k)%Y, electron_to_add(k)%VX, electron_to_add(k)%VY, electron_to_add(k)%VZ, electron_to_add(k)%tag)
+                 END IF
+
+              CASE (FLAT_WALL_ABOVE)
+                 CALL ADD_ELECTRON_TO_SEND_RIGHT(electron_to_add(k)%X, electron_to_add(k)%Y, electron_to_add(k)%VX, electron_to_add(k)%VY, electron_to_add(k)%VZ, electron_to_add(k)%tag)
+
+              CASE (FLAT_WALL_RIGHT)
+                 IF (electron_to_add(k)%Y.LE.c_Y_area_max) THEN
+!                    CALL PROCESS_ELECTRON_COLL_WITH_BOUNDARY_RIGHT(electron_to_add(k)%X, electron_to_add(k)%Y, electron_to_add(k)%VX, electron_to_add(k)%VY, electron_to_add(k)%VZ, electron_to_add(k)%tag)
+! error
+                    print '("error-13 in FIND_ALIENS_IN_ELECTRON_ADD_LIST")'
+                    stop
+                 ELSE
+                    CALL ADD_ELECTRON_TO_SEND_ABOVE(electron_to_add(k)%X, electron_to_add(k)%Y, electron_to_add(k)%VX, electron_to_add(k)%VY, electron_to_add(k)%VZ, electron_to_add(k)%tag)                    
+                 END IF
+
+              CASE (SURROUNDED_BY_WALL)
+!                 IF ((electron_to_add(k)%X-c_X_area_max).LT.(electron_to_add(k)%Y-c_Y_area_max)) THEN
+!                    CALL PROCESS_ELECTRON_COLL_WITH_BOUNDARY_ABOVE(electron_to_add(k)%X, electron_to_add(k)%Y, electron_to_add(k)%VX, electron_to_add(k)%VY, electron_to_add(k)%VZ, electron_to_add(k)%tag)
+!                 ELSE
+!                    CALL PROCESS_ELECTRON_COLL_WITH_BOUNDARY_RIGHT(electron_to_add(k)%X, electron_to_add(k)%Y, electron_to_add(k)%VX, electron_to_add(k)%VY, electron_to_add(k)%VZ, electron_to_add(k)%tag)
+!                 END IF
+! error
+                    print '("error-14 in FIND_ALIENS_IN_ELECTRON_ADD_LIST")'
+                    stop
+
+              CASE (EMPTY_CORNER_WALL_RIGHT)
+                 CALL ADD_ELECTRON_TO_SEND_ABOVE(electron_to_add(k)%X, electron_to_add(k)%Y, electron_to_add(k)%VX, electron_to_add(k)%VY, electron_to_add(k)%VZ, electron_to_add(k)%tag)
+
+              CASE (EMPTY_CORNER_WALL_ABOVE)
+                 CALL ADD_ELECTRON_TO_SEND_RIGHT(electron_to_add(k)%X, electron_to_add(k)%Y, electron_to_add(k)%VX, electron_to_add(k)%VY, electron_to_add(k)%VZ, electron_to_add(k)%tag)
+
+           END SELECT
+
+        END IF
+        CALL REMOVE_ELECTRON_FROM_ADD_LIST(k)  ! this subroutine does  N_e_to_add = N_e_to_add - 1 and k = k-1
+        CYCLE
+     END IF         !### IF (electron_to_add(k)%X.GT.c_X_area_max) THEN
+
+! since we are here, c_X_area_min <= electron_to_add(k)%Y <= c_X_area_max
+
+     IF (electron_to_add(k)%Y.GT.c_Y_area_max) THEN
+
+        IF (periodic_boundary_X_left.AND.periodic_boundary_X_right) THEN
+           IF (Rank_of_master_above.GE.0) THEN
+! neighbor cluster above exists
+              CALL ADD_ELECTRON_TO_SEND_ABOVE(electron_to_add(k)%X, electron_to_add(k)%Y, electron_to_add(k)%VX, electron_to_add(k)%VY, electron_to_add(k)%VZ, electron_to_add(k)%tag)
+           ELSE
+!              CALL PROCESS_ELECTRON_COLL_WITH_BOUNDARY_ABOVE(electron_to_add(k)%X, electron_to_add(k)%Y, electron_to_add(k)%VX, electron_to_add(k)%VY, electron_to_add(k)%VZ, electron_to_add(k)%tag)
+! error
+              print '("error-15 in FIND_ALIENS_IN_ELECTRON_ADD_LIST")'
+              stop
+           END IF
+           CALL REMOVE_ELECTRON_FROM_ADD_LIST(k)  ! this subroutine does  N_e_to_add = N_e_to_add - 1 and k = k-1
+           CYCLE
+        END IF
+
+        IF (Rank_of_master_above.GE.0) THEN
+! neighbor cluster above exists
+           CALL ADD_ELECTRON_TO_SEND_ABOVE(electron_to_add(k)%X, electron_to_add(k)%Y, electron_to_add(k)%VX, electron_to_add(k)%VY, electron_to_add(k)%VZ, electron_to_add(k)%tag)
+        ELSE
+! neighbor cluster above does not exist
+           IF ((electron_to_add(k)%X.GE.(c_X_area_min+1.0_8)).AND.(electron_to_add(k)%X.LE.(c_X_area_max-1.0_8))) THEN
+! most probable situation when the particle stays at least one cell away from the X-boundaries of the area
+!              CALL PROCESS_ELECTRON_COLL_WITH_BOUNDARY_ABOVE(electron_to_add(k)%X, electron_to_add(k)%Y, electron_to_add(k)%VX, electron_to_add(k)%VY, electron_to_add(k)%VZ, electron_to_add(k)%tag)
+! error
+              print '("error-16 in FIND_ALIENS_IN_ELECTRON_ADD_LIST")'
+              stop
+           ELSE IF (electron_to_add(k)%X.LT.(c_X_area_min+1.0_8)) THEN
+! particle near the left top corner
+              IF (c_left_top_corner_type.EQ.EMPTY_CORNER_WALL_ABOVE) THEN
+                 CALL ADD_ELECTRON_TO_SEND_LEFT(electron_to_add(k)%X, electron_to_add(k)%Y, electron_to_add(k)%VX, electron_to_add(k)%VY, electron_to_add(k)%VZ, electron_to_add(k)%tag)
+              ELSE
+!                 CALL PROCESS_ELECTRON_COLL_WITH_BOUNDARY_ABOVE(electron_to_add(k)%X, electron_to_add(k)%Y, electron_to_add(k)%VX, electron_to_add(k)%VY, electron_to_add(k)%VZ, electron_to_add(k)%tag)
+! error
+                 print '("error-17 in FIND_ALIENS_IN_ELECTRON_ADD_LIST")'
+                 stop
+              END IF
+           ELSE IF (electron_to_add(k)%X.GT.(c_X_area_max-1.0_8)) THEN
+! particle near the right top corner
+              IF (c_right_top_corner_type.EQ.EMPTY_CORNER_WALL_ABOVE) THEN
+                 CALL ADD_ELECTRON_TO_SEND_RIGHT(electron_to_add(k)%X, electron_to_add(k)%Y, electron_to_add(k)%VX,  electron_to_add(k)%VY, electron_to_add(k)%VZ, electron_to_add(k)%tag)
+              ELSE
+!                 CALL PROCESS_ELECTRON_COLL_WITH_BOUNDARY_ABOVE(electron_to_add(k)%X, electron_to_add(k)%Y, electron_to_add(k)%VX, electron_to_add(k)%VY, electron_to_add(k)%VZ, electron_to_add(k)%tag)
+! error
+                 print '("error-18 in FIND_ALIENS_IN_ELECTRON_ADD_LIST")'
+                 stop
+              END IF
+           END IF
+        END IF
+        CALL REMOVE_ELECTRON_FROM_ADD_LIST(k)  ! this subroutine does  N_e_to_add = N_e_to_add - 1 and k = k-1
+        CYCLE
+     END IF     !### IF (electron_to_add(k)%Y.GT.c_Y_area_max) THEN
+
+     IF (electron_to_add(k)%Y.LT.c_Y_area_min) THEN
+
+        IF (periodic_boundary_X_left.AND.periodic_boundary_X_right) THEN
+           IF (Rank_of_master_below.GE.0) THEN
+! neighbor cluster above exists
+              CALL ADD_ELECTRON_TO_SEND_BELOW(electron_to_add(k)%X, electron_to_add(k)%Y, electron_to_add(k)%VX, electron_to_add(k)%VY, electron_to_add(k)%VZ, electron_to_add(k)%tag)
+           ELSE
+!              CALL PROCESS_ELECTRON_COLL_WITH_BOUNDARY_BELOW(electron_to_add(k)%X, electron_to_add(k)%Y, electron_to_add(k)%VX, electron_to_add(k)%VY, electron_to_add(k)%VZ, electron_to_add(k)%tag)
+! error
+              print '("error-19 in FIND_ALIENS_IN_ELECTRON_ADD_LIST")'
+              stop
+           END IF
+           CALL REMOVE_ELECTRON_FROM_ADD_LIST(k)  ! this subroutine does  N_e_to_add = N_e_to_add - 1 and k = k-1
+           CYCLE
+        END IF
+
+        IF (Rank_of_master_below.GE.0) THEN
+! neighbor cluster below exists, remove particle and prepare to send it to the neighbor below
+           CALL ADD_ELECTRON_TO_SEND_BELOW(electron_to_add(k)%X, electron_to_add(k)%Y, electron_to_add(k)%VX, electron_to_add(k)%VY, electron_to_add(k)%VZ, electron_to_add(k)%tag)
+        ELSE
+! neighbor cluster below does not exist
+           IF ((electron_to_add(k)%X.GE.(c_X_area_min+1.0_8)).AND.(electron_to_add(k)%X.LE.(c_X_area_max-1.0_8))) THEN
+! most probable situation when the particle stays at least one cell away from the X-boundaries of the area
+!              CALL PROCESS_ELECTRON_COLL_WITH_BOUNDARY_BELOW(electron_to_add(k)%X, electron_to_add(k)%Y, electron_to_add(k)%VX, electron_to_add(k)%VY, electron_to_add(k)%VZ, electron_to_add(k)%tag)
+! error
+              print '("error-20 in FIND_ALIENS_IN_ELECTRON_ADD_LIST")'
+              stop
+           ELSE IF (electron_to_add(k)%X.LT.(c_X_area_min+1.0_8)) THEN
+! particle near the left bottom corner
+              IF (c_left_bottom_corner_type.EQ.EMPTY_CORNER_WALL_BELOW) THEN
+                 CALL ADD_ELECTRON_TO_SEND_LEFT(electron_to_add(k)%X, electron_to_add(k)%Y, electron_to_add(k)%VX, electron_to_add(k)%VY, electron_to_add(k)%VZ, electron_to_add(k)%tag)
+              ELSE
+!                 CALL PROCESS_ELECTRON_COLL_WITH_BOUNDARY_BELOW(electron_to_add(k)%X, electron_to_add(k)%Y, electron_to_add(k)%VX, electron_to_add(k)%VY, electron_to_add(k)%VZ, electron_to_add(k)%tag)
+! error
+                 print '("error-21 in FIND_ALIENS_IN_ELECTRON_ADD_LIST")'
+                 stop
+              END IF
+           ELSE IF (electron_to_add(k)%X.GT.(c_X_area_max-1.0_8)) THEN
+! particle near the right bottom corner
+              IF (c_right_bottom_corner_type.EQ.EMPTY_CORNER_WALL_BELOW) THEN
+                 CALL ADD_ELECTRON_TO_SEND_RIGHT(electron_to_add(k)%X, electron_to_add(k)%Y, electron_to_add(k)%VX, electron_to_add(k)%VY, electron_to_add(k)%VZ, electron_to_add(k)%tag)
+              ELSE
+!                 CALL PROCESS_ELECTRON_COLL_WITH_BOUNDARY_BELOW(electron_to_add(k)%X, electron_to_add(k)%Y, electron_to_add(k)%VX, electron_to_add(k)%VY, electron_to_add(k)%VZ, electron_to_add(k)%tag)
+! error
+                 print '("error-22 in FIND_ALIENS_IN_ELECTRON_ADD_LIST")'
+                 stop
+              END IF
+           END IF
+        END IF
+        CALL REMOVE_ELECTRON_FROM_ADD_LIST(k)  ! this subroutine does  N_e_to_add = N_e_to_add - 1 and k = k-1
+        CYCLE
+     END IF     !### IF (electron_to_add(k)%Y.LT.c_Y_area_min) THEN
+
+  END DO   !### DO WHILE (k.LT.N_e_to_add)
+
+END SUBROUTINE FIND_ALIENS_IN_ELECTRON_ADD_LIST
+
+!----------------------------------------
+!
+SUBROUTINE FIND_INNER_OBJECT_COLL_IN_ELECTRON_ADD_LIST
+
+!  USE ParallelOperationValues
+  USE CurrentProblemValues
+  USE ElectronParticles, ONLY : N_e_to_add, electron_to_add
+
+  IMPLICIT NONE
+
+  INTEGER k, n 
+
+  IF (N_of_inner_objects.EQ.0) RETURN
+
+! find, process, and exclude electrons which collided with inner objects
+  k=0
+  DO WHILE (k.LT.N_e_to_add)
+     k = k+1
+     DO n = N_of_boundary_objects+1, N_of_boundary_and_inner_objects
+        IF (electron_to_add(k)%X.LE.whole_object(n)%Xmin) CYCLE
+        IF (electron_to_add(k)%X.GE.whole_object(n)%Xmax) CYCLE
+        IF (electron_to_add(k)%Y.LE.whole_object(n)%Ymin) CYCLE
+        IF (electron_to_add(k)%Y.GE.whole_object(n)%Ymax) CYCLE
+! collision detected
+        CALL TRY_ELECTRON_COLL_WITH_INNER_OBJECT( electron_to_add(k)%X, &
+                                                & electron_to_add(k)%Y, &
+                                                & electron_to_add(k)%VX, &
+                                                & electron_to_add(k)%VY, &
+                                                & electron_to_add(k)%VZ, &
+                                                & electron_to_add(k)%tag) !, &
+!                                                & whole_object(n) )
+        CALL REMOVE_ELECTRON_FROM_ADD_LIST(k)  ! this subroutine does  N_e_to_add = N_e_to_add - 1 and k = k-1
+        EXIT
+     END DO
+  END DO
+
+END SUBROUTINE FIND_INNER_OBJECT_COLL_IN_ELECTRON_ADD_LIST
+
+!----------------------------------------
+!
 SUBROUTINE PROCESS_ADDED_ELECTRONS
 
   USE ParallelOperationValues
@@ -915,7 +1431,7 @@ SUBROUTINE PROCESS_ADDED_ELECTRONS
 
   TYPE(particle), ALLOCATABLE :: bufer(:)
 
-  INTEGER ALLOC_ERR, DEALLOC_ERR
+  INTEGER ALLOC_ERR
   INTEGER k, current_N
 
   INTEGER random_j
@@ -934,7 +1450,7 @@ SUBROUTINE PROCESS_ADDED_ELECTRONS
         bufer(k)%VZ  = electron(k)%VZ
         bufer(k)%tag = electron(k)%tag
      END DO
-     DEALLOCATE(electron, STAT=DEALLOC_ERR)
+     DEALLOCATE(electron, STAT=ALLOC_ERR)
      max_N_electrons = max_N_electrons + MAX(N_e_to_add-(max_N_electrons-N_electrons), max_N_electrons/10)
      ALLOCATE(electron(1:max_N_electrons), STAT=ALLOC_ERR)
      DO k = 1, current_N
@@ -945,7 +1461,7 @@ SUBROUTINE PROCESS_ADDED_ELECTRONS
         electron(k)%VZ  = bufer(k)%VZ
         electron(k)%tag = bufer(k)%tag
      END DO
-     DEALLOCATE(bufer, STAT=DEALLOC_ERR)
+     DEALLOCATE(bufer, STAT=ALLOC_ERR)
   END IF
   
   DO k = 1, N_e_to_add
@@ -1036,11 +1552,17 @@ SUBROUTINE GATHER_ELECTRON_CHARGE_DENSITY
 
   INTEGER pos
 
+  INTEGER nio, position_flag
+! function
+  REAL(8) Get_Surface_Charge_Inner_Object
+
   IF ( (cluster_rank_key.NE.0) &                     ! this array is needed only temporarily for non-master processes
      & .OR. &
-     & (periodicity_flag.EQ.PERIODICITY_NONE) &     ! if SOR is used, master processes don't need this array outside this sub
+     & (periodicity_flag.EQ.PERIODICITY_NONE) &      ! if PETSc is used, master processes don't need this array outside this sub
      & .OR. &
-     & (periodicity_flag.EQ.PERIODICITY_X_Y) ) &     ! if SOR is used, master processes don't need this array outside this sub
+     & (periodicity_flag.EQ.PERIODICITY_X_PETSC) &
+     & .OR. &
+     & (periodicity_flag.EQ.PERIODICITY_X_Y) ) &
      & THEN
      ALLOCATE(c_rho(c_indx_x_min:c_indx_x_max, c_indx_y_min:c_indx_y_max), STAT=ALLOC_ERR)
   END IF
@@ -1342,10 +1864,11 @@ end if
 
   END IF
 
-  IF ((periodicity_flag.EQ.PERIODICITY_NONE).OR.(periodicity_flag.EQ.PERIODICITY_X_Y)) THEN
+  IF ((periodicity_flag.EQ.PERIODICITY_NONE).OR.(periodicity_flag.EQ.PERIODICITY_X_PETSC).OR.(periodicity_flag.EQ.PERIODICITY_X_Y)) THEN
 
      IF (cluster_rank_key.EQ.0) THEN
 
+! prepare and send charge density to field calculators
         DO k = 2, cluster_N_blocks
            bufsize = (field_calculator(k)%indx_x_max - field_calculator(k)%indx_x_min + 1) * &
                    & (field_calculator(k)%indx_y_max - field_calculator(k)%indx_y_min + 1)
@@ -1356,13 +1879,54 @@ end if
               DO i = field_calculator(k)%indx_x_min, field_calculator(k)%indx_x_max
                  pos = pos+1
                  rbufer(pos) = c_rho(i,j)
+
+                 DO nio = N_of_boundary_objects+1, N_of_boundary_and_inner_objects
+                    CALL CHECK_IF_INNER_OBJECT_CONTAINS_POINT(whole_object(nio), i, j, position_flag)
+                    rbufer(pos) = rbufer(pos) - Get_Surface_Charge_Inner_Object(i, j, position_flag, whole_object(nio))
+                 END DO
+
+!                 CALL FIND_INNER_OBJECT_CONTAINING_POINT(i,j,nio,position_flag)
+!                 SELECT CASE (position_flag)
+!! for points on surface of dielectric objects, combine surface charge density and volume charge density
+!                    CASE (1,3,5,7)
+!! point at the corner of a dielectric object
+!                       rbufer(pos) = (1.0_8) * c_rho(i,j) - Get_Surface_Charge_Inner_Object(i,j,position_flag,whole_object(nio))
+!                    CASE (2,4,6,8)
+!! point on the surface of a dielectric object
+!! the factor used here allows to use common factor -1/4*N_of_particles_cell in SOLVE_POTENTIAL_WITH_PETSC
+!! it also allows to use uncorrected values of volume charge density in nodes on the flat material surface
+!                       rbufer(pos) = 2.0_8 * (c_rho(i,j) - Get_Surface_Charge_Inner_Object(i,j,position_flag,whole_object(nio))) / (1.0_8 + whole_object(nio)%eps_diel)
+!                 END SELECT
+
               END DO
            END DO
            CALL MPI_SEND(rbufer, bufsize, MPI_DOUBLE_PRECISION, field_calculator(k)%rank, Rank_of_process, MPI_COMM_WORLD, request, ierr) 
         END DO
 
+! cluster master is a field calaculator too, prepare its own charge density
         DO j = indx_y_min, indx_y_max
-           rho_e(indx_x_min:indx_x_max, j) = c_rho(indx_x_min:indx_x_max, j)
+           DO i = indx_x_min, indx_x_max
+              rho_e(i, j) = c_rho(i, j)
+
+              DO nio = N_of_boundary_objects+1, N_of_boundary_and_inner_objects
+                 CALL CHECK_IF_INNER_OBJECT_CONTAINS_POINT(whole_object(nio), i, j, position_flag)
+                 rho_e(i, j) = rho_e(i, j) - Get_Surface_Charge_Inner_Object(i, j, position_flag, whole_object(nio))
+              END DO
+
+!              CALL FIND_INNER_OBJECT_CONTAINING_POINT(i,j,nio,position_flag)
+!              SELECT CASE (position_flag)
+!! for points on surface of dielectric objects, combine surface charge density and volume charge density
+!                 CASE (1,3,5,7)
+!! point at the corner of a dielectric object
+!                    rho_e(i, j) = (1.0_8) * c_rho(i,j) - Get_Surface_Charge_Inner_Object(i,j,position_flag,whole_object(nio))
+!                 CASE (2,4,6,8)
+!! point on the surface of a dielectric object
+!! the factor used here allows to use common factor -1/4*N_of_particles_cell in SOLVE_POTENTIAL_WITH_PETSC
+!! it also allows to use uncorrected values of volume charge density in nodes on the flat material surface
+!                    rho_e(i, j) = 2.0_8 * (c_rho(i,j) - Get_Surface_Charge_Inner_Object(i,j,position_flag,whole_object(nio))) / (1.0_8 + whole_object(nio)%eps_diel)
+!              END SELECT
+
+           END DO
         END DO
 
      ELSE
@@ -1387,7 +1951,7 @@ end if
   
   IF (ALLOCATED(rbufer))  DEALLOCATE(rbufer,  STAT=ALLOC_ERR)
 
-  IF ( (cluster_rank_key.NE.0) .OR. (periodicity_flag.EQ.PERIODICITY_NONE)) THEN
+  IF ((cluster_rank_key.NE.0).OR.(periodicity_flag.EQ.PERIODICITY_NONE).OR.(periodicity_flag.EQ.PERIODICITY_X_PETSC).OR.(periodicity_flag.EQ.PERIODICITY_X_Y)) THEN
      IF (ALLOCATED(c_rho)) DEALLOCATE(c_rho, STAT=ALLOC_ERR)
   END IF
 

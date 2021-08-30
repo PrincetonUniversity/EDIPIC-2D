@@ -40,6 +40,16 @@ SUBROUTINE INITIATE_PARAMETERS
 !  INTEGER n_connected_to_end
   INTEGER nn
 
+  INTEGER metal_object_counter
+
+  INTEGER, ALLOCATABLE :: processed_flag(:)
+  INTEGER iperiodx, jperiody
+  INTEGER nio, nio2
+  INTEGER n_of_left_boundary, n_of_right_boundary
+  INTEGER n_of_bottom_boundary, n_of_top_boundary
+
+  INTEGER mm
+
   REAL(8) t_sim_ns
 
   LOGICAL period_x_found, period_y_found
@@ -49,8 +59,13 @@ SUBROUTINE INITIATE_PARAMETERS
   INTEGER init_random_seed
   REAL(8) myran
 
+  CHARACTER(24) iobox_filename  ! inner_object_NNN_box.dat
   CHARACTER(24) BxBy_filename   ! proc_NNNN_BxBy_vs_xy.dat
                                 ! ----x----I----x----I----
+
+  INTEGER bufsize
+  REAL(8), ALLOCATABLE :: rbufer(:)
+  INTEGER pos1, pos2
 
 ! functions
   REAL(8) Bx, By
@@ -61,102 +76,182 @@ SUBROUTINE INITIATE_PARAMETERS
        integer length_of_string
      end function convert_int_to_txt_string
   end interface
+  INTEGER convert_logical_to_int
+
+! default values
+  given_F_double_period_sys = 1000000.0_8        !
+  i_given_F_double_period_sys = -7777777   ! should be sufficient to not to trigger accidentally the node with given potential
+  j_given_F_double_period_sys = -7777777   ! for a double-periodic system without given potential metal boundaries
 
   INQUIRE (FILE = 'init_configuration.dat', EXIST = exists)
   CALL MPI_BARRIER(MPI_COMM_WORLD, ierr)
 
-  IF (exists) THEN
+  IF (.NOT.exists) THEN    
+     PRINT '(2x,"Process ",i5," : ERROR : init_configuration.dat not found. Program terminated")', Rank_of_process
+     CALL MPI_FINALIZE(ierr)
+     STOP
+  END IF
 
-     IF (Rank_of_process.EQ.0) THEN
-        PRINT '(2x,"Process ",i5," : init_configuration.dat is found. Reading the data file...")', Rank_of_process
-     END IF
+  IF (Rank_of_process.EQ.0) THEN
+     PRINT '(2x,"Process ",i5," : init_configuration.dat is found. Reading the data file...")', Rank_of_process
+  END IF
 
-     OPEN (9, FILE = 'init_configuration.dat')
+  OPEN (9, FILE = 'init_configuration.dat')
 
-     READ (9, '(A1)') buf !"---dddd.ddddddd----- scale electron temperature [eV]")')
-     READ (9, '(3x,f12.7)') T_e_eV
-     READ (9, '(A1)') buf !"---+d.dddddddE+dd--- scale electron density [m^-3]")')
-     READ (9, '(3x,e14.7)') N_plasma_m3
-     READ (9, '(A1)') buf !"---ddd---------- number of cells per scale electron Debye length")')
-     READ (9, '(3x,i3)') N_of_cells_debye
-     READ (9, '(A1)') buf !"---ddd---------- maximal expected velocity [units of scale thermal electron velocity]")')
-     READ (9, '(3x,i3)') N_max_vel
-     READ (9, '(A1)') buf !"---ddd---------- number of blocks (processes) along the X (horizontal) direction")')
-     READ (9, '(3x,i3)') N_blocks_x
-     READ (9, '(A1)') buf !"---ddd---------- number of blocks (processes) along the Y (vertical) direction")')
-     READ (9, '(3x,i3)') N_blocks_y
-     READ (9, '(A1)') buf !"---ddd---------- number of cells along the X-direction in a block")')
-     READ (9, '(3x,i3)') N_grid_block_x
-     READ (9, '(A1)') buf !"---ddd---------- number of cells along the Y-direction in a block")')
-     READ (9, '(3x,i3)') N_grid_block_y
-     READ (9, '(A1)') buf !"--dddd---------- number of macroparticles per cell for the scale density")')
-     READ (9, '(2x,i4)') N_of_particles_cell
-     READ (9, '(A1)') buf !"-----d---------- number of blocks in a cluster along the X-direction")')
-     READ (9, '(5x,i1)') cluster_N_blocks_x
-     READ (9, '(A1)') buf !"-----d---------- number of blocks in a cluster along the Y-direction")')
-     READ (9, '(5x,i1)') cluster_N_blocks_y
-     READ (9, '(A1)') buf !"---ddd---------- number of boundary objects")')
-     READ (9, '(3x,i3)') N_of_boundary_objects
+  READ (9, '(A1)') buf !"---dddd.ddddddd----- scale electron temperature [eV]")')
+  READ (9, '(3x,f12.7)') T_e_eV
+  READ (9, '(A1)') buf !"---+d.dddddddE+dd--- scale electron density [m^-3]")')
+  READ (9, '(3x,e14.7)') N_plasma_m3
+  READ (9, '(A1)') buf !"---ddd---------- number of cells per scale electron Debye length")')
+  READ (9, '(3x,i3)') N_of_cells_debye
+  READ (9, '(A1)') buf !"---ddd---------- maximal expected velocity [units of scale thermal electron velocity]")')
+  READ (9, '(3x,i3)') N_max_vel
+  READ (9, '(A1)') buf !"---ddd---------- number of blocks (processes) along the X (horizontal) direction")')
+  READ (9, '(3x,i3)') N_blocks_x
+  READ (9, '(A1)') buf !"---ddd---------- number of blocks (processes) along the Y (vertical) direction")')
+  READ (9, '(3x,i3)') N_blocks_y
+  READ (9, '(A1)') buf !"---ddd---------- number of cells along the X-direction in a block")')
+  READ (9, '(3x,i3)') N_grid_block_x
+  READ (9, '(A1)') buf !"---ddd---------- number of cells along the Y-direction in a block")')
+  READ (9, '(3x,i3)') N_grid_block_y
+  READ (9, '(A1)') buf !"--dddd---------- number of macroparticles per cell for the scale density")')
+  READ (9, '(2x,i4)') N_of_particles_cell
+  READ (9, '(A1)') buf !"-----d---------- number of blocks in a cluster along the X-direction")')
+  READ (9, '(5x,i1)') cluster_N_blocks_x
+  READ (9, '(A1)') buf !"-----d---------- number of blocks in a cluster along the Y-direction")')
+  READ (9, '(5x,i1)') cluster_N_blocks_y
+  READ (9, '(A1)') buf !"---ddd---ddd---- number of objects along domain boundary // number of material inner objects (>=0), each inner objects is a rectangle")')
+  READ (9, '(3x,i3,3x,i3)') N_of_boundary_objects, N_of_inner_objects
 
 ! configuration consistency check (rectangular domain)
 ! N_blocks_x * N_blocks_y = N_of_processes
 ! (N_blocks_x / cluster_N_blocks_x) * cluster_N_blocks_x = N_blocks_x 
 ! (N_blocks_y / cluster_N_blocks_y) * cluster_N_blocks_y = N_blocks_y
 
-     config_inconsistent = .FALSE.
+  config_inconsistent = .FALSE.
 
-     IF (N_of_processes.NE.(N_blocks_x*N_blocks_y)) THEN
-        config_inconsistent = .TRUE.
-        IF (Rank_of_process.EQ.0) PRINT '("@@@ INCONSISTENT CONFIGURATION ERROR-1, N_blocks_x * N_blocks_y .NE. N_of_processes :: ",i4," * ",i4," = ",i4," instead of ",i4," @@@")', &
-             & N_blocks_x, N_blocks_y, N_blocks_x*N_blocks_y, N_of_processes
+  IF (N_of_processes.NE.(N_blocks_x*N_blocks_y)) THEN
+     config_inconsistent = .TRUE.
+     IF (Rank_of_process.EQ.0) PRINT '("@@@ INCONSISTENT CONFIGURATION ERROR-1, N_blocks_x * N_blocks_y .NE. N_of_processes :: ",i4," * ",i4," = ",i4," instead of ",i4," @@@")', &
+          & N_blocks_x, N_blocks_y, N_blocks_x*N_blocks_y, N_of_processes
+  END IF
+
+  IF (N_blocks_x.NE.((N_blocks_x / cluster_N_blocks_x) * cluster_N_blocks_x)) THEN
+     config_inconsistent = .TRUE.
+     IF (Rank_of_process.EQ.0) PRINT '("@@@ INCONSISTENT CONFIGURATION ERROR-2, N_blocks_x .NE. (N_blocks_x / cluster_N_blocks_x) * cluster_N_blocks_x :: (",i4," / ",i4,") * ",i4," = ",i4," instead of ",i4," @@@")', &
+          & N_blocks_x, cluster_N_blocks_x, cluster_N_blocks_x, (N_blocks_x / cluster_N_blocks_x) * cluster_N_blocks_x, N_blocks_x
+  END IF
+
+  IF (N_blocks_y.NE.((N_blocks_y / cluster_N_blocks_y) * cluster_N_blocks_y)) THEN
+     config_inconsistent = .TRUE.
+     IF (Rank_of_process.EQ.0) PRINT '("@@@ INCONSISTENT CONFIGURATION ERROR-3, N_blocks_y .NE. (N_blocks_y / cluster_N_blocks_y) * cluster_N_blocks_y :: (",i4," / ",i4,") * ",i4," = ",i4," instead of ",i4," @@@")', &
+          & N_blocks_y, cluster_N_blocks_y, cluster_N_blocks_y, (N_blocks_y / cluster_N_blocks_y) * cluster_N_blocks_y, N_blocks_y
+  END IF
+
+  CALL MPI_BARRIER(MPI_COMM_WORLD, ierr)
+
+  IF (config_inconsistent) THEN
+     CALL MPI_FINALIZE(ierr)
+     STOP
+  END IF
+     
+  IF (Rank_of_process.EQ.0) THEN
+     IF (N_of_inner_objects.EQ.0) THEN
+        PRINT '(2x,"### No inner material objects requested ###")'
+     ELSE
+        PRINT '(2x,"### ",i3," inner material objects requested ###")', N_of_inner_objects
      END IF
+  END IF
 
-     IF (N_blocks_x.NE.((N_blocks_x / cluster_N_blocks_x) * cluster_N_blocks_x)) THEN
-        config_inconsistent = .TRUE.
-        IF (Rank_of_process.EQ.0) PRINT '("@@@ INCONSISTENT CONFIGURATION ERROR-2, N_blocks_x .NE. (N_blocks_x / cluster_N_blocks_x) * cluster_N_blocks_x :: (",i4," / ",i4,") * ",i4," = ",i4," instead of ",i4," @@@")', &
-             & N_blocks_x, cluster_N_blocks_x, cluster_N_blocks_x, (N_blocks_x / cluster_N_blocks_x) * cluster_N_blocks_x, N_blocks_x
-     END IF
+  N_of_boundary_and_inner_objects = N_of_boundary_objects + N_of_inner_objects
 
-     IF (N_blocks_y.NE.((N_blocks_y / cluster_N_blocks_y) * cluster_N_blocks_y)) THEN
-        config_inconsistent = .TRUE.
-        IF (Rank_of_process.EQ.0) PRINT '("@@@ INCONSISTENT CONFIGURATION ERROR-3, N_blocks_y .NE. (N_blocks_y / cluster_N_blocks_y) * cluster_N_blocks_y :: (",i4," / ",i4,") * ",i4," = ",i4," instead of ",i4," @@@")', &
-             & N_blocks_y, cluster_N_blocks_y, cluster_N_blocks_y, (N_blocks_y / cluster_N_blocks_y) * cluster_N_blocks_y, N_blocks_y
-     END IF
+  ALLOCATE(whole_object(1:N_of_boundary_and_inner_objects), STAT=ALLOC_ERR)
 
-     CALL MPI_BARRIER(MPI_COMM_WORLD, ierr)
+  DO n = 1, N_of_boundary_objects
+     READ (9, '(A1)') buf !"===dd===dd=== object type, number of segments")')
+     READ (9, '(3x,i2,3x,i2)') whole_object(n)%object_type, &
+                             & whole_object(n)%number_of_segments
+     READ (9, '(A1)') buf !"---dddddd---dddddd---dddddd---dddddd---segment start X/Y end X/Y [global node index]")')
+     ALLOCATE(whole_object(n)%segment(1:whole_object(n)%number_of_segments), STAT=ALLOC_ERR)
+     DO m = 1, whole_object(n)%number_of_segments
+        READ (9, '(3x,i6,3x,i6,3x,i6,3x,i6)') whole_object(n)%segment(m)%istart, &
+                                            & whole_object(n)%segment(m)%jstart, &
+                                            & whole_object(n)%segment(m)%iend, &
+                                            & whole_object(n)%segment(m)%jend
+     END DO
+  END DO
 
-     IF (config_inconsistent) THEN
+  DO n = N_of_boundary_objects+1, N_of_boundary_and_inner_objects  !N_of_inner_objects
+     READ (9, '(A1)') buf !"===dd=== object type")')
+     READ (9, '(3x,i2)') whole_object(n)%object_type
+     IF ((whole_object(n)%object_type.NE.METAL_WALL).AND.(whole_object(n)%object_type.NE.DIELECTRIC)) THEN
+        IF (Rank_of_process.EQ.0) PRINT '("Error, inner material object ",i2," has type ",i3," which is not permitted")', n, whole_object(n)%object_type
         CALL MPI_FINALIZE(ierr)
         STOP
      END IF
-     
-     ALLOCATE(whole_object(1:N_of_boundary_objects), STAT=ALLOC_ERR)
+     READ (9, '(A1)') buf !"---dddddd---dddddd---dddddd---dddddd--- coordinates of left bottom X/Y corner and right top X/Y corners [global node index]")')
+     READ (9, '(3x,i6,3x,i6,3x,i6,3x,i6)') whole_object(n)%ileft, whole_object(n)%jbottom, whole_object(n)%iright, whole_object(n)%jtop
 
-     DO n = 1, N_of_boundary_objects
-        READ (9, '(A1)') buf !"===dd===dd=== object type, number of segments")')
-        READ (9, '(3x,i2,3x,i2)') whole_object(n)%object_type, &
-                                & whole_object(n)%number_of_segments
-        READ (9, '(A1)') buf !"---dddddd---dddddd---dddddd---dddddd---segment start X/Y end X/Y [global node index]")')
-!        NULLIFY(whole_object(n)%segment)
-        ALLOCATE(whole_object(n)%segment(1:whole_object(n)%number_of_segments), STAT=ALLOC_ERR)
-!        ALLOCATE(whole_object(n)%ion_hit_count(1:N_spec), STAT = ALLOC_ERR)  ! will be performed below, here we don't know yet N_spec
-        DO m = 1, whole_object(n)%number_of_segments
-           READ (9, '(3x,i6,3x,i6,3x,i6,3x,i6)') whole_object(n)%segment(m)%istart, &
-                                               & whole_object(n)%segment(m)%jstart, &
-                                               & whole_object(n)%segment(m)%iend, &
-                                               & whole_object(n)%segment(m)%jend
-        END DO
-     END DO
+     whole_object(n)%number_of_segments = 4
+     ALLOCATE(whole_object(n)%segment(1:whole_object(n)%number_of_segments), STAT=ALLOC_ERR)
+! left side
+     whole_object(n)%segment(1)%istart = whole_object(n)%ileft
+     whole_object(n)%segment(1)%jstart = whole_object(n)%jbottom
+     whole_object(n)%segment(1)%iend = whole_object(n)%ileft
+     whole_object(n)%segment(1)%jend = whole_object(n)%jtop
+     ALLOCATE(whole_object(n)%segment(1)%cell_is_covered(whole_object(n)%jbottom:(whole_object(n)%jtop-1)), STAT=ALLOC_ERR)
+     whole_object(n)%segment(1)%cell_is_covered = .FALSE.
+! top side
+     whole_object(n)%segment(2)%istart = whole_object(n)%ileft
+     whole_object(n)%segment(2)%jstart = whole_object(n)%jtop
+     whole_object(n)%segment(2)%iend = whole_object(n)%iright
+     whole_object(n)%segment(2)%jend = whole_object(n)%jtop
+     ALLOCATE(whole_object(n)%segment(2)%cell_is_covered(whole_object(n)%ileft:(whole_object(n)%iright-1)), STAT=ALLOC_ERR)
+     whole_object(n)%segment(2)%cell_is_covered = .FALSE.
+! right side
+     whole_object(n)%segment(3)%istart = whole_object(n)%iright
+     whole_object(n)%segment(3)%jstart = whole_object(n)%jbottom
+     whole_object(n)%segment(3)%iend = whole_object(n)%iright
+     whole_object(n)%segment(3)%jend = whole_object(n)%jtop
+     ALLOCATE(whole_object(n)%segment(3)%cell_is_covered(whole_object(n)%jbottom:(whole_object(n)%jtop-1)), STAT=ALLOC_ERR)
+     whole_object(n)%segment(3)%cell_is_covered = .FALSE.
+! bottom side
+     whole_object(n)%segment(4)%istart = whole_object(n)%ileft
+     whole_object(n)%segment(4)%jstart = whole_object(n)%jbottom
+     whole_object(n)%segment(4)%iend = whole_object(n)%iright
+     whole_object(n)%segment(4)%jend = whole_object(n)%jbottom
+     ALLOCATE(whole_object(n)%segment(4)%cell_is_covered(whole_object(n)%ileft:(whole_object(n)%iright-1)), STAT=ALLOC_ERR)
+     whole_object(n)%segment(4)%cell_is_covered = .FALSE.
 
-     CLOSE (9, STATUS = 'KEEP')
+     whole_object(n)%Xmin = DBLE(whole_object(n)%ileft)
+     whole_object(n)%Xmax = DBLE(whole_object(n)%iright)
+     whole_object(n)%Ymin = DBLE(whole_object(n)%jbottom)
+     whole_object(n)%Ymax = DBLE(whole_object(n)%jtop)
 
-  ELSE
-     
-     PRINT '(2x,"Process ",i5," : ERROR : init_configuration.dat not found. Program terminated")', Rank_of_process
-     STOP
+     whole_object(n)%N_boundary_nodes = ((whole_object(n)%jtop - whole_object(n)%jbottom + 1) + (whole_object(n)%iright - whole_object(n)%ileft - 1))*2
+!        whole_object(n)%L = whole_object(n)%N_boundary_nodes
 
-  END IF
+     IF (whole_object(n)%object_type.EQ.DIELECTRIC) THEN
+        ALLOCATE(whole_object(n)%surface_charge_variation(1:whole_object(n)%N_boundary_nodes), STAT = ALLOC_ERR)
+        whole_object(n)%surface_charge_variation = 0.0_8
+     END IF
 
+     whole_object(n)%n_connected_to_start = -1
+     whole_object(n)%n_connected_to_end = -1
+
+ !! ### todo :: add consistency check    
+  END DO   !###  DO n = N_of_boundary_objects+1, N_of_boundary_and_inner_objects
+
+! we close this file after we figure out what is the periodicity of the system
+!     CLOSE (9, STATUS = 'KEEP')
+
+  DO n = 1, N_of_boundary_and_inner_objects
+     whole_object(n)%object_id_number = n
+     whole_object(n)%object_copy_periodic_X_right = -1  ! default values
+     whole_object(n)%object_copy_periodic_Y_above = -1
+     whole_object(n)%object_does_NOT_cross_symmetry_plane_X = .TRUE.
+  END DO
+        
 ! configure vacuum gaps if they are included
   DO n = 1, N_of_boundary_objects
 
@@ -218,7 +313,7 @@ SUBROUTINE INITIATE_PARAMETERS
 
      IF (Rank_of_process.EQ.0) PRINT '("Vacuum gap object ",i2," is connected to objects ",i2," (start) and ",i2," (end)")', n, whole_object(n)%n_connected_to_start, whole_object(n)%n_connected_to_end
 
-  END DO
+  END DO   !###   DO n = 1, N_of_boundary_objects
 
 ! identify whether periodicity was requested
   periodicity_flag = PERIODICITY_NONE
@@ -236,11 +331,357 @@ SUBROUTINE INITIATE_PARAMETERS
      STOP
   END IF
 
+  IF (periodicity_flag.EQ.PERIODICITY_X_Y) THEN
+! in a system periodic in both X and Y directions
+! if there is no objects with given pontential inside
+! expect that the user specifies a node (i,j) and a potential in that node 
+     metal_object_counter = 0
+     DO n = 1, N_of_boundary_and_inner_objects
+        IF (whole_object(n)%object_type.EQ.METAL_WALL) metal_object_counter = metal_object_counter + 1
+     END DO
+     IF (metal_object_counter.EQ.0) THEN
+        READ (9, '(A1)') buf !"---dddd---dddd--- for a system periodic along both X and Y directions, without objects with given potential, specify X/Y (global node index i/j) of a point with given potential ")')
+        READ (9, '(3x,i4,3x,i4)') i_given_F_double_period_sys, j_given_F_double_period_sys
+        READ (9, '(A1)') buf !"---ddddd.d------- value of the potential at this point [V]
+        READ (9, '(3x,f7.1)')  given_F_double_period_sys
+        IF (Rank_of_process.EQ.0) PRINT '("### system periodic alog X and Y directions, no objects with given potential found, potential of point i/j ",i4,"/",i4," will be set to ",f7.1," V")', &
+             & i_given_F_double_period_sys, j_given_F_double_period_sys, given_F_double_period_sys
+     END IF
+  END IF
+
+  CLOSE (9, STATUS = 'KEEP')   !##### closed file init_configuration.dat
+
+  IF (N_of_inner_objects.GT.0) THEN
+     IF (periodicity_flag.EQ.PERIODICITY_X) THEN 
+        periodicity_flag = PERIODICITY_X_PETSC
+        IF (Rank_of_process.EQ.0) PRINT '("### System periodic along the X-direction with ",i3," inner objects, FFT-based field solver is off, PETSc-based solver is used instead")', N_of_inner_objects
+     END IF
+  END IF
+
+! for periodic systems, check whether there are inner objects crossing periodic boundaries =============================================================================================================================
+! if there are, identify matching objects (copies) at opposite periodic boundaries
+! the code below should work if there are several segments of periodicity along the X-border
+! this may be used when the whole simulation domain is not a rectangle
+
+  ALLOCATE(processed_flag(1:N_of_boundary_objects), STAT=ALLOC_ERR)
+
+! X-boundary
+  processed_flag = 0
+  DO n = 1, N_of_boundary_objects
+     IF (whole_object(n)%object_type.NE.PERIODIC_PIPELINE_X) CYCLE
+! boundary object n is a X-periodic boundary
+! skip already processed boundary object
+     IF (processed_flag(n).EQ.1) CYCLE 
+     processed_flag(n) = 1
+! find the opposite X-perioidic boundary
+     iperiodx = -1
+     DO nn = 1, N_of_boundary_objects
+        IF (nn.EQ.n) CYCLE
+        IF (whole_object(nn)%object_type.NE.PERIODIC_PIPELINE_X) CYCLE
+        IF (processed_flag(nn).EQ.1) CYCLE 
+        IF (MIN(whole_object(n)%segment(1)%jstart, whole_object(n)%segment(1)%jend).NE.MIN(whole_object(nn)%segment(1)%jstart, whole_object(nn)%segment(1)%jend)) CYCLE
+        IF (MAX(whole_object(n)%segment(1)%jstart, whole_object(n)%segment(1)%jend).NE.MAX(whole_object(nn)%segment(1)%jstart, whole_object(nn)%segment(1)%jend)) CYCLE
+! ends of boundary objects have same Y-coordinates, therefore these two are the matching X-periodic boundaries
+        processed_flag(nn) = 1
+! find which one is left which one is right
+        IF (whole_object(n)%segment(1)%istart.LT.whole_object(nn)%segment(1)%istart) THEN
+           n_of_left_boundary = n
+           n_of_right_boundary = nn
+        ELSE ! IF (whole_object(nn)%segment(1)%istart.LT.whole_object(n)%segment(1)%istart) THEN
+           n_of_left_boundary = nn
+           n_of_right_boundary = n
+        END IF
+        iperiodx = whole_object(n_of_right_boundary)%segment(1)%istart - whole_object(n_of_left_boundary)%segment(1)%istart - 1  ! exclude overlapping
+        EXIT
+     END DO   !### DO nn = 1, N_of_boundary_objects
+     IF (iperiodx.LT.0) THEN
+! error
+        PRINT '("error, X-periodic boundary ",i3," has no match")', n
+        STOP
+     END IF
+! scan through inner objects, find one which crosses the left boundary
+     DO nio = N_of_boundary_objects+1, N_of_boundary_and_inner_objects
+        IF (whole_object(nio)%ileft.GT.whole_object(n_of_left_boundary)%segment(1)%istart) CYCLE
+        IF (whole_object(nio)%iright.LT.whole_object(n_of_left_boundary)%segment(1)%istart) CYCLE
+        IF (whole_object(nio)%jbottom.GE.MAX(whole_object(n_of_left_boundary)%segment(1)%jstart, whole_object(n_of_left_boundary)%segment(1)%jend)) CYCLE
+        IF (whole_object(nio)%jtop.LE.MIN(whole_object(n_of_left_boundary)%segment(1)%jstart, whole_object(n_of_left_boundary)%segment(1)%jend)) CYCLE
+! the object crosses left boundary, let's find its matching copy
+        DO nio2 = N_of_boundary_objects+1, N_of_boundary_and_inner_objects
+           IF (whole_object(nio2)%ileft.NE.(whole_object(nio)%ileft+iperiodx)) CYCLE
+           IF (whole_object(nio2)%iright.NE.(whole_object(nio)%iright+iperiodx)) CYCLE
+           IF (whole_object(nio2)%jbottom.NE.whole_object(nio)%jbottom) CYCLE
+           IF (whole_object(nio2)%jtop.NE.whole_object(nio)%jtop) CYCLE
+! this is the copy
+           whole_object(nio)%object_copy_periodic_X_right = nio2
+           EXIT
+        END DO
+! fool proof
+        IF (whole_object(nio)%object_copy_periodic_X_right.LT.0) THEN
+! error
+           PRINT '("error, matching object for inner object ",i3," which crosses X-periodic boundary ",i3," not found")', nio, n_of_left_boundary
+           STOP
+        END IF
+     END DO   !### DO nio = N_of_boundary_objects+1, N_of_boundary_and_inner_objects
+  END DO   !### DO n = 1, N_of_boundary_objects
+
+! Y-boundary
+  processed_flag = 0
+  DO n = 1, N_of_boundary_objects
+     IF (whole_object(n)%object_type.NE.PERIODIC_PIPELINE_Y) CYCLE
+! boundary object n is a Y-periodic boundary
+! skip already processed boundary object
+     IF (processed_flag(n).EQ.1) CYCLE 
+     processed_flag(n) = 1
+! find the opposite Y-perioidic boundary
+     jperiody = -1
+     DO nn = 1, N_of_boundary_objects
+        IF (nn.EQ.n) CYCLE
+        IF (whole_object(nn)%object_type.NE.PERIODIC_PIPELINE_Y) CYCLE
+        IF (processed_flag(nn).EQ.1) CYCLE 
+        IF (MIN(whole_object(n)%segment(1)%istart, whole_object(n)%segment(1)%iend).NE.MIN(whole_object(nn)%segment(1)%istart, whole_object(nn)%segment(1)%iend)) CYCLE
+        IF (MAX(whole_object(n)%segment(1)%istart, whole_object(n)%segment(1)%iend).NE.MAX(whole_object(nn)%segment(1)%istart, whole_object(nn)%segment(1)%iend)) CYCLE
+! ends of boundary objects have same X-coordinates, therefore these two are the matching Y-periodic boundaries
+        processed_flag(nn) = 1
+! find which one is bottom which one is top
+        IF (whole_object(n)%segment(1)%jstart.LT.whole_object(nn)%segment(1)%jstart) THEN
+           n_of_bottom_boundary = n
+           n_of_top_boundary = nn
+        ELSE ! IF (whole_object(nn)%segment(1)%jstart.LT.whole_object(n)%segment(1)%jstart) THEN
+           n_of_bottom_boundary = nn
+           n_of_top_boundary = n
+        END IF
+        jperiody = whole_object(n_of_top_boundary)%segment(1)%jstart - whole_object(n_of_bottom_boundary)%segment(1)%jstart - 1  ! exclude overlapping
+        EXIT
+     END DO   !### DO nn = 1, N_of_boundary_objects
+     IF (jperiody.LT.0) THEN
+! error
+        PRINT '("error, Y-periodic boundary ",i3," has no match")', n
+        STOP
+     END IF
+! scan through inner objects, find one which crosses the bottom boundary
+     DO nio = N_of_boundary_objects+1, N_of_boundary_and_inner_objects
+        IF (whole_object(nio)%jbottom.GT.whole_object(n_of_bottom_boundary)%segment(1)%jstart) CYCLE
+        IF (whole_object(nio)%jtop.LT.whole_object(n_of_bottom_boundary)%segment(1)%jstart) CYCLE
+        IF (whole_object(nio)%ileft.GE.MAX(whole_object(n_of_bottom_boundary)%segment(1)%istart, whole_object(n_of_bottom_boundary)%segment(1)%iend)) CYCLE
+        IF (whole_object(nio)%iright.LE.MIN(whole_object(n_of_bottom_boundary)%segment(1)%istart, whole_object(n_of_bottom_boundary)%segment(1)%iend)) CYCLE
+! the object crosses bottom boundary, let's find its matching copy
+        DO nio2 = N_of_boundary_objects+1, N_of_boundary_and_inner_objects
+           IF (whole_object(nio2)%ileft.NE.whole_object(nio)%ileft) CYCLE
+           IF (whole_object(nio2)%iright.NE.whole_object(nio)%iright) CYCLE
+           IF (whole_object(nio2)%jbottom.NE.(whole_object(nio)%jbottom+jperiody)) CYCLE
+           IF (whole_object(nio2)%jtop.NE.(whole_object(nio)%jtop+jperiody)) CYCLE
+! this is the copy
+           whole_object(nio)%object_copy_periodic_Y_above = nio2
+           EXIT
+        END DO
+! fool proof
+        IF (whole_object(nio)%object_copy_periodic_Y_above.LT.0) THEN
+! error
+           PRINT '("error, matching object for inner object ",i3," which crosses Y-periodic boundary ",i3," not found")', nio, n_of_bottom_boundary
+           STOP
+        END IF
+     END DO   !### DO nio = N_of_boundary_objects+1, N_of_boundary_and_inner_objects
+  END DO   !### DO n = 1, N_of_boundary_objects
+
+  IF (ALLOCATED(processed_flag)) DEALLOCATE( processed_flag, STAT=ALLOC_ERR)
+
+! identify covered parts of segments of inner boundary objects ========================================================================================================================================================
+
+  DO nio = N_of_boundary_objects + 1, N_of_boundary_and_inner_objects
+
+! left and right vertical segments (#1 and #3)
+     DO m = 1, 3, 2
+        DO j = whole_object(nio)%segment(m)%jstart, whole_object(nio)%segment(m)%jend-1
+
+! first, check if there are any ordinary boundary objects attached
+           DO n = 1, N_of_boundary_objects
+              IF (whole_object(n)%object_type.EQ.PERIODIC_PIPELINE_X) CYCLE
+              IF (whole_object(n)%object_type.EQ.PERIODIC_PIPELINE_Y) CYCLE
+              IF (whole_object(n)%object_type.EQ.SYMMETRY_PLANE) CYCLE
+              DO mm = 1, whole_object(n)%number_of_segments
+                 IF (whole_object(n)%segment(mm)%istart.NE.whole_object(n)%segment(mm)%iend) CYCLE    ! skip horizontal segments
+                 IF (whole_object(n)%segment(mm)%istart.NE.whole_object(nio)%segment(m)%istart) CYCLE ! skip vertical segment with different i
+                 IF ((j.GE.whole_object(n)%segment(mm)%jstart).AND.(j.LT.whole_object(n)%segment(mm)%jend)) THEN
+                    whole_object(nio)%segment(m)%cell_is_covered(j) = .TRUE.
+!if (Rank_of_process.eq.0) 
+!print *, "found a ", Rank_of_process, nio, m, n, mm, j
+                    EXIT
+                 END IF
+              END DO   !### DO mm = 1, whole_object(n)%number_of_segments
+              IF (whole_object(nio)%segment(m)%cell_is_covered(j)) EXIT
+           END DO   !###  DO n = 1, N_of_boundary_objects
+
+           IF (whole_object(nio)%segment(m)%cell_is_covered(j)) CYCLE
+
+! second, check if there is attachment or overlapping with another inner object
+           DO n = N_of_boundary_objects+1, N_of_boundary_and_inner_objects
+              IF (n.EQ.nio) CYCLE
+              IF (whole_object(nio)%segment(m)%istart.LT.whole_object(n)%ileft) CYCLE
+              IF (whole_object(nio)%segment(m)%istart.GT.whole_object(n)%iright) CYCLE
+              IF ((j.GE.whole_object(n)%jbottom).AND.(j.LT.whole_object(n)%jtop)) THEN
+                 whole_object(nio)%segment(m)%cell_is_covered(j) = .TRUE.
+!if (Rank_of_process.eq.0) 
+!print *, "found aa ", Rank_of_process, nio, m, j
+                 EXIT
+              END IF
+           END DO   !### DO n = 1, N_of_boundary_objects+1, N_of_boundary_and_inner_objects
+
+        END DO   !### DO j = whole_object(nio)%segment(m)%jstart, whole_object(nio)%segment(m)%jend-1
+     END DO   !### DO m = 1, 3, 2
+
+! top and bottom horizontal segments (#2 and #4)
+     DO m = 2, 4, 2
+        DO i = whole_object(nio)%segment(m)%istart, whole_object(nio)%segment(m)%iend-1
+
+! first, check if there are any ordinary boundary objects attached
+           DO n = 1, N_of_boundary_objects
+              IF (whole_object(n)%object_type.EQ.PERIODIC_PIPELINE_X) CYCLE
+              IF (whole_object(n)%object_type.EQ.PERIODIC_PIPELINE_Y) CYCLE
+              IF (whole_object(n)%object_type.EQ.SYMMETRY_PLANE) CYCLE
+              DO mm = 1, whole_object(n)%number_of_segments
+                 IF (whole_object(n)%segment(mm)%jstart.NE.whole_object(n)%segment(mm)%jend) CYCLE    ! skip vertical segments
+                 IF (whole_object(n)%segment(mm)%jstart.NE.whole_object(nio)%segment(m)%jstart) CYCLE ! skip horizontal segment with different j
+                 IF ((i.GE.whole_object(n)%segment(mm)%istart).AND.(i.LT.whole_object(n)%segment(mm)%iend)) THEN
+                    whole_object(nio)%segment(m)%cell_is_covered(i) = .TRUE.
+!if (Rank_of_process.eq.0) 
+!print *, "found b ", Rank_of_process, nio, m, i
+                    EXIT
+                 END IF
+              END DO   !### DO mm = 1, whole_object(n)%number_of_segments
+              IF (whole_object(nio)%segment(m)%cell_is_covered(i)) EXIT
+           END DO   !###  DO n = 1, N_of_boundary_objects
+
+           IF (whole_object(nio)%segment(m)%cell_is_covered(i)) CYCLE
+
+! second, check if there is attachment or overlapping with another inner object
+           DO n = N_of_boundary_objects+1, N_of_boundary_and_inner_objects
+              IF (n.EQ.nio) CYCLE
+              IF (whole_object(nio)%segment(m)%jstart.LT.whole_object(n)%jbottom) CYCLE
+              IF (whole_object(nio)%segment(m)%jstart.GT.whole_object(n)%jtop) CYCLE
+              IF ((i.GE.whole_object(n)%ileft).AND.(i.LT.whole_object(n)%iright)) THEN
+                 whole_object(nio)%segment(m)%cell_is_covered(i) = .TRUE.
+!if (Rank_of_process.eq.0) 
+!print *, "found bb ", Rank_of_process, nio, m, i
+                 EXIT
+              END IF
+           END DO   !### DO n = 1, N_of_boundary_objects+1, N_of_boundary_and_inner_objects
+
+        END DO   !### DO j = whole_object(nio)%segment(m)%istart, whole_object(nio)%segment(m)%iend-1
+     END DO   !### DO m = 2, 4, 2
+
+  END DO   !### DO nio = N_of_boundary_objects + 1, N_of_boundary_and_inner_objects
+
+! find whether any inner object is positioned across symmetry plane at x=0 (if there is one, of course) ================================================================================================================
+  DO n = 1, N_of_boundary_objects
+     IF (whole_object(n)%object_type.EQ.SYMMETRY_PLANE) THEN
+! a symmetry plane x=0 is found
+        DO nio = N_of_boundary_objects+1, N_of_boundary_and_inner_objects
+           IF ((whole_object(nio)%ileft.LT.0).AND.(whole_object(nio)%iright.GT.0)) THEN
+              IF (whole_object(nio)%ileft.NE.-whole_object(nio)%iright) THEN
+                 PRINT '("Error, inner object ",i3," is placed across the symmetry plane but is not symmetric")', nio
+                 STOP
+              END IF
+              whole_object(nio)%object_does_NOT_cross_symmetry_plane_X = .FALSE.
+           END IF
+        END DO
+        EXIT
+     END IF
+  END DO   !### DO n = 1, N_of_boundary_objects
+
+! calculate length of not covered part of the inner object, to be used later when calculating number of particles to inject  ===========================================================================================
+
+  DO nio = N_of_boundary_objects + 1, N_of_boundary_and_inner_objects
+     whole_object(nio)%L = 0
+! vertical segments # 1 and 3
+     DO m = 1, 3, 2
+        DO j = whole_object(nio)%segment(m)%jstart, whole_object(nio)%segment(m)%jend-1
+           IF (whole_object(nio)%segment(m)%cell_is_covered(j)) CYCLE
+           whole_object(nio)%L = whole_object(nio)%L + 1
+        END DO
+     END DO
+! horizontal segments # 2 and 4
+     DO m = 2, 4, 2
+        DO i = whole_object(nio)%segment(m)%istart, whole_object(nio)%segment(m)%iend-1
+           IF (whole_object(nio)%segment(m)%cell_is_covered(i)) CYCLE
+           whole_object(nio)%L = whole_object(nio)%L + 1
+        END DO
+     END DO
+  END DO
+
   v_Te_ms     = SQRT(2.0_8 * T_e_eV * e_Cl / m_e_kg)
   W_plasma_s1 = SQRT(N_plasma_m3 * e_Cl**2 / (eps_0_Fm * m_e_kg))
   L_debye_m   = v_Te_ms / W_plasma_s1
   delta_x_m   = L_debye_m / N_of_cells_debye    
   delta_t_s   = delta_x_m / (N_max_vel * v_Te_ms)
+
+! save geometry of inner objects (note that we know delta_x_m now :)
+
+  IF (Rank_of_process.EQ.0) THEN
+     DO nio = N_of_boundary_objects + 1, N_of_boundary_and_inner_objects
+        iobox_filename = 'inner_object_NNN_box.dat'
+!                         ----*----I----*----I----
+        iobox_filename(14:16) = convert_int_to_txt_string(nio, 3)
+
+        open (19, file = iobox_filename)
+        write (19, '("# spatial box of inner boundary object ",i3)') nio
+        write (19, '("# column 1 is x-index of the grid node in the box corner [dim-less]")')
+        write (19, '("# column 2 is y-index of the grid node in the box corner [dim-less]")')
+        write (19, '("# column 3 is x-coordinate of the box corner [m]")')
+        write (19, '("# column 4 is y-coordinate of the box corner [m]")')
+! left-right along X, up-down along Y
+        write (19, '(2x,i4,2x,i4,2x,f12.9,2x,f12.9)') whole_object(nio)%ileft,  whole_object(nio)%jbottom,  whole_object(nio)%ileft * delta_x_m, whole_object(nio)%jbottom * delta_x_m  ! left bottom
+        write (19, '(2x,i4,2x,i4,2x,f12.9,2x,f12.9)') whole_object(nio)%ileft,  whole_object(nio)%jtop,     whole_object(nio)%ileft * delta_x_m, whole_object(nio)%jtop    * delta_x_m  ! left top
+        write (19, '(2x,i4,2x,i4,2x,f12.9,2x,f12.9)') whole_object(nio)%iright, whole_object(nio)%jtop,    whole_object(nio)%iright * delta_x_m, whole_object(nio)%jtop    * delta_x_m  ! right top
+        write (19, '(2x,i4,2x,i4,2x,f12.9,2x,f12.9)') whole_object(nio)%iright, whole_object(nio)%jbottom, whole_object(nio)%iright * delta_x_m, whole_object(nio)%jbottom * delta_x_m  ! right bottom
+        write (19, '(2x,i4,2x,i4,2x,f12.9,2x,f12.9)') whole_object(nio)%ileft,  whole_object(nio)%jbottom, whole_object(nio)%ileft  * delta_x_m, whole_object(nio)%jbottom * delta_x_m  ! left bottom
+        close (19, status = 'keep')
+        print '("### created inner object box file ",A24)', iobox_filename
+        
+        iobox_filename = 'inner_object_NNN_map.dat'
+!                         ----*----I----*----I----
+        iobox_filename(14:16) = convert_int_to_txt_string(nio, 3)
+        open (19, file = iobox_filename)
+        write (19, '("# map of covered/open surface cells of inner boundary object ",i3)') nio
+
+        write (19, '("# column 1 is x-index of the middle of the cell, dimensionless, may be half-integer")')
+        write (19, '("# column 2 is y-index of the middle of the cell, dimensionless, may be half-integer")')
+        write (19, '("# column 3 is x-coordinate of the middle of the cell [m]")')
+        write (19, '("# column 4 is y-coordinate of the middle of the cell [m]")')
+        write (19, '("# column 5 is integer flag showing whether the cell is open (0) or covered (1)")')
+        write (19, '("# column 6 is the coorresponding value of cell_is_covered array (logical)")')
+! left side, segment 1
+        i = whole_object(nio)%ileft
+        DO j = whole_object(nio)%jbottom, whole_object(nio)%jtop-1
+           WRITE (19, '(2x,f6.1,2x,f6.1,2x,f12.9,2x,f12.9,2x,i1,2x,L1)') REAL(i), REAL(j)+0.5, i * delta_x_m, (REAL(j)+0.5) * delta_x_m, &
+                & convert_logical_to_int(whole_object(nio)%segment(1)%cell_is_covered(j)), &
+                & whole_object(nio)%segment(1)%cell_is_covered(j)
+        END DO
+! top side, segment 2
+        j = whole_object(nio)%jtop
+        DO i = whole_object(nio)%ileft, whole_object(nio)%iright-1
+           WRITE (19, '(2x,f6.1,2x,f6.1,2x,f12.9,2x,f12.9,2x,i1,2x,L1)') REAL(i)+0.5, REAL(j), (REAL(i)+0.5) * delta_x_m, j * delta_x_m, &
+                & convert_logical_to_int(whole_object(nio)%segment(2)%cell_is_covered(i)), &
+                & whole_object(nio)%segment(2)%cell_is_covered(i)
+        END DO
+! right side, segment 3
+        i = whole_object(nio)%iright
+        DO j = whole_object(nio)%jtop-1, whole_object(nio)%jbottom, -1
+           WRITE (19, '(2x,f6.1,2x,f6.1,2x,f12.9,2x,f12.9,2x,i1,2x,L1)') REAL(i), REAL(j)+0.5, i * delta_x_m, (REAL(j)+0.5) * delta_x_m, &
+                & convert_logical_to_int(whole_object(nio)%segment(3)%cell_is_covered(j)), &
+                & whole_object(nio)%segment(3)%cell_is_covered(j)
+        END DO
+! bottom side, segment 4
+        j = whole_object(nio)%jbottom
+        DO i = whole_object(nio)%iright-1, whole_object(nio)%ileft, -1
+           WRITE (19, '(2x,f6.1,2x,f6.1,2x,f12.9,2x,f12.9,2x,i1,2x,L1)') REAL(i)+0.5, REAL(j), (REAL(i)+0.5) * delta_x_m, j * delta_x_m, &
+                & convert_logical_to_int(whole_object(nio)%segment(4)%cell_is_covered(i)), &
+                & whole_object(nio)%segment(4)%cell_is_covered(i)
+        END DO
+        close (19, status = 'keep')
+        print '("### created inner object surface map file ",A24)', iobox_filename
+        
+     END DO   !###     DO nio = N_of_boundary_objects + 1, N_of_boundary_and_inner_objects
+  END IF   !###  IF (Rank_of_process.EQ.0) THEN
 
   INQUIRE (FILE = 'init_simcontrol.dat', EXIST = exists)
   CALL MPI_BARRIER(MPI_COMM_WORLD, ierr)
@@ -321,6 +762,8 @@ SUBROUTINE INITIATE_PARAMETERS
   current_factor_Am2 = e_Cl * V_scale_ms * N_scale_part_m3
   energy_factor_eV =  0.5_8 * m_e_kg * V_scale_ms**2 / e_Cl
 
+  given_F_double_period_sys = given_F_double_period_sys / F_scale_V
+
 !  DO n = 1, N_of_boundary_objects
 !     whole_object(n)%phi = whole_object(n)%phi / F_scale_V
 !     IF (whole_object(n)%object_type.EQ.VACUUM_GAP) whole_object(n)%phi_profile = whole_object(n)%phi_profile / F_scale_V
@@ -333,7 +776,7 @@ SUBROUTINE INITIATE_PARAMETERS
   CALL PREPARE_EXTERNAL_FIELDS
 
 ! calculate total length of the object (will be used to calculate number of injected particles in each cluster)
-  IF (periodicity_flag.EQ.PERIODICITY_X) THEN
+  IF ((periodicity_flag.EQ.PERIODICITY_X).OR.(periodicity_flag.EQ.PERIODICITY_X_PETSC)) THEN
 ! account that for periodic systems the boundary in the direction of periodicity has one extra cell for periodic overlapping
      DO n = 1, N_of_boundary_objects
         whole_object(n)%L = 0
@@ -348,7 +791,7 @@ SUBROUTINE INITIATE_PARAMETERS
            END IF
         END DO
      END DO
-! the IF branch above should work for periodic systems with segmanted electrodes
+! the IF branch above should work for periodic systems with segmented electrodes
   ELSE
      DO n = 1, N_of_boundary_objects
         whole_object(n)%L = 0
@@ -398,6 +841,8 @@ if (Rank_of_process.eq.0) print *, "INCLUDE_BLOCK_PERIODICITY done"
   
   CALL MPI_BARRIER(MPI_COMM_WORLD, ierr)
 if (Rank_of_process.eq.0) print *, "CALCULATE_BLOCK_OFFSET done"
+
+  Rank_of_bottom_left_cluster_master = 0  ! in MPI_COMM_WORLD, ### in future, this may be some other process, fixmeplease!!!
 
   CALL SET_CLUSTER_STRUCTURE
 
@@ -451,7 +896,7 @@ if (Rank_of_process.eq.0) print *, "SET_CLUSTER_STRUCTURE done"
   END IF
 
 ! now we know N_spec, so we can allocate ion hit counters in wall objects
-  DO n = 1, N_of_boundary_objects
+  DO n = 1, N_of_boundary_and_inner_objects
      ALLOCATE(whole_object(n)%ion_hit_count(1:N_spec), STAT = ALLOC_ERR)
      whole_object(n)%ion_hit_count(1:N_spec) = 0
   END DO
@@ -471,7 +916,8 @@ if (Rank_of_process.eq.0) print *, "SET_CLUSTER_STRUCTURE done"
 
   CALL MPI_BARRIER(MPI_COMM_WORLD, ierr)
 
-  CALL IDENTIFY_CLUSTER_BOUNDARIES    ! masters only, sets connections between parts of dielectric boundary objects 
+  CALL IDENTIFY_CLUSTER_BOUNDARIES    ! masters only, sets connections between parts of dielectric boundary objects
+                                      ! allocates surface_charge for inner objects
 
   CALL MPI_BARRIER(MPI_COMM_WORLD, ierr)
 
@@ -525,6 +971,42 @@ if (Rank_of_process.eq.0) print *, "SET_CLUSTER_STRUCTURE done"
   END IF
 
   CALL SET_COMMUNICATIONS
+
+  CALL MPI_BARRIER(MPI_COMM_WORLD, ierr)
+
+  IF ((use_checkpoint.NE.0).AND.(cluster_rank_key.EQ.0)) THEN
+! checkpoint has permanent surface charge arrays for inner objects, but only the master of the left bottom cluster reads that
+! now this master must share the inner object surface charge data with all other masters
+     bufsize = 0
+     DO n = N_of_boundary_objects+1, N_of_boundary_and_inner_objects
+        IF (whole_object(n)%object_type.NE.DIELECTRIC) CYCLE 
+        bufsize = bufsize + whole_object(n)%N_boundary_nodes
+     END DO
+     IF (bufsize.GT.0) THEN
+        ALLOCATE(rbufer(1:bufsize), STAT = ALLOC_ERR)
+        IF (Rank_horizontal.EQ.0) THEN
+! this process must have Rank_of_process==Rank_of_bottom_left_cluster_master
+           pos2=0
+           DO n = N_of_boundary_objects+1, N_of_boundary_and_inner_objects
+              IF (whole_object(n)%object_type.NE.DIELECTRIC) CYCLE
+              pos1 = pos2+1
+              pos2 = pos2+whole_object(n)%N_boundary_nodes
+              rbufer(pos1:pos2) = whole_object(n)%surface_charge(1:whole_object(n)%N_boundary_nodes)
+           END DO
+        END IF
+        CALL MPI_BCAST(rbufer, bufsize, MPI_DOUBLE_PRECISION, 0, COMM_HORIZONTAL, ierr)
+        IF (Rank_horizontal.GT.0) THEN
+           pos2=0
+           DO n = N_of_boundary_objects+1, N_of_boundary_and_inner_objects
+              IF (whole_object(n)%object_type.NE.DIELECTRIC) CYCLE
+              pos1 = pos2+1
+              pos2 = pos2+whole_object(n)%N_boundary_nodes
+              whole_object(n)%surface_charge(1:whole_object(n)%N_boundary_nodes) = rbufer(pos1:pos2)
+           END DO
+        END IF
+        DEALLOCATE(rbufer, STAT=ALLOC_ERR)
+     END IF   !### IF (bufsize.GT.0) THEN
+  END IF  !### IF ((use_checkpoint.NE.0).AND.(cluster_rank_key.EQ.0)) THEN
 
   CALL MPI_BARRIER(MPI_COMM_WORLD, ierr)
 
@@ -660,7 +1142,7 @@ if (Rank_of_process.eq.0) print *, "SET_CLUSTER_STRUCTURE done"
 !     END IF
 !  END IF
 
-  IF ((periodicity_flag.EQ.PERIODICITY_NONE).OR.(periodicity_flag.EQ.PERIODICITY_X_Y)) THEN
+  IF ((periodicity_flag.EQ.PERIODICITY_NONE).OR.(periodicity_flag.EQ.PERIODICITY_X_PETSC).OR.(periodicity_flag.EQ.PERIODICITY_X_Y)) THEN
      phi=0.0_8
 !     rho_i=0.0_8 !DBLE(N_of_particles_cell) * init_Ne_m3 / N_plasma_m3 !0.0_8
 !     rho_e=0.0_8
@@ -689,6 +1171,17 @@ if (Rank_of_process.eq.0) print *, "SET_CLUSTER_STRUCTURE done"
 
 END SUBROUTINE INITIATE_PARAMETERS
 
+!--------------------------------------------------------
+INTEGER FUNCTION convert_logical_to_int(logvar)
+  IMPLICIT NONE
+  LOGICAL logvar
+  IF (logvar) THEN
+     convert_logical_to_int = 1
+  ELSE
+     convert_logical_to_int = 0
+  END IF
+  RETURN
+END FUNCTION convert_logical_to_int
 
 !--------------------------------------------------------
 ! must be preceded by a call to IDENTIFY_BLOCK_NEIGHBOURS
@@ -963,6 +1456,14 @@ SUBROUTINE IDENTIFY_CLUSTER_BOUNDARIES
 
   IF (cluster_rank_key.NE.0) RETURN
 
+! if there are inner objects, allocate permanent surface charge storage for dielectric inner objects
+  DO n = N_of_boundary_objects+1, N_of_boundary_and_inner_objects
+     IF (whole_object(n)%object_type.EQ.DIELECTRIC) THEN
+        ALLOCATE(whole_object(n)%surface_charge(1:whole_object(n)%N_boundary_nodes), STAT = ALLOC_ERR)
+        whole_object(n)%surface_charge = 0.0_8
+     END IF
+  END DO
+
 ! most probable default assumption - no boundary objects
 
   connect_left  = .FALSE.
@@ -1007,7 +1508,7 @@ SUBROUTINE IDENTIFY_CLUSTER_BOUNDARIES
               IF (jstart.LT.jend) THEN
                  c_N_of_local_object_parts = c_N_of_local_object_parts + 1
                  IF (c_N_of_local_object_parts.GT.c_max_N_of_local_object_parts) THEN
-                    PRINT '("Process ",i4," : ERROR-1 in IDENTIFY_BOUNDARIES : maximal number of boundary parts exceeded : ",i4)', Rank_of_process, c_N_of_local_object_parts
+                    PRINT '("Process ",i4," : ERROR-1 in IDENTIFY_CLUSTER_BOUNDARIES : maximal number of boundary parts exceeded : ",i4)', Rank_of_process, c_N_of_local_object_parts
                     STOP
                  END IF
                  c_local_object_part(c_N_of_local_object_parts)%object_number = n
@@ -1050,7 +1551,7 @@ SUBROUTINE IDENTIFY_CLUSTER_BOUNDARIES
               IF (istart.LT.iend) THEN
                  c_N_of_local_object_parts = c_N_of_local_object_parts + 1
                  IF (c_N_of_local_object_parts.GT.c_max_N_of_local_object_parts) THEN
-                    PRINT '("Process ",i4," : ERROR-2 in IDENTIFY_BOUNDARIES : maximal number of boundary parts exceeded : ",i4)', Rank_of_process, c_N_of_local_object_parts
+                    PRINT '("Process ",i4," : ERROR-2 in IDENTIFY_CLUSTER_BOUNDARIES : maximal number of boundary parts exceeded : ",i4)', Rank_of_process, c_N_of_local_object_parts
                     STOP
                  END IF
                  c_local_object_part(c_N_of_local_object_parts)%object_number = n
@@ -1087,7 +1588,7 @@ SUBROUTINE IDENTIFY_CLUSTER_BOUNDARIES
               IF (jstart.LT.jend) THEN
                  c_N_of_local_object_parts = c_N_of_local_object_parts + 1
                  IF (c_N_of_local_object_parts.GT.c_max_N_of_local_object_parts) THEN
-                    PRINT '("Process ",i4," : ERROR-3 in IDENTIFY_BOUNDARIES : maximal number of boundary parts exceeded : ",i4)', Rank_of_process, c_N_of_local_object_parts
+                    PRINT '("Process ",i4," : ERROR-3 in IDENTIFY_CLUSTER_BOUNDARIES : maximal number of boundary parts exceeded : ",i4)', Rank_of_process, c_N_of_local_object_parts
                     STOP
                  END IF
                  c_local_object_part(c_N_of_local_object_parts)%object_number = n
@@ -1124,7 +1625,7 @@ SUBROUTINE IDENTIFY_CLUSTER_BOUNDARIES
               IF (istart.LT.iend) THEN
                  c_N_of_local_object_parts = c_N_of_local_object_parts + 1
                  IF (c_N_of_local_object_parts.GT.c_max_N_of_local_object_parts) THEN
-                    PRINT '("Process ",i4," : ERROR-4 in IDENTIFY_BOUNDARIES : maximal number of boundary parts exceeded : ",i4)', Rank_of_process, c_N_of_local_object_parts
+                    PRINT '("Process ",i4," : ERROR-4 in IDENTIFY_CLUSTER_BOUNDARIES : maximal number of boundary parts exceeded : ",i4)', Rank_of_process, c_N_of_local_object_parts
                     STOP
                  END IF
                  c_local_object_part(c_N_of_local_object_parts)%object_number = n
@@ -1968,6 +2469,14 @@ SUBROUTINE SET_COMMUNICATIONS
   CALL MPI_COMM_SIZE(COMM_HORIZONTAL, N_processes_horizontal, ierr)
 ! COMM_HORIZONTAL will be used for communications between processes from different clusters which are at the same level
 
+! fool-proof check
+  IF (Rank_of_process.EQ.Rank_of_bottom_left_cluster_master) THEN
+     IF (Rank_horizontal.NE.0) THEN
+        PRINT '("Error-000 in SET_COMMUNICATIONS ",3(2x,i4))', Rank_of_process, Rank_of_bottom_left_cluster_master, Rank_horizontal
+        STOP
+     END IF
+  END IF
+
 ! collect values of Rank_horizontal from all levels (processes) in the master process
   ALLOCATE(horizontal_rank_in_cluster_level(1:N_processes_cluster), STAT=ALLOC_ERR)
   CALL MPI_GATHER(Rank_horizontal, 1, MPI_INTEGER, horizontal_rank_in_cluster_level, 1, MPI_INTEGER, 0, COMM_CLUSTER, ierr)
@@ -2565,7 +3074,7 @@ SUBROUTINE DISTRIBUTE_PARTICLES
   REAL(8) factor_convert
   REAL(8) vx_drift, vy_drift, vz_drift, v
 
-  INTEGER k, s, pos
+  INTEGER k, n, s, pos
   INTEGER sum_Ni
 
 ! functions
@@ -2656,6 +3165,22 @@ SUBROUTINE DISTRIBUTE_PARTICLES
         electron(k)%VZ = v * factor_convert + vz_drift
         electron(k)%tag = 0
 
+     END DO
+
+! remove all electrons which were placed inside inner objects
+     k=0
+     DO WHILE (k.LT.N_electrons)
+        IF (N_electrons.EQ.0) EXIT
+        k = k+1
+        DO n = N_of_boundary_objects+1, N_of_boundary_and_inner_objects
+           IF (electron(k)%X.LE.whole_object(n)%Xmin) CYCLE
+           IF (electron(k)%X.GE.whole_object(n)%Xmax) CYCLE
+           IF (electron(k)%Y.LE.whole_object(n)%Ymin) CYCLE
+           IF (electron(k)%Y.GE.whole_object(n)%Ymax) CYCLE
+! particle inside an inner object
+           CALL REMOVE_ELECTRON(k)  ! this subroutine does  N_electrons = N_electrons - 1 and k = k-1
+           EXIT
+        END DO
      END DO
 
 ! ions

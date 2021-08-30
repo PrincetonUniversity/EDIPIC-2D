@@ -45,7 +45,8 @@ SUBROUTINE SOLVE_POTENTIAL_WITH_PETSC
   queue = 0.0_8
   phi = 0.0_8
  
-  factor_rho = -0.25_8 / DBLE(N_of_particles_cell)
+!  factor_rho = -0.25_8 / DBLE(N_of_particles_cell)
+  factor_rho = -1.0_8 / DBLE(N_of_particles_cell)
 
   jbegin = indx_y_min+1
   jend   = indx_y_max-1
@@ -113,6 +114,9 @@ SUBROUTINE SOLVE_POTENTIAL_WITH_PETSC
      DO i = indx_x_min+1, indx_x_max-1
         nn = nn + 1
         rhsvalue(nn) = factor_rho * (rho_i(i,j) - rho_e(i,j))
+
+        IF ((i.EQ.i_given_F_double_period_sys).AND.(j.EQ.j_given_F_double_period_sys)) rhsvalue(nn) = given_F_double_period_sys
+
      END DO
 
 !     i = indx_x_max
@@ -136,7 +140,7 @@ SUBROUTINE SOLVE_POTENTIAL_WITH_PETSC
         END DO
      END IF
 
-  END DO
+  END DO   !### DO j = indx_y_min+1, indx_y_max-1
 
 !    j = indx_y_max !>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>.
   IF (jend.EQ.indx_y_max) THEN
@@ -164,6 +168,22 @@ SUBROUTINE SOLVE_POTENTIAL_WITH_PETSC
   IF (nn.NE.block_N_of_nodes_to_solve) THEN
      PRINT '("proc ",i4," :: Error-1 in SOLVE_POTENTIAL_WITH_PETSC ",2(2x,i9))', Rank_of_process, nn, block_N_of_nodes_to_solve
   END IF
+
+! find metal inner objects 
+  nn = 0
+  DO j = jbegin, jend
+     DO i = ibegin, iend
+        nn = nn + 1
+        DO nobj = N_of_boundary_objects+1, N_of_boundary_and_inner_objects
+           IF (whole_object(nobj)%object_type.NE.METAL_WALL) CYCLE
+           IF (i.LT.whole_object(nobj)%ileft) CYCLE
+           IF (i.GT.whole_object(nobj)%iright) CYCLE
+           IF (j.LT.whole_object(nobj)%jbottom) CYCLE
+           IF (j.GT.whole_object(nobj)%jtop) CYCLE
+           rhsvalue(nn) = whole_object(nobj)%phi
+        END DO
+     END DO
+  END DO
 
   CALL MPI_BARRIER(MPI_COMM_WORLD, ierr)
 !print '("proc ",i4," before InsertData")', Rank_of_process

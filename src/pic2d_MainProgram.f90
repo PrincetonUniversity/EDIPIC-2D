@@ -98,13 +98,12 @@ call report_total_number_of_particles
 
      t4 = MPI_WTIME()
 
-     CALL GATHER_ELECTRON_CHARGE_DENSITY      ! 
+     CALL GATHER_ELECTRON_CHARGE_DENSITY      ! here surface charge density on inner dielectric objects is subtracted from the electron volume charge density
 
      CALL MPI_BARRIER(MPI_COMM_WORLD, ierr) 
 
 !###     CALL PERFORM_ELECTRON_EMISSION_HT_SETUP_ZERO_GRAD_F   ! this procedure is used only when axial-azimuthal periodic model of a Hall thruster is simulated
-
-     CALL MPI_BARRIER(MPI_COMM_WORLD, ierr) 
+!###     CALL MPI_BARRIER(MPI_COMM_WORLD, ierr) 
 
      CALL UPDATE_WALL_POTENTIALS(T_cntr)
 
@@ -112,7 +111,7 @@ call report_total_number_of_particles
 
      t5 = MPI_WTIME()
 
-     IF ((periodicity_flag.EQ.PERIODICITY_NONE).OR.(periodicity_flag.EQ.PERIODICITY_X_Y)) THEN
+     IF ((periodicity_flag.EQ.PERIODICITY_NONE).OR.(periodicity_flag.EQ.PERIODICITY_X_PETSC).OR.(periodicity_flag.EQ.PERIODICITY_X_Y)) THEN
 
         CALL SOLVE_POTENTIAL_WITH_PETSC
         
@@ -152,6 +151,9 @@ call report_total_number_of_particles
 
      CALL ADVANCE_ELECTRONS                      !   velocity: n-1/2 ---> n+1/2
                                                  ! coordinate: n     ---> n+1
+     IF ((n_sub+1).NE.N_subcycles) CALL FIND_ALIENS_IN_ELECTRON_ADD_LIST        ! when n_sub+1==N_subcycles, the ions will be advanced below
+                                                                                ! there may be more electrons in the electron_to_add array due to ion-induced SEE
+                                                                                ! so at this timestep we call this procedure later, inside the ion IF clause
 
      CALL MPI_BARRIER(MPI_COMM_WORLD, ierr) 
 
@@ -164,6 +166,9 @@ call report_total_number_of_particles
 
         CALL ADVANCE_IONS                      !   velocity: n-N_e_subcycles+1/2 ---> n+1/2
                                                ! coordinate: n-int(N_e_subcycles/2) ---> n-int(N_e_subcycles/2)+N_e_subcycles
+        CALL FIND_ALIENS_IN_ION_ADD_LIST
+        CALL FIND_ALIENS_IN_ELECTRON_ADD_LIST
+
         CALL MPI_BARRIER(MPI_COMM_WORLD, ierr) 
 
         t11 = MPI_WTIME()
@@ -177,6 +182,9 @@ call report_total_number_of_particles
         END IF
 
         CALL MPI_BARRIER(MPI_COMM_WORLD, ierr) 
+
+        CALL FIND_INNER_OBJECT_COLL_IN_ELECTRON_ADD_LIST
+        CALL FIND_INNER_OBJECT_COLL_IN_ION_ADD_LIST
 
         CALL PROCESS_ADDED_ELECTRONS                ! add the new electrons to the main array   !### NEW   
     
@@ -236,6 +244,8 @@ call report_total_number_of_particles
 
         t12 = MPI_WTIME()
 
+        CALL FIND_INNER_OBJECT_COLL_IN_ELECTRON_ADD_LIST
+
         CALL COLLECT_ELECTRON_BOUNDARY_HITS
 
         CALL MPI_BARRIER(MPI_COMM_WORLD, ierr) 
@@ -251,6 +261,10 @@ call report_total_number_of_particles
                                                     ! PERFORM_ELECTRON_EMISSION_HT_SETUP_ZERO_GRAD_F (called above) works
                                                     ! not both
      CALL PERFORM_ELECTRON_EMISSION_SETUP           ! this works for non-HT setup
+
+     CALL MPI_BARRIER(MPI_COMM_WORLD, ierr)
+
+     CALL PERFORM_ELECTRON_EMISSION_SETUP_INNER_OBJECTS
 
      CALL MPI_BARRIER(MPI_COMM_WORLD, ierr)
 
@@ -272,6 +286,8 @@ call report_total_number_of_particles
      CALL GATHER_SURFACE_CHARGE_DENSITY      ! 
 
      CALL MPI_BARRIER(MPI_COMM_WORLD, ierr) 
+
+     CALL GATHER_SURFACE_CHARGE_DENSITY_INNER_OBJECTS   ! whole_object%surface_charge_variation=0 is done here
 
      t20 = MPI_WTIME()
 

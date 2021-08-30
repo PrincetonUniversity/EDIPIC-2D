@@ -46,14 +46,9 @@ SUBROUTINE PROCESS_ELECTRON_COLL_WITH_BOUNDARY_LEFT(x, y, vx, vy, vz, tag)
         END SELECT
 
         IF (whole_object(nwo)%SEE_enabled) THEN
-           CALL PROCESS_ELECTRON_INDUCED_ELECTRON_EMISSION(x, y, vx, vy, vz, tag, nwo, m, 1)   ! "1" is for a left wall 
+           CALL PROCESS_ELECTRON_INDUCED_ELECTRON_EMISSION(x, y, vx, vy, vz, tag, whole_object(nwo), m, 1)   ! "1" is for a left wall 
         END IF
 
-!>>>> processing begins >>>>
-! the simplest case - specular reflection everywhere
-!###        CALL ADD_ELECTRON_TO_ADD_LIST(c_X_area_min, y, -vx, vy, vz, tag)
-! here the long min/max operator is necessary to process a particle hitting a corner
-!<<<< processing ends <<<<
         particle_not_processed = .FALSE.
         EXIT
 
@@ -117,13 +112,9 @@ SUBROUTINE PROCESS_ELECTRON_COLL_WITH_BOUNDARY_RIGHT(x, y, vx, vy, vz, tag)
         END SELECT
 
         IF (whole_object(nwo)%SEE_enabled) THEN
-           CALL PROCESS_ELECTRON_INDUCED_ELECTRON_EMISSION(x, y, vx, vy, vz, tag, nwo, m, 3)   ! "3" is for a right wall 
+           CALL PROCESS_ELECTRON_INDUCED_ELECTRON_EMISSION(x, y, vx, vy, vz, tag, whole_object(nwo), m, 3)   ! "3" is for a right wall 
         END IF
 
-!>>>> processing begins >>>>
-! the simplest case - specular reflection everywhere
-!###         CALL ADD_ELECTRON_TO_ADD_LIST(c_X_area_max, y, -vx, vy, vz, tag)
-!<<<< processing ends <<<<
         particle_not_processed = .FALSE.
         EXIT
 
@@ -187,13 +178,9 @@ SUBROUTINE PROCESS_ELECTRON_COLL_WITH_BOUNDARY_BELOW(x, y, vx, vy, vz, tag)
         END SELECT
 
         IF (whole_object(nwo)%SEE_enabled) THEN
-           CALL PROCESS_ELECTRON_INDUCED_ELECTRON_EMISSION(x, y, vx, vy, vz, tag, nwo, m, 4)   ! "4" is for a wall below
+           CALL PROCESS_ELECTRON_INDUCED_ELECTRON_EMISSION(x, y, vx, vy, vz, tag, whole_object(nwo), m, 4)   ! "4" is for a wall below
         END IF
 
-!>>>> processing begins >>>>
-! the simplest case - specular reflection everywhere
-!###         CALL ADD_ELECTRON_TO_ADD_LIST(x, c_Y_area_min, vx, -vy, vz, tag)
-!<<<< processing ends <<<<
         particle_not_processed = .FALSE.
         EXIT
 
@@ -257,13 +244,9 @@ SUBROUTINE PROCESS_ELECTRON_COLL_WITH_BOUNDARY_ABOVE(x, y, vx, vy, vz, tag)
         END SELECT
 
         IF (whole_object(nwo)%SEE_enabled) THEN
-           CALL PROCESS_ELECTRON_INDUCED_ELECTRON_EMISSION(x, y, vx, vy, vz, tag, nwo, m, 2)   ! "2" is for a wall above
+           CALL PROCESS_ELECTRON_INDUCED_ELECTRON_EMISSION(x, y, vx, vy, vz, tag, whole_object(nwo), m, 2)   ! "2" is for a wall above
         END IF
 
-!>>>> processing begins >>>>
-! the simplest case - specular reflection everywhere
-!###        CALL ADD_ELECTRON_TO_ADD_LIST(x, c_Y_area_max, vx, -vy, vz, tag)
-!<<<< processing ends <<<<
         particle_not_processed = .FALSE.
         EXIT
 
@@ -302,45 +285,30 @@ SUBROUTINE COLLECT_ELECTRON_BOUNDARY_HITS
 
   INTEGER k
 
-  IF (c_N_of_local_object_parts.GT.0) THEN
-
-     ALLOCATE(ibuf_send(1:N_of_boundary_objects), STAT = ALLOC_ERR)
-     ALLOCATE(ibuf_receive(1:N_of_boundary_objects), STAT = ALLOC_ERR)
+  ALLOCATE(ibuf_send(1:N_of_boundary_and_inner_objects), STAT = ALLOC_ERR)
+  ALLOCATE(ibuf_receive(1:N_of_boundary_and_inner_objects), STAT = ALLOC_ERR)
 
 ! each cluster adjacent to a boundary assembles electron-boundary hit counters from all cluster members in the master of the cluster
 
-     ibuf_send(1:N_of_boundary_objects) = whole_object(1:N_of_boundary_objects)%electron_hit_count
-     ibuf_receive = 0
+  ibuf_send(1:N_of_boundary_and_inner_objects) = whole_object(1:N_of_boundary_and_inner_objects)%electron_hit_count
+  ibuf_receive = 0
 
-     CALL MPI_REDUCE(ibuf_send, ibuf_receive, N_of_boundary_objects, MPI_INTEGER, MPI_SUM, 0, COMM_CLUSTER, ierr)
+  CALL MPI_REDUCE(ibuf_send, ibuf_receive, N_of_boundary_and_inner_objects, MPI_INTEGER, MPI_SUM, 0, MPI_COMM_WORLD, ierr)  !??? use Rank_of_bottom_left_cluster_master ???
 
-     IF ((cluster_rank_key.EQ.0).AND.(c_N_of_local_object_parts.GT.0)) THEN
-! now counters from all boundary cluster masters are assembled in the process with global rank zero
+  IF (Rank_of_process.EQ.0) THEN
+! now counters from all processes are assembled in the process with global rank zero
+    
+     whole_object(1:N_of_boundary_and_inner_objects)%electron_hit_count = ibuf_receive(1:N_of_boundary_and_inner_objects)
+     print '("electrons hit boundaries :: ",10(2x,i8))', whole_object(1:N_of_boundary_and_inner_objects)%electron_hit_count  
 
-        whole_object(1:N_of_boundary_objects)%electron_hit_count = ibuf_receive(1:N_of_boundary_objects)
-
-        ibuf_send(1:N_of_boundary_objects) = whole_object(1:N_of_boundary_objects)%electron_hit_count
-        ibuf_receive = 0
-! 
-        CALL MPI_REDUCE(ibuf_send, ibuf_receive, N_of_boundary_objects, MPI_INTEGER, MPI_SUM, 0, COMM_BOUNDARY, ierr)
-
-        IF (Rank_of_process.EQ.0) THEN
-           whole_object(1:N_of_boundary_objects)%electron_hit_count = ibuf_receive(1:N_of_boundary_objects)
-print '("electrons hit boundaries :: ",10(2x,i8))', whole_object(1:N_of_boundary_objects)%electron_hit_count  
-
-! set the ion hit counters here to zero because when this subroutine is called the ions do not move
-           DO k = 1, N_of_boundary_objects
-              whole_object(k)%ion_hit_count(1:N_spec) = 0
-           END DO
-
-        END IF
-
-     END IF
-
-     DEALLOCATE(ibuf_send, STAT = ALLOC_ERR)
-     DEALLOCATE(ibuf_receive, STAT = ALLOC_ERR)
-
+     DO k = 1, N_of_boundary_and_inner_objects
+        whole_object(k)%ion_hit_count(1:N_spec) = 0
+     END DO
+     
   END IF
+
+  DEALLOCATE(ibuf_send, STAT = ALLOC_ERR)
+  DEALLOCATE(ibuf_receive, STAT = ALLOC_ERR)
 
 END SUBROUTINE COLLECT_ELECTRON_BOUNDARY_HITS
 
@@ -349,7 +317,7 @@ END SUBROUTINE COLLECT_ELECTRON_BOUNDARY_HITS
 SUBROUTINE INITIATE_WALL_DIAGNOSTICS
 
   USE ParallelOperationValues
-  USE CurrentProblemValues, ONLY : N_of_boundary_objects, Start_T_cntr
+  USE CurrentProblemValues, ONLY : N_of_boundary_and_inner_objects, Start_T_cntr
   USE Checkpoints, ONLY : use_checkpoint
 !  USE Diagnostics, ONLY : N_of_saved_records
   USE SetupValues, ONLY : ht_use_e_emission_from_cathode, ht_use_e_emission_from_cathode_zerogradf, ht_emission_constant
@@ -380,7 +348,7 @@ SUBROUTINE INITIATE_WALL_DIAGNOSTICS
   IF (use_checkpoint.EQ.1) THEN
 ! start from checkpoint, must trim the time dependences
 
-     DO k = 1, N_of_boundary_objects
+     DO k = 1, N_of_boundary_and_inner_objects
 
         historybo_filename = 'history_bo_NN.dat'
         historybo_filename(12:13) = convert_int_to_txt_string(k, 2)
@@ -400,7 +368,7 @@ SUBROUTINE INITIATE_WALL_DIAGNOSTICS
   ELSE
 ! fresh start, empty files, clean up whatever garbage there might be
 
-     DO k = 1, N_of_boundary_objects
+     DO k = 1, N_of_boundary_and_inner_objects
 
         historybo_filename = 'history_bo_NN.dat'
         historybo_filename(12:13) = convert_int_to_txt_string(k, 2)
@@ -441,7 +409,7 @@ SUBROUTINE SAVE_BOUNDARY_PARTICLE_HITS_EMISSIONS
 
   IF (ht_use_e_emission_from_cathode.OR.ht_use_e_emission_from_cathode_zerogradf.OR.ht_emission_constant) RETURN
 
-  DO k = 1, N_of_boundary_objects
+  DO k = 1, N_of_boundary_and_inner_objects
 
      historybo_filename = 'history_bo_NN.dat'
      historybo_filename(12:13) = convert_int_to_txt_string(k, 2)
@@ -458,6 +426,358 @@ SUBROUTINE SAVE_BOUNDARY_PARTICLE_HITS_EMISSIONS
   END DO
 
 END SUBROUTINE SAVE_BOUNDARY_PARTICLE_HITS_EMISSIONS
+
+!-----------------------------------------
+!
+SUBROUTINE TRY_ELECTRON_COLL_WITH_INNER_OBJECT(x, y, vx, vy, vz, tag) !, myobject)
+
+  USE ParallelOperationValues
+  USE ClusterAndItsBoundaries
+  USE CurrentProblemValues !, ONLY : inner_object, METAL_WALL, DIELECTRIC
+
+  IMPLICIT NONE
+
+!  INTEGER nio  ! number of the inner object
+  REAL(8) x, y, vx, vy, vz
+  INTEGER tag
+!  TYPE(boundary_object) myobject
+
+  REAL(8) xorg, yorg
+
+  INTEGER n_do     ! number of inner object that the particle collided with
+  INTEGER mcross   ! number of the segment of inner object number n_do that the particle collided with
+  REAL(8) xcross, ycross  ! coordinates of the crossing
+  REAL(8) distorg         ! distance from the origin to the crossing (we keep the crossing with the smallest distance from the origin)
+
+  INTEGER n_try
+  INTEGER mcross_try
+  REAL(8) xcross_try, ycross_try, distorg_try
+
+  INTEGER coll_direction_flag
+
+  xorg = x - vx
+  yorg = y - vy
+
+  n_do = -1
+  mcross = -1
+
+  DO n_try = N_of_boundary_objects+1, N_of_boundary_and_inner_objects
+
+     CALL FIND_CLOSEST_INTERSECTION_WITH_OBJECT(xorg, yorg, x, y, n_try, mcross_try, xcross_try, ycross_try, distorg_try)
+
+     IF (mcross_try.LT.0) CYCLE  ! no crossing found
+
+     IF (mcross.EQ.-1) THEN
+! the very first crossing was found
+        n_do = n_try
+        mcross = mcross_try
+        xcross = xcross_try
+        ycross = ycross_try
+        distorg = distorg_try
+     ELSE
+        IF (distorg_try.GE.distorg) CYCLE
+! the new crossing is closer to the origin than the previously found one
+        n_do = n_try
+        mcross = mcross_try
+        xcross = xcross_try
+        ycross = ycross_try
+        distorg = distorg_try
+     END IF
+
+  END DO   !### DO n_try = N_of_boundary_objects+1, N_of_boundary_and_inner_objects
+   
+  IF (mcross.EQ.-1) THEN
+     PRINT '("Error-1 in TRY_ELECTRON_COLL_WITH_INNER_OBJECT ",4(2x,f10.4))', xorg, yorg, x, y
+     STOP
+  END IF
+
+  SELECT CASE (mcross)
+     CASE (1)
+        coll_direction_flag = 3
+     CASE (2)
+        coll_direction_flag = 4
+     CASE (3)
+        coll_direction_flag = 1
+     CASE (4)
+        coll_direction_flag = 2
+  END SELECT
+
+  CALL DO_ELECTRON_COLL_WITH_INNER_OBJECT(xcross, ycross, vx, vy, vz, tag, whole_object(n_do), coll_direction_flag)
+
+END SUBROUTINE TRY_ELECTRON_COLL_WITH_INNER_OBJECT
+
+!-----------------------------------------
+!
+SUBROUTINE DO_ELECTRON_COLL_WITH_INNER_OBJECT(x, y, vx, vy, vz, tag, myobject, coll_direction_flag)
+
+  USE ParallelOperationValues
+  USE ClusterAndItsBoundaries
+  USE CurrentProblemValues !, ONLY : inner_object, METAL_WALL, DIELECTRIC
+
+  IMPLICIT NONE
+
+!  INTEGER nio  ! number of the inner object
+  REAL(8) x, y, vx, vy, vz
+  INTEGER tag
+  TYPE(boundary_object) myobject
+  INTEGER coll_direction_flag
+
+  REAL(8) xmin, xmax, ymin, ymax
+
+  INTEGER i_left_top, i_right_top, i_right_bottom, i_left_bottom_bis, i, ip1
+
+  REAL(8) dqip1, dqi
+
+! identify side of the inner object hit by the particle
+
+  xmin = myobject%Xmin
+  xmax = myobject%Xmax
+  ymin = myobject%Ymin
+  ymax = myobject%Ymax
+
+  myobject%electron_hit_count = myobject%electron_hit_count + 1
+
+  IF (myobject%object_type.EQ.DIELECTRIC) THEN
+! update the surface charge
+
+! ilt   -  ---- irt
+!  |             |
+!  |             |
+!  1 ilbb ---- irb
+!
+     i_left_top        =                  myobject%jtop   - myobject%jbottom + 1
+     i_right_top       = i_left_top     + myobject%iright - myobject%ileft
+     i_right_bottom    = i_right_top    + myobject%jtop   - myobject%jbottom
+     i_left_bottom_bis = i_right_bottom + myobject%iright - myobject%ileft - 1
+
+     SELECT CASE (coll_direction_flag)
+        CASE (3)
+! left wall of the object
+           i = MIN(INT(y - ymin) + 1, i_left_top - 1)
+           dqip1 = y - INT(y)
+           dqi = 1.0_8 - dqip1
+           myobject%surface_charge_variation(i)   = myobject%surface_charge_variation(i)   - dqi
+           myobject%surface_charge_variation(i+1) = myobject%surface_charge_variation(i+1) - dqip1
+           
+        CASE (4)
+! top wall of the object
+           i = MIN(INT(x - xmin) + i_left_top, i_right_top - 1)
+           dqip1 = x - INT(x)
+           dqi = 1.0_8 - dqip1
+           myobject%surface_charge_variation(i)   = myobject%surface_charge_variation(i)   - dqi
+           myobject%surface_charge_variation(i+1) = myobject%surface_charge_variation(i+1) - dqip1
+
+        CASE (1)
+! right wall of the object
+           i = MIN(INT(ymax - y) + i_right_top, i_right_bottom - 1)
+           dqi = y - INT(y)
+           dqip1 = 1.0_8 - dqi
+           myobject%surface_charge_variation(i)   = myobject%surface_charge_variation(i)   - dqi
+           myobject%surface_charge_variation(i+1) = myobject%surface_charge_variation(i+1) - dqip1
+
+        CASE (2)
+! bottom wall of the object
+           i = MIN(INT(xmax - x) + i_right_bottom, i_left_bottom_bis)
+           dqi = x - INT(x)
+           dqip1 = 1.0_8 - dqi
+           ip1 = i+1
+           IF (i.EQ.i_left_bottom_bis) ip1 = 1
+           myobject%surface_charge_variation(i)   = myobject%surface_charge_variation(i)   - dqi
+           myobject%surface_charge_variation(ip1) = myobject%surface_charge_variation(ip1) - dqip1
+
+     END SELECT
+  END IF   !### IF (myobject%object_type.EQ.DIELECTRIC) THEN
+
+  IF (myobject%SEE_enabled) THEN
+     CALL PROCESS_ELECTRON_INDUCED_ELECTRON_EMISSION(x, y, vx, vy, vz, tag, myobject, -1, coll_direction_flag)
+  END IF
+
+END SUBROUTINE DO_ELECTRON_COLL_WITH_INNER_OBJECT
+
+!--------------------------
+!
+SUBROUTINE FIND_CLOSEST_INTERSECTION_WITH_OBJECT(xorg, yorg, x, y, n, mcross, xcross, ycross, distorg)
+
+  USE CurrentProblemValues !, ONLY : inner_object, METAL_WALL, DIELECTRIC
+
+  IMPLICIT NONE
+
+  REAL(8), INTENT(IN) :: xorg, yorg, x, y
+  INTEGER, INTENT(IN) :: n
+
+  INTEGER, INTENT(OUT) :: mcross
+  REAL(8), INTENT(OUT) :: xcross, ycross
+  REAL(8), INTENT(OUT) :: distorg
+
+  INTEGER m
+
+  INTEGER jbot, jtop, jcross
+  INTEGER ileft, iright, icross
+  REAL(8) myxcross, myycross
+  INTEGER mystatus
+  REAL(8) mydistorg
+
+  mcross = -1
+
+  DO m = 1, whole_object(n)%number_of_segments
+
+     IF (whole_object(n)%segment(m)%istart.EQ.whole_object(n)%segment(m)%iend) THEN
+! vertical segment
+
+        jbot = MIN(whole_object(n)%segment(m)%jstart, whole_object(n)%segment(m)%jend)
+        jtop = MAX(whole_object(n)%segment(m)%jstart, whole_object(n)%segment(m)%jend)
+        myxcross = DBLE(whole_object(n)%segment(m)%istart)
+
+        CALL CHECK_INTERSECTION_WITH_VERTICAL_SEGMENT( xorg, yorg, x, y, myxcross, DBLE(jbot), DBLE(jtop), mystatus, myycross )
+        IF (mystatus.NE.0) CYCLE
+
+        jcross = MAX(jbot, MIN(jtop-1, INT(myycross)))
+
+!print *,"aa ", jcross, n, m, whole_object(n)%segment(m)%cell_is_covered(jcross)
+
+! check that the intersection point is not in the prohibited (covered) part of the segment
+        IF (whole_object(n)%segment(m)%cell_is_covered(jcross)) CYCLE
+
+        mydistorg = (myxcross-xorg)**2 + (myycross-yorg)**2
+
+        IF (mcross.EQ.-1) THEN
+           mcross = m
+           xcross = myxcross
+           ycross = myycross
+           distorg = mydistorg
+        ELSE
+           IF (mydistorg.GE.distorg) CYCLE
+           mcross = m
+           xcross = myxcross
+           ycross = myycross
+           distorg = mydistorg
+        END IF
+
+     ELSE IF (whole_object(n)%segment(m)%jstart.EQ.whole_object(n)%segment(m)%jend) THEN
+! horizontal segment
+
+        ileft  = MIN(whole_object(n)%segment(m)%istart, whole_object(n)%segment(m)%iend)
+        iright = MAX(whole_object(n)%segment(m)%istart, whole_object(n)%segment(m)%iend)
+        myycross = DBLE(whole_object(n)%segment(m)%jstart)
+
+        CALL CHECK_INTERSECTION_WITH_HORIZONTAL_SEGMENT( xorg, yorg, x, y, myycross, DBLE(ileft), DBLE(iright), mystatus, myxcross )
+        IF (mystatus.NE.0) CYCLE
+
+        icross = MAX(ileft, MIN(iright-1, INT(myxcross)))
+
+!print *,"bb ", icross, n, m, whole_object(n)%segment(m)%cell_is_covered(icross)
+
+! check that the intersection point is not in the prohibited (covered) part of the segment
+        IF (whole_object(n)%segment(m)%cell_is_covered(icross)) CYCLE
+
+        mydistorg = (myxcross-xorg)**2 + (myycross-yorg)**2
+
+        IF (mcross.EQ.-1) THEN
+           mcross = m
+           xcross = myxcross
+           ycross = myycross
+           distorg = mydistorg
+        ELSE
+           IF (mydistorg.GE.distorg) CYCLE
+           mcross = m
+           xcross = myxcross
+           ycross = myycross
+           distorg = mydistorg
+        END IF
+
+     END IF  !### ELSE IF (whole_object(n)%segment(m)%jstart.EQ.whole_object(n)%segment(m)%jend) THEN
+
+  END DO   !### DO m = 1, whole_object(n)%number_of_segments
+
+END SUBROUTINE FIND_CLOSEST_INTERSECTION_WITH_OBJECT
+
+!----------------------------------------------------------
+!### assume that yminseg < ymaxseg
+!
+SUBROUTINE CHECK_INTERSECTION_WITH_VERTICAL_SEGMENT( xorg, yorg, x, y, xseg, yminseg, ymaxseg, mystatus, ycross )
+
+  use, intrinsic :: ieee_arithmetic
+
+  IMPLICIT NONE
+
+  REAL(8), INTENT(IN) :: xorg, yorg, x, y          ! coordinates of the ends of particle trajectory segment
+  REAL(8), INTENT(IN) :: xseg, yminseg, ymaxseg    ! coordinates of the ends of vertical boundary segment
+  INTEGER, INTENT(OUT) :: mystatus                 ! zero if crossing found, nonzero otherwise
+  REAL(8), INTENT(OUT) :: ycross                   ! y-coordinate of the crossing
+
+  mystatus = -1
+
+! check obvious things first
+  IF (MAX(xorg, x).LT.xseg) RETURN
+  IF (MIN(xorg, x).GT.xseg) RETURN
+  IF (MAX(yorg, y).LT.yminseg) RETURN
+  IF (MIN(yorg, y).GT.ymaxseg) RETURN
+
+! extremely unlikely situation, particle goes exactly along the surface of the object
+  IF (xorg.EQ.x) RETURN
+
+! since we are here, ends of segment {xorg,yorg}-{x,y} are on different sides of segment {xseg,yminseg}-{xseg,ymaxseg}
+
+  ycross = yorg + (y-yorg) * (xseg-xorg) / (x-xorg)
+
+  IF (.NOT.ieee_is_finite(ycross)) THEN
+     mystatus = 1
+     RETURN
+  END IF
+
+  IF (ycross.LT.yminseg) RETURN
+  IF (ycross.GT.ymaxseg) RETURN
+  IF (ycross.LT.MIN(y,yorg)) RETURN  ! paranoidal failsafe check?
+  IF (ycross.GT.MAX(y,yorg)) RETURN  !
+
+  mystatus = 0
+  RETURN
+
+END SUBROUTINE CHECK_INTERSECTION_WITH_VERTICAL_SEGMENT
+
+!----------------------------------------------------------
+!### assume that xminseg < xmagseg
+!
+SUBROUTINE CHECK_INTERSECTION_WITH_HORIZONTAL_SEGMENT( xorg, yorg, x, y, yseg, xminseg, xmaxseg, mystatus, xcross )
+
+  use, intrinsic :: ieee_arithmetic
+
+  IMPLICIT NONE
+
+  REAL(8), INTENT(IN) :: xorg, yorg, x, y          ! coordinates of the ends of particle trajectory segment
+  REAL(8), INTENT(IN) :: yseg, xminseg, xmaxseg    ! coordinates of the ends of horizontal boundary segment
+  INTEGER, INTENT(OUT) :: mystatus                 ! zero if crossing found, nonzero otherwise
+  REAL(8), INTENT(OUT) :: xcross                   ! x-coordinate of the crossing
+
+  mystatus = -1
+
+! check obvious things first
+  IF (MAX(yorg, y).LT.yseg) RETURN
+  IF (MIN(yorg, y).GT.yseg) RETURN
+  IF (MAX(xorg, x).LT.xminseg) RETURN
+  IF (MIN(xorg, x).GT.xmaxseg) RETURN
+
+! extremely unlikely situation, particle goes exactly along the surface of the object
+  IF (yorg.EQ.y) RETURN
+
+! since we are here, ends of segment {xorg,yorg}-{x,y} are on different sides of segment {xseg,yminseg}-{xseg,ymaxseg}
+
+  xcross = xorg + (x-xorg) * (yseg-yorg) / (y-yorg)
+
+  IF (.NOT.ieee_is_finite(xcross)) THEN
+     mystatus = 1
+     RETURN
+  END IF
+
+  IF (xcross.LT.xminseg) RETURN
+  IF (xcross.GT.xmaxseg) RETURN
+  IF (xcross.LT.MIN(x,xorg)) RETURN  ! paranoidal failsafe check?
+  IF (xcross.GT.MAX(x,xorg)) RETURN  !
+
+  mystatus = 0
+  RETURN
+
+END SUBROUTINE CHECK_INTERSECTION_WITH_HORIZONTAL_SEGMENT
 
 !-------------------------------------------------------------------------------------------
 ! Prepares the tabulated values of integral of the maxwell distribution function
@@ -609,3 +929,151 @@ SUBROUTINE GetMaxwellVelocity(U)
   RETURN
   
 END SUBROUTINE GetMaxwellVelocity
+
+!-----------------------------------------
+!
+SUBROUTINE TRY_ELECTRON_COLL_WITH_INNER_OBJECTold(x, y, vx, vy, vz, tag, myobject)
+
+  USE ParallelOperationValues
+  USE ClusterAndItsBoundaries
+  USE CurrentProblemValues !, ONLY : inner_object, METAL_WALL, DIELECTRIC
+
+  IMPLICIT NONE
+
+!  INTEGER nio  ! number of the inner object
+  REAL(8) x, y, vx, vy, vz
+  INTEGER tag
+  TYPE(boundary_object) myobject
+
+  REAL(8) xmin, xmax, ymin, ymax
+  REAL(8) xorg, yorg
+
+  INTEGER coll_direction_flag
+
+  INTEGER mm, i, n
+  INTEGER mcross
+  REAL(8) xcross, ycross
+
+real(8) rdummy
+
+! function
+  REAL(8) vector_product_z
+
+! identify side of the inner object hit by the particle
+
+  xmin = myobject%Xmin
+  xmax = myobject%Xmax
+  ymin = myobject%Ymin
+  ymax = myobject%Ymax
+
+  xorg = x - vx
+  yorg = y - vy
+
+! 1  2  3
+! 8 *** 4
+! 7  6  5
+
+  IF (xorg.LT.xmin) THEN
+
+! default assumption
+     coll_direction_flag = 3                                                                      ! collided with the left side of inner obejct ("wall on the right" for the particle)
+     IF (yorg.GT.ymax) THEN
+! origin in sector 1
+        IF (vector_product_z(xmin - xorg, ymax - yorg, vx, vy).GT.0.0_8) coll_direction_flag = 4  ! collided with the top side of inner obejct ("wall below" for the particle)
+     ELSE IF (yorg.LT.ymin) THEN
+! origin in sector 7
+        IF (vector_product_z(xmin - xorg, ymin - yorg, vx, vy).LT.0.0_8) coll_direction_flag = 2  ! collided with the bottom side of inner obejct ("wall above" for the particle)
+     END IF
+
+  ELSE IF (xorg.GT.xmax) THEN
+
+! default assumption
+     coll_direction_flag = 1                                                                      ! collided with the right side of inner obejct ("wall on the left" for the particle)
+     IF (yorg.GT.ymax) THEN
+! origin in sector 3
+        IF (vector_product_z(xmax - xorg, ymax - yorg, vx, vy).LT.0.0_8) coll_direction_flag = 4  ! collided with the top side of inner obejct ("wall below" for the particle)
+     ELSE IF (yorg.LT.ymin) THEN
+! origin in sector 5
+        IF (vector_product_z(xmax - xorg, ymin - yorg, vx, vy).GT.0.0_8) coll_direction_flag = 2  ! collided with the bottom side of inner obejct ("wall above" for the particle)
+     END IF
+
+  ELSE IF (yorg.GE.ymax) THEN
+
+     coll_direction_flag = 4  ! collided with the top horizontal wall ("wall below" for the particle)
+
+  ELSE IF (yorg.LE.ymin) THEN
+
+     coll_direction_flag = 2  ! collided with the bottom horizontal wall ("wall above" for the particle)
+
+  ELSE
+! error
+  END IF
+
+! check whether the point where the electron hit the object is in the non-covered or covered part
+
+  SELECT CASE (coll_direction_flag)
+     CASE (3)
+! left wall of the object, segment 1
+        mm=1
+        i = MAX(myobject%jbottom, MIN(INT(y),myobject%jtop-1))
+     CASE (4)
+! top wall of the object, segment 2
+        mm=2
+        i =  MAX(myobject%ileft, MIN(INT(x),myobject%iright-1))
+     CASE (1)
+! right wall of the object, segment 3
+        mm=3
+        i = MAX(myobject%jbottom, MIN(INT(y),myobject%jtop-1))
+     CASE (2)
+! bottom wall of the object, segment 4
+        mm=4
+        i = MAX(myobject%ileft, MIN(INT(x),myobject%iright-1))
+  END SELECT
+
+  IF (myobject%segment(mm)%cell_is_covered(i)) THEN 
+! the electron hit the object in the covered part which is not good
+! most likely there was a collision with a different object, try to find it
+! this is an unlikely situation, so some extra numerical cost here is ok
+
+     DO n = N_of_boundary_objects+1, N_of_boundary_and_inner_objects
+
+        CALL FIND_CLOSEST_INTERSECTION_WITH_OBJECT(xorg, yorg, x, y, n, mcross, xcross, ycross, rdummy)
+
+        IF (mcross.LT.0) CYCLE  ! no crossing found
+
+        SELECT CASE (mcross)
+           CASE (1)
+              coll_direction_flag = 3
+           CASE (2)
+              coll_direction_flag = 4
+           CASE (3)
+              coll_direction_flag = 1
+           CASE (4)
+              coll_direction_flag = 2
+        END SELECT
+
+        CALL DO_ELECTRON_COLL_WITH_INNER_OBJECT(xcross, ycross, vx, vy, vz, tag, whole_object(n), coll_direction_flag)
+
+        EXIT
+
+     END DO   !### DO n = N_of_boundary_objects+1, N_of_boundary_and_inner_objects
+
+  ELSE   !### IF (myobject%segment(mm)%cell_is_covered(i)) THEN 
+! the electron hit the object in the part which is not covered, proceed as usual
+
+     CALL DO_ELECTRON_COLL_WITH_INNER_OBJECT(x, y, vx, vy, vz, tag, myobject, coll_direction_flag)
+
+  END IF   !### IF (myobject%segment(mm)%cell_is_covered(i)) THEN 
+
+END SUBROUTINE TRY_ELECTRON_COLL_WITH_INNER_OBJECTold
+
+!-------------------------
+!
+REAL(8) FUNCTION vector_product_z(ax, ay, bx, by)
+
+  IMPLICIT NONE
+  REAL(8) ax, ay, bx, by
+
+  vector_product_z = ax * by - ay * bx
+
+END FUNCTION vector_product_z
