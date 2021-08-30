@@ -20,8 +20,8 @@
      2
 -----d---------- number of blocks in a cluster along the Y-direction
      2
----ddd---------- number of boundary objects
-     6
+---ddd---ddd---- number of objects along domain boundary // number of material inner objects (>=0), each inner objects is a rectangle
+     6     0
 ===dd===dd=== object type, number of segments // symmetry plane at the left, #1
     5    1
 ---dddddd---dddddd---dddddd---dddddd---segment start X/Y end X/Y [global node index]
@@ -40,7 +40,7 @@
       120      201      201      201
       201        0      201      201
       120        0      201        0
-===dd===dd=== object type, number of segments // vacuum at the middle bottom, #5
+===dd===dd=== object type, number of segments // vacuum gap at the middle bottom, #5
     0    1
 ---dddddd---dddddd---dddddd---dddddd---segment start X/Y end X/Y [global node index]
       100        0      120        0

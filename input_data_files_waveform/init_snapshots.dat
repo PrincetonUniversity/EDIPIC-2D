@@ -27,8 +27,6 @@
 --dd---- Number of rectangular spatial boxes (>=0)
    1
 --dddd--dddd----dddd--dddd--- left bottom corner X/Y (node index) / right top corner X/Y (node index)
-   197     0     201     4  
-    30     0      40   201
-   230     0     240   201
+     0     0      10   201  
 
 
