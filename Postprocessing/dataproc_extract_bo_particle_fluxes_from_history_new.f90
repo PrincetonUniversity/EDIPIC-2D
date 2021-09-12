@@ -1,9 +1,13 @@
 !------------------------------------
+! 
+! This program is for the newer version of the code which includes inner material objects.
+! Running this program with data produced by the older version of the code (which did not have the inner objects) 
+! may cause an error while reading the input file init_configuration.dat, 
+! especially if there are characters in the line with the number of boundary objects after this number
+! (for example some comments).
 !
-! This program processes only ordinary boundary objects. It does not "notice" data files for the inner objects.
-! This program is provided for compatibility with older versions of the code where the inner objects were not implemented yet.
-! To process both the ordinary boundary objects and the inner objects, use program 
-!          dataproc_extract_bo_particle_fluxes_from_history_new.f90
+! To process data created by the older code, better use program
+!       dataproc_extract_bo_particle_fluxes_from_history.f90
 ! also available on github.
 !
 ! This program reads files history_bo_NN.dat, where NN is the boundary object number. 
@@ -169,7 +173,7 @@ end program get_particle_wall_fluxes
 
 !--------------------------------
 !
-subroutine read_init_configuration(delta_x_m, delta_t_s, N_plasma_m3, N_of_particles_cell, N_of_boundary_objects, N_subcycles, N_spec, bo_L_m)
+subroutine read_init_configuration(delta_x_m, delta_t_s, N_plasma_m3, N_of_particles_cell, N_of_boundary_and_inner_objects, N_subcycles, N_spec, bo_L_m)
 
   use physical_constants
 
@@ -180,9 +184,12 @@ subroutine read_init_configuration(delta_x_m, delta_t_s, N_plasma_m3, N_of_parti
   real, intent(out) :: N_plasma_m3
 
   integer, intent(out) :: N_of_particles_cell
-  integer, intent(out) :: N_of_boundary_objects
+  integer, intent(out) :: N_of_boundary_and_inner_objects
   integer, intent(out) :: N_subcycles
   integer, intent(out) :: N_spec
+
+  integer N_of_boundary_objects
+  integer N_of_inner_objects
 
   real, intent(out) :: bo_L_m(100) ! array with full lengthes of boundary objects [m], 100 should be more than enough 
 
@@ -203,6 +210,7 @@ subroutine read_init_configuration(delta_x_m, delta_t_s, N_plasma_m3, N_of_parti
   integer number_of_segments
   integer n, m, wo_L
   integer istart, jstart, iend, jend
+  integer ileft, jbottom, iright, jtop
 
   INQUIRE (FILE = 'init_configuration.dat', EXIST = exists)
   IF (.NOT.exists) THEN
@@ -258,8 +266,12 @@ subroutine read_init_configuration(delta_x_m, delta_t_s, N_plasma_m3, N_of_parti
   READ (9, '(A1)') buf !"-----d---------- number of blocks in a cluster along the Y-direction")')
   READ (9, '(5x,i1)') idummy ! cluster_N_blocks_y
 
-  READ (9, '(A1)') buf !"---ddd---------- number of boundary objects")')
-  READ (9, '(3x,i3)') N_of_boundary_objects
+  N_of_inner_objects = 0
+
+  READ (9, '(A1)') buf !"---ddd---ddd---- number of objects along domain boundary // number of material inner objects (>=0), each inner objects is a rectangle")')
+  READ (9, '(3x,i3,3x,i3)') N_of_boundary_objects, N_of_inner_objects
+
+  N_of_boundary_and_inner_objects = N_of_boundary_objects + N_of_inner_objects
 
 ! calculate total length of boundary objects
   bo_L_m = 0.0
@@ -273,6 +285,14 @@ subroutine read_init_configuration(delta_x_m, delta_t_s, N_plasma_m3, N_of_parti
         wo_L = wo_L + ABS(jend - jstart) + ABS(iend - istart)
      END DO
      bo_L_m(n) = real(wo_L * delta_x_m)
+  END DO
+
+  DO n = N_of_boundary_objects+1, N_of_boundary_and_inner_objects  !N_of_inner_objects
+     READ (9, '(A1)') buf !"===dd=== object type")')
+     READ (9, '(3x,i2)') idummy
+     READ (9, '(A1)') buf !"---dddddd---dddddd---dddddd---dddddd--- coordinates of left bottom X/Y corner and right top X/Y corners [global node index]")')
+     READ (9, '(3x,i6,3x,i6,3x,i6,3x,i6)') ileft, jbottom, iright, jtop  ! these are left bottom corner and right top corner coordinates of the whole object
+     bo_L_m(n) = real((jtop - jbottom + iright - ileft) * 2 * delta_x_m)   ! this is unattenuated full length which does not account that the object may be partially covered by other objects
   END DO
 
   CLOSE (9, STATUS = 'KEEP')
