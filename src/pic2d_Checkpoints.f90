@@ -68,7 +68,7 @@ SUBROUTINE SAVE_CHECKPOINT_MPIIO_2(n_sub)
 ! fool proof
   IF (n_sub.NE.0) THEN
      PRINT '("Process :: ",i5," ERROR :: SAVE_CHECKPOINT called at wrong time, n_sub = ",i4)', Rank_of_process, n_sub
-     STOP
+     CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
   END IF
 
   CALL get_rng_state(state_var, state_ind, func)
@@ -392,7 +392,7 @@ SUBROUTINE READ_CHECKPOINT_MPIIO_2
   IF (.NOT.exists) THEN
      PRINT '("Process :: ",i5,", ERROR in READ_CHECKPOINT_MPIIO :: file ",A20," not found program terminated")', &
           & Rank_of_process, filename_check
-     STOP
+     CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
   END IF
 
 ! read the binary file 

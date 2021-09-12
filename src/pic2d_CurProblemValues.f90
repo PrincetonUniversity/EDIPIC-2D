@@ -59,6 +59,9 @@ SUBROUTINE INITIATE_PARAMETERS
   INTEGER init_random_seed
   REAL(8) myran
 
+  CHARACTER(32) bo_filename     ! boundary_object_NNN_segments.dat
+                                ! ----*----I----*----I----*----I--
+
   CHARACTER(24) iobox_filename  ! inner_object_NNN_box.dat
   CHARACTER(24) BxBy_filename   ! proc_NNNN_BxBy_vs_xy.dat
                                 ! ----x----I----x----I----
@@ -303,11 +306,13 @@ SUBROUTINE INITIATE_PARAMETERS
 
      IF (whole_object(n)%n_connected_to_start.EQ.-1) THEN
         IF (Rank_of_process.EQ.0) PRINT '("Error, start point of vacuum gap boundary object ",i2," is not connected to any other boundary object")', n
+        CALL MPI_FINALIZE(ierr)
         STOP
      END IF
 
      IF (whole_object(n)%n_connected_to_end.EQ.-1) THEN
         IF (Rank_of_process.EQ.0) PRINT '("Error, end point of vacuum gap boundary object ",i2," is not connected to any other boundary object")', n
+        CALL MPI_FINALIZE(ierr)
         STOP
      END IF
 
@@ -328,6 +333,7 @@ SUBROUTINE INITIATE_PARAMETERS
   IF (period_y_found.AND.(.NOT.period_x_found)) THEN
 ! error, case with periodicity in y, no periodicity in x is not included
      PRINT '(2x,"Process ",i3," : ERROR : periodicity in Y requested without periodicity in X")', Rank_of_process
+     CALL MPI_FINALIZE(ierr)
      STOP
   END IF
 
@@ -397,6 +403,7 @@ SUBROUTINE INITIATE_PARAMETERS
      IF (iperiodx.LT.0) THEN
 ! error
         PRINT '("error, X-periodic boundary ",i3," has no match")', n
+        CALL MPI_FINALIZE(ierr)
         STOP
      END IF
 ! scan through inner objects, find one which crosses the left boundary
@@ -419,6 +426,7 @@ SUBROUTINE INITIATE_PARAMETERS
         IF (whole_object(nio)%object_copy_periodic_X_right.LT.0) THEN
 ! error
            PRINT '("error, matching object for inner object ",i3," which crosses X-periodic boundary ",i3," not found")', nio, n_of_left_boundary
+           CALL MPI_FINALIZE(ierr)
            STOP
         END IF
      END DO   !### DO nio = N_of_boundary_objects+1, N_of_boundary_and_inner_objects
@@ -456,6 +464,7 @@ SUBROUTINE INITIATE_PARAMETERS
      IF (jperiody.LT.0) THEN
 ! error
         PRINT '("error, Y-periodic boundary ",i3," has no match")', n
+        CALL MPI_FINALIZE(ierr)
         STOP
      END IF
 ! scan through inner objects, find one which crosses the bottom boundary
@@ -478,6 +487,7 @@ SUBROUTINE INITIATE_PARAMETERS
         IF (whole_object(nio)%object_copy_periodic_Y_above.LT.0) THEN
 ! error
            PRINT '("error, matching object for inner object ",i3," which crosses Y-periodic boundary ",i3," not found")', nio, n_of_bottom_boundary
+           CALL MPI_FINALIZE(ierr)
            STOP
         END IF
      END DO   !### DO nio = N_of_boundary_objects+1, N_of_boundary_and_inner_objects
@@ -503,8 +513,6 @@ SUBROUTINE INITIATE_PARAMETERS
                  IF (whole_object(n)%segment(mm)%istart.NE.whole_object(nio)%segment(m)%istart) CYCLE ! skip vertical segment with different i
                  IF ((j.GE.whole_object(n)%segment(mm)%jstart).AND.(j.LT.whole_object(n)%segment(mm)%jend)) THEN
                     whole_object(nio)%segment(m)%cell_is_covered(j) = .TRUE.
-!if (Rank_of_process.eq.0) 
-!print *, "found a ", Rank_of_process, nio, m, n, mm, j
                     EXIT
                  END IF
               END DO   !### DO mm = 1, whole_object(n)%number_of_segments
@@ -520,8 +528,6 @@ SUBROUTINE INITIATE_PARAMETERS
               IF (whole_object(nio)%segment(m)%istart.GT.whole_object(n)%iright) CYCLE
               IF ((j.GE.whole_object(n)%jbottom).AND.(j.LT.whole_object(n)%jtop)) THEN
                  whole_object(nio)%segment(m)%cell_is_covered(j) = .TRUE.
-!if (Rank_of_process.eq.0) 
-!print *, "found aa ", Rank_of_process, nio, m, j
                  EXIT
               END IF
            END DO   !### DO n = 1, N_of_boundary_objects+1, N_of_boundary_and_inner_objects
@@ -543,8 +549,6 @@ SUBROUTINE INITIATE_PARAMETERS
                  IF (whole_object(n)%segment(mm)%jstart.NE.whole_object(nio)%segment(m)%jstart) CYCLE ! skip horizontal segment with different j
                  IF ((i.GE.whole_object(n)%segment(mm)%istart).AND.(i.LT.whole_object(n)%segment(mm)%iend)) THEN
                     whole_object(nio)%segment(m)%cell_is_covered(i) = .TRUE.
-!if (Rank_of_process.eq.0) 
-!print *, "found b ", Rank_of_process, nio, m, i
                     EXIT
                  END IF
               END DO   !### DO mm = 1, whole_object(n)%number_of_segments
@@ -560,8 +564,6 @@ SUBROUTINE INITIATE_PARAMETERS
               IF (whole_object(nio)%segment(m)%jstart.GT.whole_object(n)%jtop) CYCLE
               IF ((i.GE.whole_object(n)%ileft).AND.(i.LT.whole_object(n)%iright)) THEN
                  whole_object(nio)%segment(m)%cell_is_covered(i) = .TRUE.
-!if (Rank_of_process.eq.0) 
-!print *, "found bb ", Rank_of_process, nio, m, i
                  EXIT
               END IF
            END DO   !### DO n = 1, N_of_boundary_objects+1, N_of_boundary_and_inner_objects
@@ -579,6 +581,7 @@ SUBROUTINE INITIATE_PARAMETERS
            IF ((whole_object(nio)%ileft.LT.0).AND.(whole_object(nio)%iright.GT.0)) THEN
               IF (whole_object(nio)%ileft.NE.-whole_object(nio)%iright) THEN
                  PRINT '("Error, inner object ",i3," is placed across the symmetry plane but is not symmetric")', nio
+                 CALL MPI_FINALIZE(ierr)
                  STOP
               END IF
               whole_object(nio)%object_does_NOT_cross_symmetry_plane_X = .FALSE.
@@ -617,6 +620,29 @@ SUBROUTINE INITIATE_PARAMETERS
 ! save geometry of inner objects (note that we know delta_x_m now :)
 
   IF (Rank_of_process.EQ.0) THEN
+     DO nn = 1, N_of_boundary_objects
+        bo_filename = 'boundary_object_NNN_segments.dat'
+!                      ----*----I----*----I----*----I--
+        bo_filename(17:19) = convert_int_to_txt_string(nn, 3)
+
+        open (19, file = bo_filename)
+        write (19, '("# segments of boundary object ",i3)') nn
+        write (19, '("# column 1 is x-index of the grid node in the segment end [dim-less]")')
+        write (19, '("# column 2 is y-index of the grid node in the segment end [dim-less]")')
+        write (19, '("# column 3 is x-coordinate of the segment end [m]")')
+        write (19, '("# column 4 is y-coordinate of the segment end [m]")')
+
+        DO m = 1, whole_object(nn)%number_of_segments
+           write (19, '(2x,i4,2x,i4,2x,f12.9,2x,f12.9)') whole_object(nn)%segment(m)%istart,             whole_object(nn)%segment(m)%jstart, &
+                                                       & whole_object(nn)%segment(m)%istart * delta_x_m, whole_object(nn)%segment(m)%jstart * delta_x_m
+           write (19, '(2x,i4,2x,i4,2x,f12.9,2x,f12.9)') whole_object(nn)%segment(m)%iend,             whole_object(nn)%segment(m)%jend, &
+                                                       & whole_object(nn)%segment(m)%iend * delta_x_m, whole_object(nn)%segment(m)%jend * delta_x_m
+           write (19, '(" ")')
+        END DO
+        close (19, status = 'keep')
+        print '("### created boundary object segments file ",A32)', bo_filename
+     END DO
+
      DO nio = N_of_boundary_objects + 1, N_of_boundary_and_inner_objects
         iobox_filename = 'inner_object_NNN_box.dat'
 !                         ----*----I----*----I----
@@ -686,57 +712,55 @@ SUBROUTINE INITIATE_PARAMETERS
   INQUIRE (FILE = 'init_simcontrol.dat', EXIST = exists)
   CALL MPI_BARRIER(MPI_COMM_WORLD, ierr)
 
-  IF (exists) THEN
+  IF (.NOT.exists) THEN
+     PRINT '(2x,"Process ",i5," : ERROR : init_simcontrol.dat not found. Program terminated")', Rank_of_process
+     CALL MPI_FINALIZE(ierr)
+     STOP
+  END IF
 
-     IF (Rank_of_process.EQ.0) THEN
-        PRINT '(2x,"Process ",i5," : init_simcontrol.dat is found. Reading the data file...")', Rank_of_process
-     END IF
+  IF (Rank_of_process.EQ.0) THEN
+     PRINT '(2x,"Process ",i5," : init_simcontrol.dat is found. Reading the data file...")', Rank_of_process
+  END IF
 
-     OPEN (9, FILE = 'init_simcontrol.dat')
+  OPEN (9, FILE = 'init_simcontrol.dat')
 
-     READ (9, '(A1)') buf !"---ddddddd.ddd----- simulation time [ns]")')
-     READ (9, '(3x,f11.3)') t_sim_ns
-     READ (9, '(A1)') buf !"--------dd--------- number of electron sub-cycles per ion cycle (odd)")')
-     READ (9, '(8x,i2)') N_subcycles
-     READ (9, '(A1)') buf !"------dddd--------- number of ion cycles between internal cluster load balancing events")')
-     READ (9, '(6x,i4)') dT_cluster_load_balance
-     READ (9, '(A1)') buf !"------dddd--------- number of internal cluster load balancing events between global load balancing events")')
-     READ (9, '(6x,i4)') dT_global_load_balance
-     READ (9, '(A1)') buf !"---ddddddd--------- number of ion cycles between checkpoints (no checkpoints if <=0)")')
-     READ (9, '(3x,i7)') dT_save_checkpoint
-     READ (9, '(A1)') buf !"---------d--------- use checkpoint (2/1/0 = Yes, to start/Yes, to continue/No)")')
-     READ (9, '(9x,i1)') use_checkpoint
-     READ (9, '(A1)') buf !"--dddddddd--------- time step when the checkpoint to be used was saved (dim-less)")')
-     READ (9, '(2x,i8)') T_cntr_to_continue
+  READ (9, '(A1)') buf !"---ddddddd.ddd----- simulation time [ns]")')
+  READ (9, '(3x,f11.3)') t_sim_ns
+  READ (9, '(A1)') buf !"--------dd--------- number of electron sub-cycles per ion cycle (odd)")')
+  READ (9, '(8x,i2)') N_subcycles
+  READ (9, '(A1)') buf !"------dddd--------- number of ion cycles between internal cluster load balancing events")')
+  READ (9, '(6x,i4)') dT_cluster_load_balance
+  READ (9, '(A1)') buf !"------dddd--------- number of internal cluster load balancing events between global load balancing events")')
+  READ (9, '(6x,i4)') dT_global_load_balance
+  READ (9, '(A1)') buf !"---ddddddd--------- number of ion cycles between checkpoints (no checkpoints if <=0)")')
+  READ (9, '(3x,i7)') dT_save_checkpoint
+  READ (9, '(A1)') buf !"---------d--------- use checkpoint (2/1/0 = Yes, to start/Yes, to continue/No)")')
+  READ (9, '(9x,i1)') use_checkpoint
+  READ (9, '(A1)') buf !"--dddddddd--------- time step when the checkpoint to be used was saved (dim-less)")')
+  READ (9, '(2x,i8)') T_cntr_to_continue
 
-     Max_T_cntr = t_sim_ns / (1.0d9 * delta_t_s)
+  CLOSE (9, STATUS = 'KEEP')
+
+  Max_T_cntr = t_sim_ns / (1.0d9 * delta_t_s)
 
 ! fool proof
-     IF (MOD(N_subcycles,2).EQ.0) THEN
-        PRINT '("ERROR :: requested even number of electron subcycles per ion cycle")', N_subcycles
-        STOP
-     END IF
-
-     dT_cluster_load_balance = dT_cluster_load_balance * N_subcycles             ! must be an integer number of N_subcycles
-     dT_global_load_balance  = dT_global_load_balance * dT_cluster_load_balance  ! must be an integer number of dT_cluster_load_balance
-     dT_save_checkpoint = dT_save_checkpoint * N_subcycles                       ! must be an integer number of N_subcycles
-
-     IF (dT_save_checkpoint.EQ.0) dT_save_checkpoint = -N_subcycles              ! zero dT_save_checkpoint produces unnecessary checkpoint at 
-                                                                                 ! T_cntr=0 or T_cntr=T_cntr_save_checkpoint
-
-     IF ((use_checkpoint.EQ.0).OR.(use_checkpoint.EQ.2)) THEN
-        T_cntr_save_checkpoint = dT_save_checkpoint                              ! default value
-     ELSE IF (use_checkpoint.EQ.1) THEN
-        T_cntr_save_checkpoint = T_cntr_to_continue + dT_save_checkpoint         ! next save if restart from checkpoint
-     END IF
-
-     CLOSE (9, STATUS = 'KEEP')
-
-  ELSE
-     
-     PRINT '(2x,"Process ",i5," : ERROR : init_simcontrol.dat not found. Program terminated")', Rank_of_process
+  IF (MOD(N_subcycles,2).EQ.0) THEN
+     PRINT '("ERROR :: requested even number of electron subcycles per ion cycle")', N_subcycles
+     CALL MPI_FINALIZE(ierr)
      STOP
+  END IF
 
+  dT_cluster_load_balance = dT_cluster_load_balance * N_subcycles             ! must be an integer number of N_subcycles
+  dT_global_load_balance  = dT_global_load_balance * dT_cluster_load_balance  ! must be an integer number of dT_cluster_load_balance
+  dT_save_checkpoint = dT_save_checkpoint * N_subcycles                       ! must be an integer number of N_subcycles
+
+  IF (dT_save_checkpoint.EQ.0) dT_save_checkpoint = -N_subcycles              ! zero dT_save_checkpoint produces unnecessary checkpoint at 
+                                                                              ! T_cntr=0 or T_cntr=T_cntr_save_checkpoint
+
+  IF ((use_checkpoint.EQ.0).OR.(use_checkpoint.EQ.2)) THEN
+     T_cntr_save_checkpoint = dT_save_checkpoint                              ! default value
+  ELSE IF (use_checkpoint.EQ.1) THEN
+     T_cntr_save_checkpoint = T_cntr_to_continue + dT_save_checkpoint         ! next save if restart from checkpoint
   END IF
 
   IF (Rank_of_process.EQ.0) THEN
@@ -852,48 +876,45 @@ if (Rank_of_process.eq.0) print *, "SET_CLUSTER_STRUCTURE done"
   INQUIRE (FILE = 'init_particles.dat', EXIST = exists)
   CALL MPI_BARRIER(MPI_COMM_WORLD, ierr)
 
-  IF (exists) THEN
-
-     IF (Rank_of_process.EQ.0) THEN
-        PRINT '(2x,"Process ",i3," : init_particles.dat is found. Reading the data file...")', Rank_of_process
-     END IF
-
-     OPEN (9, FILE = 'init_particles.dat')
-
-     READ (9, '(A1)') buf !"---dddd.ddd----- initial electron temperature [eV]")')
-     READ (9, '(3x,f8.3)') init_Te_eV
-     READ (9, '(A1)') buf !"---+d.dddE+dd--- initial electron density [m^-3]")')
-     READ (9, '(3x,e10.3)') init_Ne_m3
-     READ (9, '(A1)') buf !"------d--------- number of ion species")')
-     READ (9, '(6x,i1)') N_spec
-
-     ALLOCATE(Qs(1:N_spec), STAT = ALLOC_ERR)
-     ALLOCATE(M_i_amu(1:N_spec), STAT = ALLOC_ERR)
-
-     ALLOCATE(init_Ti_eV(1:N_spec), STAT = ALLOC_ERR)
-     ALLOCATE(init_NiNe(1:N_spec), STAT = ALLOC_ERR)
-
-     READ (9, '(A1)') buf !"---ddd.d---+d---dddd.ddd---ddd.dd-- ion mass [amu] / charge [e] / initial temperature [eV] / initial relative concentration [%]")')
-     DO s = 1, N_spec
-        READ (9, '(3x,f5.1,3x,i2,3x,f8.3,3x,f6.2)') M_i_amu(s), Qs(s), init_Ti_eV(s), init_NiNe(s)
-        init_NiNe(s) = 0.01_8 * init_NiNe(s)   ! convert % to fraction
-     END DO
-
-     IF (N_spec.EQ.1) THEN
-        init_NiNe(1) = 1.0_8
-     END IF
-     
-     READ (9, '(A1)') buf !"---ddddddddd---- seed for random number generator for process with rank zero")')
-     READ (9, '(3x,i9)') init_random_seed
-
-     CLOSE (9, STATUS = 'KEEP')
-     
-  ELSE
-     
+  IF (.NOT.exists) THEN   
      PRINT '(2x,"Process ",i3," : ERROR : init_particles.dat not found. Program terminated")', Rank_of_process
+     CALL MPI_FINALIZE(ierr)
      STOP
-
   END IF
+
+  IF (Rank_of_process.EQ.0) THEN
+     PRINT '(2x,"Process ",i3," : init_particles.dat is found. Reading the data file...")', Rank_of_process
+  END IF
+
+  OPEN (9, FILE = 'init_particles.dat')
+
+  READ (9, '(A1)') buf !"---dddd.ddd----- initial electron temperature [eV]")')
+  READ (9, '(3x,f8.3)') init_Te_eV
+  READ (9, '(A1)') buf !"---+d.dddE+dd--- initial electron density [m^-3]")')
+  READ (9, '(3x,e10.3)') init_Ne_m3
+  READ (9, '(A1)') buf !"------d--------- number of ion species")')
+  READ (9, '(6x,i1)') N_spec
+
+  ALLOCATE(Qs(1:N_spec), STAT = ALLOC_ERR)
+  ALLOCATE(M_i_amu(1:N_spec), STAT = ALLOC_ERR)
+
+  ALLOCATE(init_Ti_eV(1:N_spec), STAT = ALLOC_ERR)
+  ALLOCATE(init_NiNe(1:N_spec), STAT = ALLOC_ERR)
+
+  READ (9, '(A1)') buf !"---ddd.d---+d---dddd.ddd---ddd.dd-- ion mass [amu] / charge [e] / initial temperature [eV] / initial relative concentration [%]")')
+  DO s = 1, N_spec
+     READ (9, '(3x,f5.1,3x,i2,3x,f8.3,3x,f6.2)') M_i_amu(s), Qs(s), init_Ti_eV(s), init_NiNe(s)
+     init_NiNe(s) = 0.01_8 * init_NiNe(s)   ! convert % to fraction
+  END DO
+
+  IF (N_spec.EQ.1) THEN
+     init_NiNe(1) = 1.0_8
+  END IF
+     
+  READ (9, '(A1)') buf !"---ddddddddd---- seed for random number generator for process with rank zero")')
+  READ (9, '(3x,i9)') init_random_seed
+
+  CLOSE (9, STATUS = 'KEEP')
 
 ! now we know N_spec, so we can allocate ion hit counters in wall objects
   DO n = 1, N_of_boundary_and_inner_objects
@@ -1071,45 +1092,10 @@ if (Rank_of_process.eq.0) print *, "SET_CLUSTER_STRUCTURE done"
   max_N_ions_to_send_below = 0  ! a particle will be added to the list
   
   ALLOCATE(ion_to_add(1:N_spec), STAT=ALLOC_ERR)
-  DO s = 1, N_spec
-     !NULLIFY(ion_to_add(s)%part)
-  END DO
   ALLOCATE(ion_to_send_left(1:N_spec), STAT=ALLOC_ERR)
-  DO s = 1, N_spec
-     !NULLIFY(ion_to_send_left(s)%part)
-  END DO
   ALLOCATE(ion_to_send_right(1:N_spec), STAT=ALLOC_ERR)
-  DO s = 1, N_spec
-     !NULLIFY(ion_to_send_right(s)%part)
-  END DO
   ALLOCATE(ion_to_send_above(1:N_spec), STAT=ALLOC_ERR)
-  DO s = 1, N_spec
-     !NULLIFY(ion_to_send_above(s)%part)
-  END DO
   ALLOCATE(ion_to_send_below(1:N_spec), STAT=ALLOC_ERR)
-  DO s = 1, N_spec
-     !NULLIFY(ion_to_send_below(s)%part)
-  END DO
-
-!  EX=0.0_8 !-36.491_8 / E_scale_Vm !0.0_8
-!  EY=0.0_8 !-1.0_8 / E_scale_Vm
-
-!  acc_EX=0.0_8
-!  acc_EY=0.0_8
-
-!  IF ((periodicity_flag.EQ.PERIODICITY_X).AND.(cluster_rank_key.EQ.0)) THEN
-!! scan the list of boundary objects, find a wall with non-zero potential
-!     ALLOCATE(ext_phi(c_indx_y_min:c_indx_y_max), STAT = ALLOC_ERR)
-!     ext_phi = 0.0_8
-!     DO n = 1, N_of_boundary_objects
-!        IF ((whole_object(n)%object_type.EQ.METAL_WALL).AND.(whole_object(n)%phi.NE.0.0_8)) THEN
-!           DO j = c_indx_y_min, c_indx_y_max
-!              ext_phi(j) = whole_object(n)%phi * DBLE(j) / DBLE(global_maximal_j)
-!           END DO
-!           EXIT
-!        END IF
-!     END DO
-!  END IF
 
   whole_object%phi_const  = whole_object%phi_const / F_scale_V
   whole_object%phi_var    = whole_object%phi_var   / F_scale_V
@@ -1119,33 +1105,8 @@ if (Rank_of_process.eq.0) print *, "SET_CLUSTER_STRUCTURE done"
 ! do this here to set whole_object%phi which may be used below to calculate external electric field
   CALL UPDATE_WALL_POTENTIALS(0)
 
-!  IF ((periodicity_flag.EQ.PERIODICITY_X).AND.(cluster_rank_key.EQ.0)) THEN
-! scan the list of boundary objects, find a wall with non-zero potential
-!     ALLOCATE(ext_phi(c_indx_y_min:c_indx_y_max), STAT = ALLOC_ERR)
-!     ext_phi = 0.0_8
-!! fixmeplease
-!! ##### hardwired for boundary objects #2 and #4 being at the top (max y) and bottom (min y) of the simulation domain   #####
-!! ##### the potential values assigned to these boundaries are used to calculate the externally applied y-electric field #####
-!! ##### if one or both y-boundaries are dielectric or the external voltage if both boundaries are metal                 #####
-!     IF (ht_grid_requested) THEN 
-!        DO j = c_indx_y_min, c_indx_y_max
-!           IF (j.LE.grid_j) THEN
-!              ext_phi(j) = whole_object(4)%phi + (F_grid - whole_object(4)%phi) * DBLE(j) / DBLE(grid_j)
-!           ELSE
-!              ext_phi(j) = F_grid + (whole_object(2)%phi - F_grid) * DBLE(j - grid_j) / DBLE(global_maximal_j - grid_j)
-!           END IF
-!        END DO
-!     ELSE 
-!        DO j = c_indx_y_min, c_indx_y_max
-!           ext_phi(j) = (whole_object(2)%phi - whole_object(4)%phi) * DBLE(j) / DBLE(global_maximal_j)
-!        END DO
-!     END IF
-!  END IF
-
   IF ((periodicity_flag.EQ.PERIODICITY_NONE).OR.(periodicity_flag.EQ.PERIODICITY_X_PETSC).OR.(periodicity_flag.EQ.PERIODICITY_X_Y)) THEN
      phi=0.0_8
-!     rho_i=0.0_8 !DBLE(N_of_particles_cell) * init_Ne_m3 / N_plasma_m3 !0.0_8
-!     rho_e=0.0_8
   END IF
 
 ! save vectors of the external magnetic field
@@ -1509,7 +1470,7 @@ SUBROUTINE IDENTIFY_CLUSTER_BOUNDARIES
                  c_N_of_local_object_parts = c_N_of_local_object_parts + 1
                  IF (c_N_of_local_object_parts.GT.c_max_N_of_local_object_parts) THEN
                     PRINT '("Process ",i4," : ERROR-1 in IDENTIFY_CLUSTER_BOUNDARIES : maximal number of boundary parts exceeded : ",i4)', Rank_of_process, c_N_of_local_object_parts
-                    STOP
+                    CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
                  END IF
                  c_local_object_part(c_N_of_local_object_parts)%object_number = n
                  c_local_object_part(c_N_of_local_object_parts)%segment_number = m
@@ -1552,7 +1513,7 @@ SUBROUTINE IDENTIFY_CLUSTER_BOUNDARIES
                  c_N_of_local_object_parts = c_N_of_local_object_parts + 1
                  IF (c_N_of_local_object_parts.GT.c_max_N_of_local_object_parts) THEN
                     PRINT '("Process ",i4," : ERROR-2 in IDENTIFY_CLUSTER_BOUNDARIES : maximal number of boundary parts exceeded : ",i4)', Rank_of_process, c_N_of_local_object_parts
-                    STOP
+                    CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
                  END IF
                  c_local_object_part(c_N_of_local_object_parts)%object_number = n
                  c_local_object_part(c_N_of_local_object_parts)%segment_number = m
@@ -1589,7 +1550,7 @@ SUBROUTINE IDENTIFY_CLUSTER_BOUNDARIES
                  c_N_of_local_object_parts = c_N_of_local_object_parts + 1
                  IF (c_N_of_local_object_parts.GT.c_max_N_of_local_object_parts) THEN
                     PRINT '("Process ",i4," : ERROR-3 in IDENTIFY_CLUSTER_BOUNDARIES : maximal number of boundary parts exceeded : ",i4)', Rank_of_process, c_N_of_local_object_parts
-                    STOP
+                    CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
                  END IF
                  c_local_object_part(c_N_of_local_object_parts)%object_number = n
                  c_local_object_part(c_N_of_local_object_parts)%segment_number = m
@@ -1626,7 +1587,7 @@ SUBROUTINE IDENTIFY_CLUSTER_BOUNDARIES
                  c_N_of_local_object_parts = c_N_of_local_object_parts + 1
                  IF (c_N_of_local_object_parts.GT.c_max_N_of_local_object_parts) THEN
                     PRINT '("Process ",i4," : ERROR-4 in IDENTIFY_CLUSTER_BOUNDARIES : maximal number of boundary parts exceeded : ",i4)', Rank_of_process, c_N_of_local_object_parts
-                    STOP
+                    CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
                  END IF
                  c_local_object_part(c_N_of_local_object_parts)%object_number = n
                  c_local_object_part(c_N_of_local_object_parts)%segment_number = m
@@ -1847,7 +1808,7 @@ SUBROUTINE INCLUDE_CLUSTER_PERIODICITY
               IF (.NOT.pair_found) THEN
 ! error message if the pair is not found
                  PRINT '("Process ",i4," :: Error in INCLUDE_PERIODICITY :: cannot find a matching pair for X-periodic boudnary of process ",i4," (horizontal rank ",i4,")")', Rank_of_process, all_periodic_messages(13,n), n
-                 STOP
+                 CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
               END IF
            END IF
         END DO
@@ -1869,7 +1830,7 @@ SUBROUTINE INCLUDE_CLUSTER_PERIODICITY
               IF (.NOT.pair_found) THEN
 ! error message if the pair is not found
                  PRINT '("Process ",i4," :: Error in INCLUDE_PERIODICITY :: cannot find a matching pair for Y-periodic boundary of process ",i4," (horizontal rank ",i4,")")', Rank_of_process, all_periodic_messages(13,n), n
-                 STOP
+                 CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
               END IF
            END IF
         END DO
@@ -2007,7 +1968,7 @@ print '("Process ",i4," :: P.B. L/R/B/A :: ",4(1x,L1))', Rank_of_process, period
 ! check that periodicity along X on the left boundary is not mixed with the symmetry plane
   IF (periodic_boundary_X_left.AND.symmetry_plane_X_left) THEN
      PRINT '("Proc ",i4," :: Error in INCLUDE_CLUSTER_PERIODICITY, both periodicity and symmetry plane at the left edge of a cluster detected, program terminated")', Rank_of_process
-     STOP
+     CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
   END IF
 
 ! check connections 
@@ -2046,10 +2007,10 @@ print '("Process ",i4," :: P.B. L/R/B/A :: ",4(1x,L1))', Rank_of_process, period
            IF (n_left(n).GT.0) THEN
               IF (ibufer(2*n-1).NE.c_local_object_part(n_left(n))%object_number) THEN
                  PRINT '("Cluster ",i4," received connection info from its left neighbor ",i4," status = ERROR, object number does not match")', Rank_of_process, Rank_of_master_left
-                 STOP
+                 CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
                ELSE IF (ibufer(2*n).NE.c_local_object_part(n_left(n))%segment_number) THEN
                  PRINT '("Cluster ",i4," received connection info from its left neighbor ",i4," status = ERROR, segment number does not match")', Rank_of_process, Rank_of_master_left
-                 STOP
+                 CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
                ELSE
                  PRINT '("Cluster ",i4," received connection info from its left neighbor ",i4," status = SUCCESS")', Rank_of_process, Rank_of_master_left
               END IF
@@ -2064,10 +2025,10 @@ print '("Process ",i4," :: P.B. L/R/B/A :: ",4(1x,L1))', Rank_of_process, period
            IF (n_right(n).GT.0) THEN
               IF (ibufer(2*n-1).NE.c_local_object_part(n_right(n))%object_number) THEN
                  PRINT '("Cluster ",i4," received connection info from its right neighbor ",i4," status = ERROR, object number does not match")', Rank_of_process, Rank_of_master_right
-                 STOP
+                 CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
                ELSE IF (ibufer(2*n).NE.c_local_object_part(n_right(n))%segment_number) THEN
                  PRINT '("Cluster ",i4," received connection info from its right neighbor ",i4," status = ERROR, segment number does not match")', Rank_of_process, Rank_of_master_right
-                 STOP
+                 CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
                ELSE
                  PRINT '("Cluster ",i4," received connection info from its right neighbor ",i4," status = SUCCESS")', Rank_of_process, Rank_of_master_right
               END IF
@@ -2106,10 +2067,10 @@ print '("Process ",i4," :: P.B. L/R/B/A :: ",4(1x,L1))', Rank_of_process, period
            IF (n_below(n).GT.0) THEN
               IF (ibufer(2*n-1).NE.c_local_object_part(n_below(n))%object_number) THEN
                  PRINT '("Cluster ",i4," received connection info from its neighbor below ",i4," status = ERROR, object number does not match")', Rank_of_process, Rank_of_master_below
-                 STOP
+                 CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
                ELSE IF (ibufer(2*n).NE.c_local_object_part(n_below(n))%segment_number) THEN
                  PRINT '("Cluster ",i4," received connection info from its neighbor below ",i4," status = ERROR, segment number does not match")', Rank_of_process, Rank_of_master_below
-                 STOP
+                 CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
                ELSE
                  PRINT '("Cluster ",i4," received connection info from its neighbor below ",i4," status = SUCCESS")', Rank_of_process, Rank_of_master_below
               END IF
@@ -2124,10 +2085,10 @@ print '("Process ",i4," :: P.B. L/R/B/A :: ",4(1x,L1))', Rank_of_process, period
            IF (n_above(n).GT.0) THEN
               IF (ibufer(2*n-1).NE.c_local_object_part(n_above(n))%object_number) THEN
                  PRINT '("Cluster ",i4," received connection info from its neighbor above ",i4," status = ERROR, object number does not match")', Rank_of_process, Rank_of_master_above
-                 STOP
+                 CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
                ELSE IF (ibufer(2*n).NE.c_local_object_part(n_above(n))%segment_number) THEN
                  PRINT '("Cluster ",i4," received connection info from its neighbor above ",i4," status = ERROR, segment number does not match")', Rank_of_process, Rank_of_master_above
-                 STOP
+                 CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
                ELSE
                  PRINT '("Cluster ",i4," received connection info from its neighbor above ",i4," status = SUCCESS")', Rank_of_process, Rank_of_master_above
               END IF
@@ -2145,10 +2106,10 @@ print '("Process ",i4," :: P.B. L/R/B/A :: ",4(1x,L1))', Rank_of_process, period
            IF (n_left(n).GT.0) THEN
               IF (ibufer(2*n-1).NE.c_local_object_part(n_left(n))%object_number) THEN
                  PRINT '("Cluster ",i4," received connection info from its left neighbor ",i4," status = ERROR, object number does not match")', Rank_of_process, Rank_of_master_left
-                 STOP
+                 CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
                ELSE IF (ibufer(2*n).NE.c_local_object_part(n_left(n))%segment_number) THEN
                  PRINT '("Cluster ",i4," received connection info from its left neighbor ",i4," status = ERROR, segment number does not match")', Rank_of_process, Rank_of_master_left
-                 STOP
+                 CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
                ELSE
                  PRINT '("Cluster ",i4," received connection info from its left neighbor ",i4," status = SUCCESS")', Rank_of_process, Rank_of_master_left
               END IF
@@ -2163,10 +2124,10 @@ print '("Process ",i4," :: P.B. L/R/B/A :: ",4(1x,L1))', Rank_of_process, period
            IF (n_right(n).GT.0) THEN
               IF (ibufer(2*n-1).NE.c_local_object_part(n_right(n))%object_number) THEN
                  PRINT '("Cluster ",i4," received connection info from its right neighbor ",i4," status = ERROR, object number does not match")', Rank_of_process, Rank_of_master_right
-                 STOP
+                 CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
                ELSE IF (ibufer(2*n).NE.c_local_object_part(n_right(n))%segment_number) THEN
                  PRINT '("Cluster ",i4," received connection info from its right neighbor ",i4," status = ERROR, segment number does not match")', Rank_of_process, Rank_of_master_right
-                 STOP
+                 CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
                ELSE
                  PRINT '("Cluster ",i4," received connection info from its right neighbor ",i4," status = SUCCESS")', Rank_of_process, Rank_of_master_right
               END IF
@@ -2205,10 +2166,10 @@ print '("Process ",i4," :: P.B. L/R/B/A :: ",4(1x,L1))', Rank_of_process, period
            IF (n_below(n).GT.0) THEN
               IF (ibufer(2*n-1).NE.c_local_object_part(n_below(n))%object_number) THEN
                  PRINT '("Cluster ",i4," received connection info from its neighbor below ",i4," status = ERROR, object number does not match")', Rank_of_process, Rank_of_master_below
-                 STOP
+                 CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
                ELSE IF (ibufer(2*n).NE.c_local_object_part(n_below(n))%segment_number) THEN
                  PRINT '("Cluster ",i4," received connection info from its neighbor below ",i4," status = ERROR, segment number does not match")', Rank_of_process, Rank_of_master_below
-                 STOP
+                 CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
                ELSE
                  PRINT '("Cluster ",i4," received connection info from its neighbor below ",i4," status = SUCCESS")', Rank_of_process, Rank_of_master_below
               END IF
@@ -2223,10 +2184,10 @@ print '("Process ",i4," :: P.B. L/R/B/A :: ",4(1x,L1))', Rank_of_process, period
            IF (n_above(n).GT.0) THEN
               IF (ibufer(2*n-1).NE.c_local_object_part(n_above(n))%object_number) THEN
                  PRINT '("Cluster ",i4," received connection info from its neighbor above ",i4," status = ERROR, object number does not match")', Rank_of_process, Rank_of_master_above
-                 STOP
+                 CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
               ELSE IF (ibufer(2*n).NE.c_local_object_part(n_above(n))%segment_number) THEN
                  PRINT '("Cluster ",i4," received connection info from its neighbor above ",i4," status = ERROR, segment number does not match")', Rank_of_process, Rank_of_master_above
-                 STOP
+                 CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
                ELSE
                  PRINT '("Cluster ",i4," received connection info from its neighbor above ",i4," status = SUCCESS")', Rank_of_process, Rank_of_master_above
               END IF
@@ -2473,7 +2434,7 @@ SUBROUTINE SET_COMMUNICATIONS
   IF (Rank_of_process.EQ.Rank_of_bottom_left_cluster_master) THEN
      IF (Rank_horizontal.NE.0) THEN
         PRINT '("Error-000 in SET_COMMUNICATIONS ",3(2x,i4))', Rank_of_process, Rank_of_bottom_left_cluster_master, Rank_horizontal
-        STOP
+        CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
      END IF
   END IF
 
@@ -2749,7 +2710,7 @@ SUBROUTINE DISTRIBUTE_CLUSTER_PARAMETERS
   USE ParallelOperationValues
   USE ClusterAndItsBoundaries
   USE CurrentProblemValues
-  USE Diagnostics, ONLY : N_of_probes_cluster, List_of_probes_cluster, probe_Ni_cluster
+  USE Diagnostics, ONLY : N_of_probes_cluster, List_of_probes_cluster !, probe_Ni_cluster
   USE IonParticles, ONLY : N_spec
   USE SetupValues
 
@@ -2757,11 +2718,11 @@ SUBROUTINE DISTRIBUTE_CLUSTER_PARAMETERS
 
   INCLUDE 'mpif.h'
 
+  INTEGER ierr
+
   INTEGER bufer_length
   INTEGER, ALLOCATABLE :: ibufer(:)
   INTEGER ALLOC_ERR
-
-  INTEGER ierr
 
   INTEGER pos, n
 
@@ -2986,6 +2947,8 @@ SUBROUTINE DISTRIBUTE_CLUSTER_PARAMETERS
               c_local_object_part(n)%surface_charge(c_local_object_part(n)%istart:c_local_object_part(n)%iend) = 0.0_8
            ELSE
 ! error
+              PRINT '("Proc ",i4," Error in DISTRIBUTE_CLUSTER_PARAMETERS")', Rank_of_process
+              CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
            END IF
         END IF
 
@@ -3017,19 +2980,11 @@ SUBROUTINE DISTRIBUTE_CLUSTER_PARAMETERS
 
      pos = pos + c_N_of_local_object_parts_below
 
-!if ((pos+1).ne.bufer_length) 
-!print '("<<<",4(2x,i4))', Rank_of_process, bufer_length, pos+1, ibufer(pos+1)
-
-
      N_of_probes_cluster = ibufer(pos+1)
 
-     IF (ALLOCATED(probe_Ni_cluster)) DEALLOCATE(probe_Ni_cluster, STAT=ALLOC_ERR)
      IF (ALLOCATED(List_of_probes_cluster)) DEALLOCATE(List_of_probes_cluster, STAT=ALLOC_ERR)
 
-!print '("DISTRIBUTE_CLUSTER_PARAMETERS :: proc ",i4," / ",i4," N_of_probes_cluster ",i4)',Rank_of_process, Rank_cluster, N_of_probes_cluster
-
      IF (N_of_probes_cluster.GT.0) THEN
-        ALLOCATE(probe_Ni_cluster(1:N_of_probes_cluster,1:N_spec), STAT = ALLOC_ERR)
         ALLOCATE(List_of_probes_cluster(1:N_of_probes_cluster), STAT = ALLOC_ERR)
         CALL MPI_BCAST(List_of_probes_cluster, N_of_probes_cluster, MPI_INTEGER, 0, COMM_CLUSTER, ierr)
      END IF

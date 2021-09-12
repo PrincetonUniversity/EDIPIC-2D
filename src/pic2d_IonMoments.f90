@@ -81,7 +81,7 @@ if ((i.lt.c_indx_x_min).or.(i.gt.(c_indx_x_max-1)).or.(j.lt.c_indx_y_min).or.(j.
    print '("Process ",i4," : k/s/N_ions(s) : ",i8,2x,i8)', Rank_of_process, k, s, N_ions(s)
    print '("Process ",i4," : x/y/vx/vy/vz/tag : ",5(2x,e14.7),2x,i4)', Rank_of_process, ion(s)%part(k)%X, ion(s)%part(k)%Y, ion(s)%part(k)%VX, ion(s)%part(k)%VY, ion(s)%part(k)%VZ, ion(s)%part(k)%tag
    print '("Process ",i4," : minx/maxx/miny/maxy : ",4(2x,e14.7))', Rank_of_process, c_X_area_min, c_X_area_max, c_Y_area_min, c_Y_area_max
-   stop
+   CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
 end if
 
 !     pos = i - c_indx_x_min + 1 + (j - c_indx_y_min) * (c_indx_x_max - c_indx_x_min + 1)
@@ -240,3 +240,213 @@ end if
   END DO
   
 END SUBROUTINE COLLECT_ION_MOMENTS
+
+!------------------------------
+!
+SUBROUTINE COLLECT_ION_MOMENTS_IN_CLUSTER_PROBES(ions_moved)
+
+  USE ParallelOperationValues
+  USE CurrentProblemValues, ONLY : T_cntr !V_scale_ms, energy_factor_eV, m_e_kg, e_Cl, N_scale_part_m3
+  USE IonParticles
+  USE ClusterAndItsBoundaries
+  USE Diagnostics
+
+  IMPLICIT NONE
+
+  INCLUDE 'mpif.h'
+
+  LOGICAL, INTENT(IN) :: ions_moved
+
+  INTEGER ierr
+!  INTEGER stattus(MPI_STATUS_SIZE)
+!  INTEGER request
+
+  INTEGER bufsize
+  REAL, ALLOCATABLE :: rbufer_local(:)
+  REAL, ALLOCATABLE :: rbufer_local_2(:)
+  INTEGER ALLOC_ERR
+
+  INTEGER s, i, j, k
+  LOGICAL skip_this_particle
+  INTEGER npc   ! probe number in the list of probes belonging to this cluster
+  INTEGER npa   ! probe number in the global list of probes
+
+  REAL ax_ip1, ax_i, ay_jp1, ay_j
+  REAL vij, vip1j, vijp1, vip1jp1
+
+  REAL(8) updVX, updVY, updVZ
+
+  INTEGER pos
+
+! exit if the current time layer is not assigned for the diagnostic output 
+  IF (T_cntr.NE.Save_probes_data_T_cntr) RETURN
+
+  IF (.NOT.ions_moved) RETURN
+
+  IF (N_of_probes_cluster.LE.0) RETURN
+
+  bufsize = 7 * N_of_probes_cluster * N_spec  ! {N,JX,JY,JZ,WX,WY,WZ}
+
+  ALLOCATE(rbufer_local(bufsize), STAT=ALLOC_ERR)
+  ALLOCATE(rbufer_local_2(bufsize), STAT=ALLOC_ERR)
+
+  rbufer_local   = 0.0
+  rbufer_local_2 = 0.0
+
+  DO s = 1, N_spec
+     DO k = 1, N_ions(s)
+     
+        i = INT(ion(s)%part(k)%X)
+        j = INT(ion(s)%part(k)%Y)
+        IF (ion(s)%part(k)%X.EQ.c_X_area_max) i = c_indx_x_max-1
+        IF (ion(s)%part(k)%Y.EQ.c_Y_area_max) j = c_indx_y_max-1
+
+        skip_this_particle = .TRUE.
+
+! find whether in any corner of the cell containing the particle there is a probe
+
+        DO npc = 1, N_of_probes_cluster
+           npa = List_of_probes_cluster(npc)
+           IF (i.EQ.Probe_position(1,npa)) THEN
+              IF (j.EQ.Probe_position(2,npa)) THEN
+! the probe is in the left top corner of the cell containing the particle
+                 skip_this_particle = .FALSE.
+                 EXIT
+              ELSE IF ((j+1).EQ.Probe_position(2,npa)) THEN
+! the probe is in the left top corner of the cell containing the particle
+                 skip_this_particle = .FALSE.
+                 EXIT
+              END IF
+           ELSE IF ((i+1).EQ.Probe_position(1,npa)) THEN
+              IF (j.EQ.Probe_position(2,npa)) THEN
+! the probe is in the right bottom corner of the cell containing the particle
+                 skip_this_particle = .FALSE.
+                 EXIT
+              ELSE IF ((j+1).EQ.Probe_position(2,npa)) THEN
+! the probe is in the right top corner of the cell containing the particle
+                 skip_this_particle = .FALSE.
+                 EXIT
+              END IF
+           END IF
+        END DO
+
+        IF (skip_this_particle) CYCLE
+
+        ax_ip1 = REAL(ion(s)%part(k)%X - DBLE(i))
+        ax_i   = 1.0 - ax_ip1
+
+        ay_jp1 = REAL(ion(s)%part(k)%Y - DBLE(j))
+        ay_j = 1.0 - ay_jp1
+
+        vij   = ax_i   * ay_j
+        vip1j = ax_ip1 * ay_j
+        vijp1 = ax_i   * ay_jp1
+        vip1jp1 = 1.0 - vij - vip1j - vijp1
+
+        updVX = ion(s)%part(k)%VX
+        updVY = ion(s)%part(k)%VY
+        updVZ = ion(s)%part(k)%VZ
+
+! collect particle contribution to the electron moments in all close probes
+        DO npc = 1, N_of_probes_cluster
+           npa = List_of_probes_cluster(npc)
+           IF (i.EQ.Probe_position(1,npa)) THEN
+              IF (j.EQ.Probe_position(2,npa)) THEN
+! the probe is in the left bottom corner of the cell containing the particle
+
+                 pos = (npc-1) * 7 + (s-1) * N_of_probes_cluster * 7
+
+                 rbufer_local(pos+1) = rbufer_local(pos+1) + vij
+
+                 rbufer_local(pos+2) = rbufer_local(pos+2) + vij * updVX
+                 rbufer_local(pos+3) = rbufer_local(pos+3) + vij * updVY
+                 rbufer_local(pos+4) = rbufer_local(pos+4) + vij * updVZ
+
+                 rbufer_local(pos+5) = rbufer_local(pos+5) + vij * updVX * updVX
+                 rbufer_local(pos+6) = rbufer_local(pos+6) + vij * updVY * updVY
+                 rbufer_local(pos+7) = rbufer_local(pos+7) + vij * updVZ * updVZ
+
+              ELSE IF ((j+1).EQ.Probe_position(2,npa)) THEN
+! the probe is in the left top corner of the cell containing the particle
+
+                 pos = (npc-1) * 7 + (s-1) * N_of_probes_cluster * 7
+
+                 rbufer_local(pos+1) = rbufer_local(pos+1) + vijp1
+
+                 rbufer_local(pos+2) = rbufer_local(pos+2) + vijp1 * updVX
+                 rbufer_local(pos+3) = rbufer_local(pos+3) + vijp1 * updVY
+                 rbufer_local(pos+4) = rbufer_local(pos+4) + vijp1 * updVZ
+
+                 rbufer_local(pos+5) = rbufer_local(pos+5) + vijp1 * updVX * updVX
+                 rbufer_local(pos+6) = rbufer_local(pos+6) + vijp1 * updVY * updVY
+                 rbufer_local(pos+7) = rbufer_local(pos+7) + vijp1 * updVZ * updVZ
+
+              END IF
+
+           ELSE IF ((i+1).EQ.Probe_position(1,npa)) THEN
+              IF (j.EQ.Probe_position(2,npa)) THEN
+! the probe is in the right bottom corner of the cell containing the particle
+
+                 pos = (npc-1) * 7 + (s-1) * N_of_probes_cluster * 7
+
+                 rbufer_local(pos+1) = rbufer_local(pos+1) + vip1j
+
+                 rbufer_local(pos+2) = rbufer_local(pos+2) + vip1j * updVX
+                 rbufer_local(pos+3) = rbufer_local(pos+3) + vip1j * updVY
+                 rbufer_local(pos+4) = rbufer_local(pos+4) + vip1j * updVZ
+
+                 rbufer_local(pos+5) = rbufer_local(pos+5) + vip1j * updVX * updVX
+                 rbufer_local(pos+6) = rbufer_local(pos+6) + vip1j * updVY * updVY
+                 rbufer_local(pos+7) = rbufer_local(pos+7) + vip1j * updVZ * updVZ
+
+              ELSE IF ((j+1).EQ.Probe_position(2,npa)) THEN
+! the probe is in the right top corner of the cell containing the particle
+
+                 pos = (npc-1) * 7 + (s-1) * N_of_probes_cluster * 7
+
+                 rbufer_local(pos+1) = rbufer_local(pos+1) + vip1jp1
+
+                 rbufer_local(pos+2) = rbufer_local(pos+2) + vip1jp1 * updVX
+                 rbufer_local(pos+3) = rbufer_local(pos+3) + vip1jp1 * updVY
+                 rbufer_local(pos+4) = rbufer_local(pos+4) + vip1jp1 * updVZ
+
+                 rbufer_local(pos+5) = rbufer_local(pos+5) + vip1jp1 * updVX * updVX
+                 rbufer_local(pos+6) = rbufer_local(pos+6) + vip1jp1 * updVY * updVY
+                 rbufer_local(pos+7) = rbufer_local(pos+7) + vip1jp1 * updVZ * updVZ
+
+              END IF
+           END IF
+        END DO   !###   DO npc = 1, N_of_probes_cluster
+
+     END DO   !###   DO k = 1, N_ions(s)
+  END DO   !###   DO s = 1, N_spec
+
+! collect moments from all processes in a cluster
+  CALL MPI_REDUCE(rbufer_local, rbufer_local_2, bufsize, MPI_REAL, MPI_SUM, 0, COMM_CLUSTER, ierr)
+
+  IF (cluster_rank_key.EQ.0) THEN
+! cluster master translates the message and stores data in permanent arrays
+     pos=1
+     DO s = 1, N_spec
+        DO npc = 1, N_of_probes_cluster
+           probe_Ni_cluster(npc, s) = rbufer_local_2(pos)
+
+           probe_JXi_cluster(npc, s) = rbufer_local_2(pos+1)
+           probe_JYi_cluster(npc, s) = rbufer_local_2(pos+2)
+           probe_JZi_cluster(npc, s) = rbufer_local_2(pos+3)
+
+           probe_WXi_cluster(npc, s) = rbufer_local_2(pos+4)
+           probe_WYi_cluster(npc, s) = rbufer_local_2(pos+5)
+           probe_WZi_cluster(npc, s) = rbufer_local_2(pos+6)
+        
+           pos= pos+7
+        END DO
+     END DO
+  END IF
+
+  IF (ALLOCATED(rbufer_local))   DEALLOCATE(rbufer_local, STAT=ALLOC_ERR)
+  IF (ALLOCATED(rbufer_local_2)) DEALLOCATE(rbufer_local_2, STAT=ALLOC_ERR)
+  
+  RETURN
+
+END SUBROUTINE COLLECT_ION_MOMENTS_IN_CLUSTER_PROBES

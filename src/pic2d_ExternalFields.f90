@@ -69,10 +69,73 @@ SUBROUTINE PREPARE_EXTERNAL_FIELDS
 
      CLOSE (9, STATUS = 'KEEP')
 
+!B_ext = 1.0d-4 * 100.0_8 / B_scale_T !################  100 Gauss = 0.01 Tesla
+     Bx_ext = Bx_ext * 1.0d-4 / B_scale_T  
+     By_ext = By_ext * 1.0d-4 / B_scale_T  
+!###  Bz_ext = Bz_ext * 1.0d-4 / B_scale_T
+
+     Bz_0    = Bz_0    * 1.0d-4 / B_scale_T
+     Bz_max  = Bz_max  * 1.0d-4 / B_scale_T
+     Bz_Lsys = Bz_Lsys * 1.0d-4 / B_scale_T
+     y_Bmax = y_Bmax * 0.01_8 / delta_x_m
+
+     half_over_sigma2_1 = 0.5_8 * (delta_x_m * 100.0_8 / half_over_sigma2_1)**2
+     half_over_sigma2_2 = 0.5_8 * (delta_x_m * 100.0_8 / half_over_sigma2_2)**2
+
+     a1 = (Bz_max - Bz_0) / (1.0_8 - EXP(-half_over_sigma2_1 * y_Bmax**2))
+     a2 = (Bz_max - Bz_Lsys) / (1.0_8 - EXP(-half_over_sigma2_2 * (DBLE(global_maximal_j)-y_Bmax)**2))
+
+!  b1 = Bz_0 - a1 * EXP(-half_over_sigma2_1 * y_Bmax**2)
+!  b2 = Bz_Lsys - a2 * EXP(-half_over_sigma2_2 * (DBLE(global_maximal_j)-y_Bmax)**2)
+
+     b1 = Bz_max - a1
+     b2 = Bz_max - a2
+
+     IF (Rank_of_process.EQ.0) THEN
+        OPEN (10, FILE = 'external_Bz_vs_y.dat')
+        WRITE (10, '("# column 1 is the y-node number [dim-less]")')
+        WRITE (10, '("# column 2 is the y-node coordinate [cm]")')
+        WRITE (10, '("# column 3 is the BZ [Gauss]")')
+        DO j = 0, global_maximal_j
+           WRITE (10, '(2x,i6,2x,f12.9,2x,f10.4)') j, j*delta_x_m*100.0_8, Bz(0.0_8, DBLE(j)) * B_scale_T * 1.0d4     ! save magnetic field in Gauss
+        END DO
+        CLOSE (10, STATUS = 'KEEP')
+        PRINT '("Process 0 created file external_Bz_vs_y.dat")'
+     END IF
+
+     Ez_ext = Ez_ext * 100.0_8 / E_scale_Vm
+
+     IF (ions_sense_magnetic_field_flag.EQ.0) THEN
+        ions_sense_magnetic_field = .FALSE.
+     ELSE
+        ions_sense_magnetic_field = .TRUE.
+     END IF
+
+     IF (ions_sense_EZ_flag.EQ.0) THEN
+        ions_sense_EZ = .FALSE.
+     ELSE
+        ions_sense_EZ = .TRUE.
+     END IF
+
   ELSE
      
-     PRINT '(2x,"Process ",i5," : ERROR : init_extfields.dat not found. Program terminated")', Rank_of_process
-     STOP
+     IF (Rank_of_process.EQ.0) PRINT '("### init_extfields.dat not found, use default values :: external fields Bx,By,Bz, and Ez are zero, ions do not sense magnetic and Z-electric field")'
+
+     Bx_ext = 0.0_8
+     By_ext = 0.0_8
+
+     y_Bmax = 0.0_8
+     a1 = 0.0_8
+     b1 = 0.0_8
+     a2 = 0.0_8
+     b2 = 0.0_8
+     half_over_sigma2_1 = 0.0_8
+     half_over_sigma2_2 = 0.0_8
+
+     Ez_ext = 0.0_8
+
+     ions_sense_magnetic_field = .FALSE.
+     ions_sense_EZ = .FALSE.
 
   END IF
 
@@ -83,6 +146,10 @@ SUBROUTINE PREPARE_EXTERNAL_FIELDS
 
   IF (exists) THEN
      
+     IF (Rank_of_process.EQ.0) THEN
+        PRINT '(2x,"Process ",i5," : init_extmagfieldsBxBy.dat is found. Reading the data file...")', Rank_of_process
+     END IF
+
      OPEN (9, FILE = 'init_extmagfieldsBxBy.dat')
 
      READ (9, '(A1)') buf !"---dd--- number of wires with the electric current along the Z-direction")')
@@ -92,68 +159,26 @@ SUBROUTINE PREPARE_EXTERNAL_FIELDS
         ALLOCATE(JZwire_X(1:N_JZ_wires), STAT=ALLOC_ERR)   ! x-coordinate of the wire in the laboratory CS
         ALLOCATE(JZwire_Y(1:N_JZ_wires), STAT=ALLOC_ERR)   ! y-coordinate
         ALLOCATE(JZwire_JZ(1:N_JZ_wires), STAT=ALLOC_ERR)   ! electric current (JZ) 
-     END IF
-     READ (9, '(A1)') buf !"--- provide below for each wire its X coordinate [mm] Y coordinate [mm] and electric current JZ [A]")')
-     READ (9, '(A1)') buf !"---ddddd.ddd---ddddd.ddd---ddddd.ddd---")')
 
-     DO n = 1, N_JZ_wires
-        READ (9, '(3(3x,f9.3))') JZwire_X(n), JZwire_Y(n), JZwire_JZ(n) 
+        READ (9, '(A1)') buf !"--- provide below for each wire its X coordinate [mm] Y coordinate [mm] and electric current JZ [A]")')
+        READ (9, '(A1)') buf !"---ddddd.ddd---ddddd.ddd---ddddd.ddd---")')
+
+        DO n = 1, N_JZ_wires
+           READ (9, '(3(3x,f9.3))') JZwire_X(n), JZwire_Y(n), JZwire_JZ(n) 
 ! make values dimensionless
-        JZwire_X(n) = JZwire_X(n) * 0.001_8 / delta_x_m
-        JZwire_Y(n) = JZwire_Y(n) * 0.001_8 / delta_x_m
-        JZwire_JZ(n) = (mu_0_Hm * JZwire_JZ(n) / (2.0_8 * pi)) / (delta_x_m * B_scale_T)
-     END DO
-
+           JZwire_X(n) = JZwire_X(n) * 0.001_8 / delta_x_m
+           JZwire_Y(n) = JZwire_Y(n) * 0.001_8 / delta_x_m
+           JZwire_JZ(n) = (mu_0_Hm * JZwire_JZ(n) / (2.0_8 * pi)) / (delta_x_m * B_scale_T)
+        END DO
+     ELSE
+        IF (Rank_of_process.EQ.0) PRINT '("### init_extmagfieldsBxBy.dat found but NO external currents requested, corresponding Bx, By are zero")'
+     END IF
      CLOSE (9, STATUS = 'KEEP')
 
-  END IF
-
-!B_ext = 1.0d-4 * 100.0_8 / B_scale_T !################  100 Gauss = 0.01 Tesla
-  Bx_ext = Bx_ext * 1.0d-4 / B_scale_T  
-  By_ext = By_ext * 1.0d-4 / B_scale_T  
-!###  Bz_ext = Bz_ext * 1.0d-4 / B_scale_T
-
-  Bz_0    = Bz_0    * 1.0d-4 / B_scale_T
-  Bz_max  = Bz_max  * 1.0d-4 / B_scale_T
-  Bz_Lsys = Bz_Lsys * 1.0d-4 / B_scale_T
-  y_Bmax = y_Bmax * 0.01_8 / delta_x_m
-
-  half_over_sigma2_1 = 0.5_8 * (delta_x_m * 100.0_8 / half_over_sigma2_1)**2
-  half_over_sigma2_2 = 0.5_8 * (delta_x_m * 100.0_8 / half_over_sigma2_2)**2
-
-  a1 = (Bz_max - Bz_0) / (1.0_8 - EXP(-half_over_sigma2_1 * y_Bmax**2))
-  a2 = (Bz_max - Bz_Lsys) / (1.0_8 - EXP(-half_over_sigma2_2 * (DBLE(global_maximal_j)-y_Bmax)**2))
-
-!  b1 = Bz_0 - a1 * EXP(-half_over_sigma2_1 * y_Bmax**2)
-!  b2 = Bz_Lsys - a2 * EXP(-half_over_sigma2_2 * (DBLE(global_maximal_j)-y_Bmax)**2)
-
-  b1 = Bz_max - a1
-  b2 = Bz_max - a2
-
-  IF (Rank_of_process.EQ.0) THEN
-     OPEN (10, FILE = 'external_Bz_vs_y.dat')
-     WRITE (10, '("# column 1 is the y-node number [dim-less]")')
-     WRITE (10, '("# column 2 is the y-node coordinate [cm]")')
-     WRITE (10, '("# column 3 is the BZ [Gauss]")')
-     DO j = 0, global_maximal_j
-        WRITE (10, '(2x,i6,2x,f12.9,2x,f10.4)') j, j*delta_x_m*100.0_8, Bz(0.0_8, DBLE(j)) * B_scale_T * 1.0d4     ! save magnetic field in Gauss
-     END DO
-     CLOSE (10, STATUS = 'KEEP')
-     PRINT '("Process 0 created file external_Bz_vs_y.dat")'
-  END IF
-
-  Ez_ext = Ez_ext * 100.0_8 / E_scale_Vm
-
-  IF (ions_sense_magnetic_field_flag.EQ.0) THEN
-     ions_sense_magnetic_field = .FALSE.
   ELSE
-     ions_sense_magnetic_field = .TRUE.
-  END IF
 
-  IF (ions_sense_EZ_flag.EQ.0) THEN
-     ions_sense_EZ = .FALSE.
-  ELSE
-     ions_sense_EZ = .TRUE.
+     IF (Rank_of_process.EQ.0) PRINT '("### init_extmagfieldsBxBy.dat not found, magnetic fields Bx, By due to external currents are zero")'
+
   END IF
 
 END SUBROUTINE PREPARE_EXTERNAL_FIELDS

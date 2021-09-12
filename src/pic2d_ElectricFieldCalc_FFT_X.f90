@@ -1129,20 +1129,6 @@ character(10) myfilename ! A_NNNN.dat
 
   END DO
 
-!if (T_cntr.eq.10) then
-!myfilename = 'D_NNNN.dat'
-!myfilename(3:6) = convert_int_to_txt_string(Rank_of_process,4)
-!open (51, file = myfilename)
-!do j = invfftx_strip_jmin, invfftx_strip_jmax
-!   do i = 0, global_maximal_i
-!      write (51, '(2x,i4,2x,i4,2x,e14.7)') i, j, xband(i,j)
-!   end do
-!   write (51, '(" ")')
-!end do
-!close (51, status = 'keep')
-!print '("process ",i4," :: file ",A10," is ready")', Rank_of_process, myfilename
-!end if
-
 ! assemble potential in master processes
 
   CALL MPI_BARRIER(MPI_COMM_WORLD, ierr) 
@@ -1169,30 +1155,6 @@ character(10) myfilename ! A_NNNN.dat
         END DO
      END DO
 
-!if (T_cntr.eq.10) then
-!myfilename = 'E_NNNN.dat'
-!myfilename(3:6) = convert_int_to_txt_string(Rank_of_process,4)
-!open (51, file = myfilename)
-!do j = invfftx_strip_jmin, invfftx_strip_jmax
-!   do i = 0, global_maximal_i
-!      write (51, '(2x,i4,2x,i4,2x,e14.7)') i, j, xband(i,j)
-!   end do
-!   write (51, '(" ")')
-!end do
-!DO k = 2, cluster_N_blocks
-!   indx_y_begin = field_calculator(k)%invfftx_strip_jmin
-!   indx_y_end   = field_calculator(k)%invfftx_strip_jmax
-!   do j = indx_y_begin, indx_y_end
-!      do i = 0, global_maximal_i
-!         write (51, '(2x,i4,2x,i4,2x,e14.7)') i, j, xband(i,j)
-!      end do
-!   write (51, '(" ")')
-!   end do
-!end DO
-!close (51, status = 'keep')
-!print '("process ",i4," :: file ",A10," is ready")', Rank_of_process, myfilename
-!end if
-
   ELSE
 
      bufsize = (global_maximal_i + 1) * (invfftx_strip_jmax - invfftx_strip_jmin + 1)
@@ -1209,10 +1171,6 @@ character(10) myfilename ! A_NNNN.dat
   END IF
 
   CALL MPI_BARRIER(MPI_COMM_WORLD, ierr) 
-
-!if (T_cntr.eq.10) stop
-
-!print '("Process ",i4," passed N")', Rank_of_process
 
 ! transform bands of potential into domains of master processes ------------------------------------------------------------------------------
 
@@ -1355,10 +1313,6 @@ character(10) myfilename ! A_NNNN.dat
   END IF
 
   CALL MPI_BARRIER(MPI_COMM_WORLD, ierr)                       !------------------------------------------->>>>>>>>>>>>>>>>>>>>>>>>>>
-
-!print '("Process ",i4," passed O")', Rank_of_process
-
-!print '("Process ",i4," passed P")', Rank_of_process
 
   DEALLOCATE(xband, STAT = ALLOC_ERR)
   DEALLOCATE(rbufer, STAT=ALLOC_ERR)

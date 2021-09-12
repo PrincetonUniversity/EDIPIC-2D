@@ -167,6 +167,7 @@ SUBROUTINE SOLVE_POTENTIAL_WITH_PETSC
 ! fool proof
   IF (nn.NE.block_N_of_nodes_to_solve) THEN
      PRINT '("proc ",i4," :: Error-1 in SOLVE_POTENTIAL_WITH_PETSC ",2(2x,i9))', Rank_of_process, nn, block_N_of_nodes_to_solve
+     CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
   END IF
 
 ! find metal inner objects 

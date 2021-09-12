@@ -14,6 +14,7 @@ PROGRAM MainProg
   INTEGER ierr
   REAL(8) start, finish
   INTEGER n_sub
+  LOGICAL ions_moved
 
   REAL(8) t0, t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12, t13, t14, t15, t16, t17, t18, t19, t20
 
@@ -34,7 +35,7 @@ PROGRAM MainProg
 
 !print *, "did INITIATE_ELECTRON_NEUTRAL_COLLISIONS"
 !CALL MPI_BARRIER(MPI_COMM_WORLD, ierr) 
-!stop
+!CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
 
   CALL INITIATE_PROBE_DIAGNOSTICS
 
@@ -50,6 +51,7 @@ PROGRAM MainProg
   start = MPI_WTIME()
 
   n_sub = 0
+  ions_moved = .TRUE.
 
   DO T_cntr = Start_T_cntr, Max_T_cntr
 
@@ -72,7 +74,7 @@ call report_total_number_of_particles
      IF (T_cntr.EQ.T_cntr_global_load_balance) THEN
         IF (n_sub.NE.0) THEN
            PRINT '("Process ",i5," :: ERROR-1 in MainProg :: GLOBAL_LOAD_BALANCE is about to be called at wrong time :: T_cntr = ",i8," n_sub = ",i8)', Rank_of_process, T_cntr, n_sub
-           STOP
+           CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
         END IF
         CALL GLOBAL_LOAD_BALANCE  ! includes calls to SET_COMMUNICATIONS 
                                   !                   DISTRIBUTE_CLUSTER_PARAMETERS
@@ -137,7 +139,15 @@ call report_total_number_of_particles
 
      t7 = MPI_WTIME()
 
-     CALL DO_PROBE_DIAGNOSTICS(n_sub)    ! n_sub notifies the sub that the ion densities were refreshed, this avoids accumulation
+     CALL COLLECT_ELECTRON_MOMENTS_IN_CLUSTER_PROBES
+
+     CALL MPI_BARRIER(MPI_COMM_WORLD, ierr) 
+
+     CALL COLLECT_ION_MOMENTS_IN_CLUSTER_PROBES(ions_moved)  ! ion moments in probes are updated only if ions moved since the most recent writing to probe data files
+
+     CALL MPI_BARRIER(MPI_COMM_WORLD, ierr) 
+
+     CALL DO_PROBE_DIAGNOSTICS(ions_moved)  ! if it writes to files, it sets ions_moved=.FALSE.
 
      CALL MPI_BARRIER(MPI_COMM_WORLD, ierr) 
 
@@ -166,6 +176,7 @@ call report_total_number_of_particles
 
         CALL ADVANCE_IONS                      !   velocity: n-N_e_subcycles+1/2 ---> n+1/2
                                                ! coordinate: n-int(N_e_subcycles/2) ---> n-int(N_e_subcycles/2)+N_e_subcycles
+        ions_moved = .TRUE.
         CALL FIND_ALIENS_IN_ION_ADD_LIST
         CALL FIND_ALIENS_IN_ELECTRON_ADD_LIST
 
@@ -222,7 +233,7 @@ call report_total_number_of_particles
         t15 = MPI_WTIME()
 
         CALL CLEAR_ACCUMULATED_FIELDS
-        n_sub = 0
+        n_sub = 0                                 !### n_sub reset to zero here
 
         CALL MPI_BARRIER(MPI_COMM_WORLD, ierr) 
 

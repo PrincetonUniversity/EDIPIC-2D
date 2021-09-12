@@ -196,7 +196,7 @@ SUBROUTINE GLOBAL_LOAD_BALANCE
                  print '("Process ",i4," : Error-1 in GLOBAL_LOAD_BALANCE : particle out of bounds xmin/xmax/ymin/ymax : ",4(2x,e14.7))', Rank_of_process, c_X_area_min, c_X_area_max, c_Y_area_min, c_Y_area_max
                  print '("Process ",i4," : k/N_electrons : ",i8,2x,i8)', Rank_of_process, k, N_electrons
                  print '("Process ",i4," : x/y/vx/vy/vz/tag : ",5(2x,e14.7),2x,i4)', Rank_of_process, electron(k)%X, electron(k)%Y, electron(k)%VX, electron(k)%VY, electron(k)%VZ, electron(k)%tag
-                 !        stop
+                 CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
               end if
 
            END DO
@@ -219,7 +219,7 @@ SUBROUTINE GLOBAL_LOAD_BALANCE
                     print '("Process ",i4," : Error-2 in GLOBAL_LOAD_BALANCE : particle out of bounds xmin/xmax/ymin/ymax : ",4(2x,e14.7))', Rank_of_process, c_X_area_min, c_X_area_max, c_Y_area_min, c_Y_area_max
                     print '("Process ",i4," : s/k/N_ions : ",i8,2x,i8,2x,i8)', Rank_of_process, s, k, N_ions(s)
                     print '("Process ",i4," : x/y/vx/vy/vz/tag : ",5(2x,e14.7),2x,i4)', Rank_of_process, ion(s)%part(k)%X, ion(s)%part(k)%Y, ion(s)%part(k)%VX, ion(s)%part(k)%VY, ion(s)%part(k)%VZ, ion(s)%part(k)%tag
-                    !        stop
+                    CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
                  end if
 
               END DO
@@ -321,6 +321,10 @@ SUBROUTINE CALCULATE_N_PROCESSES_BALANCED(N_of_all_free_processes)
   USE LoadBalancing
 
   IMPLICIT NONE
+
+  INCLUDE 'mpif.h'
+
+  INTEGER ierr
 
   INTEGER N_of_all_free_processes
 
@@ -492,7 +496,7 @@ SUBROUTINE CALCULATE_N_PROCESSES_BALANCED(N_of_all_free_processes)
      CLOSE (40, STATUS = 'KEEP')
      PRINT '("### Check file Error_in_CALCULATE_N_PROCESSES_BALANCED.dat")'
      PRINT '("### Terminating the program...")'
-     STOP
+     CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
   END IF
 
 ! find new maximal process load

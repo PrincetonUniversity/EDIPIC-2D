@@ -111,6 +111,10 @@ SUBROUTINE IDENTIFY_BLOCK_BOUNDARIES
 
   IMPLICIT NONE
 
+  INCLUDE 'mpif.h'
+
+  INTEGER ierr
+
   INTEGER n, m
   INTEGER jstart, jend, istart, iend
   INTEGER minimal_index, maximal_index
@@ -150,7 +154,7 @@ SUBROUTINE IDENTIFY_BLOCK_BOUNDARIES
                  N_of_local_object_parts = N_of_local_object_parts + 1
                  IF (N_of_local_object_parts.GT.max_N_of_local_object_parts) THEN
                     PRINT '("Process ",i4," : ERROR-1 in IDENTIFY_BLOCK_BOUNDARIES : maximal number of boundary parts exceeded : ",i4)', Rank_of_process, N_of_local_object_parts
-                    STOP
+                    CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
                  END IF
                  local_object_part(N_of_local_object_parts)%object_number = n
                  local_object_part(N_of_local_object_parts)%istart = indx_x_min
@@ -184,7 +188,7 @@ SUBROUTINE IDENTIFY_BLOCK_BOUNDARIES
                  N_of_local_object_parts = N_of_local_object_parts + 1
                  IF (N_of_local_object_parts.GT.max_N_of_local_object_parts) THEN
                     PRINT '("Process ",i4," : ERROR-2 in IDENTIFY_BLOCK_BOUNDARIES : maximal number of boundary parts exceeded : ",i4)', Rank_of_process, N_of_local_object_parts
-                    STOP
+                    CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
                  END IF
                  local_object_part(N_of_local_object_parts)%object_number = n
                  local_object_part(N_of_local_object_parts)%istart = istart
@@ -215,7 +219,7 @@ SUBROUTINE IDENTIFY_BLOCK_BOUNDARIES
                  N_of_local_object_parts = N_of_local_object_parts + 1
                  IF (N_of_local_object_parts.GT.max_N_of_local_object_parts) THEN
                     PRINT '("Process ",i4," : ERROR-3 in IDENTIFY_BLOCK_BOUNDARIES : maximal number of boundary parts exceeded : ",i4)', Rank_of_process, N_of_local_object_parts
-                    STOP
+                    CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
                  END IF
                  local_object_part(N_of_local_object_parts)%object_number = n
                  local_object_part(N_of_local_object_parts)%istart = indx_x_max
@@ -246,7 +250,7 @@ SUBROUTINE IDENTIFY_BLOCK_BOUNDARIES
                  N_of_local_object_parts = N_of_local_object_parts + 1
                  IF (N_of_local_object_parts.GT.max_N_of_local_object_parts) THEN
                     PRINT '("Process ",i4," : ERROR-4 in IDENTIFY_BLOCK_BOUNDARIES : maximal number of boundary parts exceeded : ",i4)', Rank_of_process, N_of_local_object_parts
-                    STOP
+                    CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
                  END IF
                  local_object_part(N_of_local_object_parts)%object_number = n
                  local_object_part(N_of_local_object_parts)%istart = istart
@@ -374,7 +378,7 @@ SUBROUTINE INCLUDE_BLOCK_PERIODICITY
            IF (.NOT.pair_found) THEN
 ! error message if the pair is not found
               PRINT '("Process ",i4," :: Error in INCLUDE_BLOCK_PERIODICITY :: cannot find a matching pair for X-periodic boundary of process ",i4)', Rank_of_process, n
-              STOP
+              CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
            END IF
         END IF
      END DO
@@ -396,7 +400,7 @@ SUBROUTINE INCLUDE_BLOCK_PERIODICITY
            IF (.NOT.pair_found) THEN
 ! error message if the pair is not found
               PRINT '("Process ",i4," :: Error in INCLUDE_BLOCK_PERIODICITY :: cannot find a matching pair for Y-periodic boundary of process ",i4)', Rank_of_process, n
-              STOP
+              CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
            END IF
         END IF
      END DO

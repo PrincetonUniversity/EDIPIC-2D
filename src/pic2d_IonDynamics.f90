@@ -9,6 +9,10 @@ SUBROUTINE ADVANCE_IONS
   
   IMPLICIT NONE
 
+  INCLUDE 'mpif.h'
+
+  INTEGER ierr
+
   INTEGER s, k
   INTEGER i, j
   REAL(8) ax_ip1, ax_i, ay_jp1, ay_j
@@ -53,7 +57,7 @@ SUBROUTINE ADVANCE_IONS
            print '("Process ",i4," : Error-1 in ADVANCE_IONS : particle out of bounds xmin/xmax/ymin/ymax : ",4(2x,e14.7))', Rank_of_process, c_X_area_min, c_X_area_max, c_Y_area_min, c_Y_area_max
            print '("Process ",i4," : s/k/N_ions(s) : ",i3,2x,i8,2x,i8)', Rank_of_process, s, k, N_ions(s)
            print '("Process ",i4," : x/y/vx/vy/vz/tag : ",5(2x,e14.7),2x,i4)', Rank_of_process, ion(s)%part(k)%X, ion(s)%part(k)%Y, ion(s)%part(k)%VX, ion(s)%part(k)%VY, ion(s)%part(k)%VZ, ion(s)%part(k)%tag
-           stop
+           CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
         end if
 
 ! interpolate electric field
@@ -69,7 +73,7 @@ SUBROUTINE ADVANCE_IONS
            print '("Process ",i4," : s/k/N_ions(s) : ",i3,2x,i8,2x,i8)', Rank_of_process, s, k, N_ions(s)
            print '("Process ",i4," : x/y/vx/vy/vz/tag : ",5(2x,e14.7),2x,i4)', Rank_of_process, ion(s)%part(k)%X, ion(s)%part(k)%Y, ion(s)%part(k)%VX, ion(s)%part(k)%VY, ion(s)%part(k)%VZ, ion(s)%part(k)%tag
            print '("Process ",i4," : minx/maxx/miny/maxy : ",4(2x,e14.7))', Rank_of_process, c_X_area_min, c_X_area_max, c_Y_area_min, c_Y_area_max
-           stop
+           CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
         end if
 
         ax_ip1 = ion(s)%part(k)%X - DBLE(i)
@@ -296,7 +300,7 @@ SUBROUTINE ADVANCE_IONS
            ELSE
 ! ERROR, we shouldn't be here
               PRINT '("ERROR-1 in ADVANCE_IONS: we should not be here")'
-              STOP
+              CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
            END IF
 
            CALL REMOVE_ION(s, k)  ! this subroutine does  N_ions(s) = N_ions(s) - 1 and k = k-1
@@ -417,7 +421,7 @@ SUBROUTINE ADVANCE_IONS
            ELSE
 ! ERROR, we shouldn't be here
               PRINT '("ERROR-2 in ADVANCE_IONS: we should not be here")'
-              STOP
+              CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
            END IF
 
            CALL REMOVE_ION(s, k)  !       this subroutine does  N_ions(s) = N_ions(s) - 1 and k = k-1
@@ -527,6 +531,10 @@ SUBROUTINE REMOVE_ION(s, k)
 
   IMPLICIT NONE
 
+  INCLUDE 'mpif.h'
+
+  INTEGER ierr
+
   INTEGER, INTENT(IN) :: s
   INTEGER, INTENT(INOUT) :: k
 
@@ -534,14 +542,14 @@ SUBROUTINE REMOVE_ION(s, k)
      PRINT '("Process ",i6," : ERROR-1 in REMOVE_ION : index s invalid")', Rank_of_process
      PRINT '("Process ",i6," : s = ",i3," k= ", i7," N_ions(s)= ",i7)', Rank_of_process, s, k, N_ions(s)
      PRINT '("Process ",i6," : PROGRAM TERMINATED")', Rank_of_process
-     STOP
+     CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
   END IF
 
   IF ((k.LT.1).OR.(k.GT.N_ions(s))) THEN
      PRINT '("Process ",i6," : ERROR-2 in REMOVE_ION : index k invalid")', Rank_of_process
      PRINT '("Process ",i6," : s = ",i3," k= ", i7," N_ions(s)= ",i7)', Rank_of_process, s, k, N_ions(s)
      PRINT '("Process ",i6," : PROGRAM TERMINATED")', Rank_of_process
-     STOP
+     CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
   END IF
 
   IF (k.LT.N_ions(s)) THEN
@@ -939,6 +947,10 @@ SUBROUTINE REMOVE_ION_FROM_ADD_LIST(s, k)
 
   IMPLICIT NONE
 
+  INCLUDE 'mpif.h'
+
+  INTEGER ierr
+
   INTEGER, INTENT(IN)    :: s
   INTEGER, INTENT(INOUT) :: k
 
@@ -946,7 +958,7 @@ SUBROUTINE REMOVE_ION_FROM_ADD_LIST(s, k)
      PRINT '("Process ",i6," : ERROR in REMOVE_ION_FROM_ADD_LIST : index k invalid")', Rank_of_process
      PRINT '("Process ",i6," : k= ", i7," N_ions_to_add(",i2,")= ",i7)', Rank_of_process, k, s, N_ions_to_add(s)
      PRINT '("Process ",i6," : PROGRAM TERMINATED")', Rank_of_process
-     STOP
+     CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
   END IF
 
   IF (k.LT.N_ions_to_add(s)) THEN
@@ -984,6 +996,10 @@ SUBROUTINE FIND_ALIENS_IN_ION_ADD_LIST
 
   IMPLICIT NONE
 
+  INCLUDE 'mpif.h'
+
+  INTEGER ierr
+
   INTEGER s, k, n 
 
   IF (N_of_inner_objects.EQ.0) RETURN
@@ -1006,7 +1022,7 @@ SUBROUTINE FIND_ALIENS_IN_ION_ADD_LIST
 !              ion(s)%part(k)%VX = -ion(s)%part(k)%VX
               PRINT '("Proc ",i4," Error-00 in FIND_ALIENS_IN_ION_ADD_LIST, particle ",i8," of species ",i2," is beyond symmetry plane ",5(2x,e12.5),2x,i2)', Rank_of_process, k, s, &
                    & ion_to_add(s)%part(k)%X, ion_to_add(s)%part(k)%Y, ion_to_add(s)%part(k)%VX, ion_to_add(s)%part(k)%VY, ion_to_add(s)%part(k)%VZ, ion_to_add(s)%part(k)%tag
-              STOP
+              CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
            END IF
         END IF
 
@@ -1030,7 +1046,7 @@ SUBROUTINE FIND_ALIENS_IN_ION_ADD_LIST
 !                    CALL PROCESS_ION_COLL_WITH_BOUNDARY_BELOW(s, ion_to_add(s)%part(k)%X, ion_to_add(s)%part(k)%Y, ion_to_add(s)%part(k)%VX, ion_to_add(s)%part(k)%VY, ion_to_add(s)%part(k)%VZ, ion_to_add(s)%part(k)%tag)
 ! error
                     print '("error-1 in FIND_ALIENS_IN_ION_ADD_LIST")'
-                    stop
+                    CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
                  ELSE
                     CALL ADD_ION_TO_SEND_BELOW(s, ion_to_add(s)%part(k)%X, ion_to_add(s)%part(k)%Y, ion_to_add(s)%part(k)%VX, ion_to_add(s)%part(k)%VY, ion_to_add(s)%part(k)%VZ, ion_to_add(s)%part(k)%tag)                       
                  END IF
@@ -1041,7 +1057,7 @@ SUBROUTINE FIND_ALIENS_IN_ION_ADD_LIST
 !                    CALL PROCESS_ION_COLL_WITH_BOUNDARY_ABOVE(s, ion_to_add(s)%part(k)%X, ion_to_add(s)%part(k)%Y, ion_to_add(s)%part(k)%VX, ion_to_add(s)%part(k)%VY, ion_to_add(s)%part(k)%VZ, ion_to_add(s)%part(k)%tag)
 ! error
                     print '("error-2 in FIND_ALIENS_IN_ION_ADD_LIST")'
-                    stop
+                    CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
                  ELSE
                     CALL ADD_ION_TO_SEND_ABOVE(s, ion_to_add(s)%part(k)%X, ion_to_add(s)%part(k)%Y, ion_to_add(s)%part(k)%VX, ion_to_add(s)%part(k)%VY, ion_to_add(s)%part(k)%VZ, ion_to_add(s)%part(k)%tag)
                  END IF
@@ -1062,7 +1078,7 @@ SUBROUTINE FIND_ALIENS_IN_ION_ADD_LIST
 !                 CALL PROCESS_ION_COLL_WITH_BOUNDARY_LEFT(s, ion_to_add(s)%part(k)%X, ion_to_add(s)%part(k)%Y, ion_to_add(s)%part(k)%VX,  ion_to_add(s)%part(k)%VY, ion_to_add(s)%part(k)%VZ, ion_to_add(s)%part(k)%tag)   ! left
 ! error
                  print '("error-3 in FIND_ALIENS_IN_ION_ADD_LIST")'
-                 stop
+                 CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
               END IF
 
            ELSE IF (ion_to_add(s)%part(k)%Y.LT.(c_Y_area_min+1.0_8)) THEN
@@ -1084,7 +1100,7 @@ SUBROUTINE FIND_ALIENS_IN_ION_ADD_LIST
 !                       CALL PROCESS_ION_COLL_WITH_BOUNDARY_LEFT(s, ion_to_add(s)%part(k)%X, ion_to_add(s)%part(k)%Y, ion_to_add(s)%part(k)%VX, ion_to_add(s)%part(k)%VY, ion_to_add(s)%part(k)%VZ, ion_to_add(s)%part(k)%tag)
 ! error
                        print '("error-4 in FIND_ALIENS_IN_ION_ADD_LIST")'
-                       stop
+                       CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
                     ELSE
                        CALL ADD_ION_TO_SEND_BELOW(s, ion_to_add(s)%part(k)%X, ion_to_add(s)%part(k)%Y, ion_to_add(s)%part(k)%VX, ion_to_add(s)%part(k)%VY, ion_to_add(s)%part(k)%VZ, ion_to_add(s)%part(k)%tag)                       
                     END IF
@@ -1097,7 +1113,7 @@ SUBROUTINE FIND_ALIENS_IN_ION_ADD_LIST
 !                    END IF
 ! error
                     print '("error-5 in FIND_ALIENS_IN_ION_ADD_LIST")'
-                    stop
+                    CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
 
                  CASE (EMPTY_CORNER_WALL_LEFT)
                     CALL ADD_ION_TO_SEND_BELOW(s, ion_to_add(s)%part(k)%X, ion_to_add(s)%part(k)%Y, ion_to_add(s)%part(k)%VX, ion_to_add(s)%part(k)%VY, ion_to_add(s)%part(k)%VZ, ion_to_add(s)%part(k)%tag)
@@ -1126,7 +1142,7 @@ SUBROUTINE FIND_ALIENS_IN_ION_ADD_LIST
 !                       CALL PROCESS_ION_COLL_WITH_BOUNDARY_LEFT(s, ion_to_add(s)%part(k)%X, ion_to_add(s)%part(k)%Y, ion_to_add(s)%part(k)%VX, ion_to_add(s)%part(k)%VY, ion_to_add(s)%part(k)%VZ, ion_to_add(s)%part(k)%tag)
 ! error
                        print '("error-6 in FIND_ALIENS_IN_ION_ADD_LIST")'
-                       stop
+                       CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
                     ELSE
                        CALL ADD_ION_TO_SEND_ABOVE(s, ion_to_add(s)%part(k)%X, ion_to_add(s)%part(k)%Y, ion_to_add(s)%part(k)%VX, ion_to_add(s)%part(k)%VY, ion_to_add(s)%part(k)%VZ, ion_to_add(s)%part(k)%tag)
                     END IF
@@ -1139,7 +1155,7 @@ SUBROUTINE FIND_ALIENS_IN_ION_ADD_LIST
 !                    END IF
 ! error
                     print '("error-7 in FIND_ALIENS_IN_ION_ADD_LIST")'
-                    stop
+                    CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
 
                  CASE (EMPTY_CORNER_WALL_LEFT)
                     CALL ADD_ION_TO_SEND_ABOVE(s, ion_to_add(s)%part(k)%X, ion_to_add(s)%part(k)%Y, ion_to_add(s)%part(k)%VX, ion_to_add(s)%part(k)%VY, ion_to_add(s)%part(k)%VZ, ion_to_add(s)%part(k)%tag)
@@ -1165,7 +1181,7 @@ SUBROUTINE FIND_ALIENS_IN_ION_ADD_LIST
 !                    CALL PROCESS_ION_COLL_WITH_BOUNDARY_BELOW(s, ion_to_add(s)%part(k)%X, ion_to_add(s)%part(k)%Y, ion_to_add(s)%part(k)%VX, ion_to_add(s)%part(k)%VY, ion_to_add(s)%part(k)%VZ, ion_to_add(s)%part(k)%tag)
 ! error
                     print '("error-8 in FIND_ALIENS_IN_ION_ADD_LIST")'
-                    stop
+                    CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
                  ELSE
                     CALL ADD_ION_TO_SEND_BELOW(s, ion_to_add(s)%part(k)%X, ion_to_add(s)%part(k)%Y, ion_to_add(s)%part(k)%VX, ion_to_add(s)%part(k)%VY, ion_to_add(s)%part(k)%VZ, ion_to_add(s)%part(k)%tag)                       
                  END IF
@@ -1176,7 +1192,7 @@ SUBROUTINE FIND_ALIENS_IN_ION_ADD_LIST
 !                    CALL PROCESS_ION_COLL_WITH_BOUNDARY_ABOVE(s, ion_to_add(s)%part(k)%X, ion_to_add(s)%part(k)%Y, ion_to_add(s)%part(k)%VX, ion_to_add(s)%part(k)%VY, ion_to_add(s)%part(k)%VZ, ion_to_add(s)%part(k)%tag)
 ! error
                     print '("error-9 in FIND_ALIENS_IN_ION_ADD_LIST")'
-                    stop
+                    CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
                  ELSE
                     CALL ADD_ION_TO_SEND_ABOVE(s, ion_to_add(s)%part(k)%X, ion_to_add(s)%part(k)%Y, ion_to_add(s)%part(k)%VX, ion_to_add(s)%part(k)%VY, ion_to_add(s)%part(k)%VZ, ion_to_add(s)%part(k)%tag)
                  END IF
@@ -1197,7 +1213,7 @@ SUBROUTINE FIND_ALIENS_IN_ION_ADD_LIST
 !                 CALL PROCESS_ION_COLL_WITH_BOUNDARY_RIGHT(s, ion_to_add(s)%part(k)%X, ion_to_add(s)%part(k)%Y, ion_to_add(s)%part(k)%VX, ion_to_add(s)%part(k)%VY, ion_to_add(s)%part(k)%VZ, ion_to_add(s)%part(k)%tag)
 ! error
                  print '("error-10 in FIND_ALIENS_IN_ION_ADD_LIST")'
-                 stop
+                 CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
               END IF
 
            ELSE IF (ion_to_add(s)%part(k)%Y.LT.(c_Y_area_min+1.0_8)) THEN
@@ -1219,7 +1235,7 @@ SUBROUTINE FIND_ALIENS_IN_ION_ADD_LIST
 !                       CALL PROCESS_ION_COLL_WITH_BOUNDARY_RIGHT(s, ion_to_add(s)%part(k)%X, ion_to_add(s)%part(k)%Y, ion_to_add(s)%part(k)%VX, ion_to_add(s)%part(k)%VY, ion_to_add(s)%part(k)%VZ, ion_to_add(s)%part(k)%tag)
 ! error
                        print '("error-11 in FIND_ALIENS_IN_ION_ADD_LIST")'
-                       stop
+                       CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
 
                     ELSE
                        CALL ADD_ION_TO_SEND_BELOW(s, ion_to_add(s)%part(k)%X, ion_to_add(s)%part(k)%Y, ion_to_add(s)%part(k)%VX, ion_to_add(s)%part(k)%VY, ion_to_add(s)%part(k)%VZ, ion_to_add(s)%part(k)%tag)                       
@@ -1233,7 +1249,7 @@ SUBROUTINE FIND_ALIENS_IN_ION_ADD_LIST
 !                    END IF
 ! error
                        print '("error-12 in FIND_ALIENS_IN_ION_ADD_LIST")'
-                       stop
+                       CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
 
                  CASE (EMPTY_CORNER_WALL_RIGHT)
                     CALL ADD_ION_TO_SEND_BELOW(s, ion_to_add(s)%part(k)%X, ion_to_add(s)%part(k)%Y, ion_to_add(s)%part(k)%VX, ion_to_add(s)%part(k)%VY, ion_to_add(s)%part(k)%VZ, ion_to_add(s)%part(k)%tag)
@@ -1262,7 +1278,7 @@ SUBROUTINE FIND_ALIENS_IN_ION_ADD_LIST
 !                       CALL PROCESS_ION_COLL_WITH_BOUNDARY_RIGHT(s, ion_to_add(s)%part(k)%X, ion_to_add(s)%part(k)%Y, ion_to_add(s)%part(k)%VX, ion_to_add(s)%part(k)%VY, ion_to_add(s)%part(k)%VZ, ion_to_add(s)%part(k)%tag)
 ! error
                        print '("error-13 in FIND_ALIENS_IN_ION_ADD_LIST")'
-                       stop
+                       CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
                     ELSE
                        CALL ADD_ION_TO_SEND_ABOVE(s, ion_to_add(s)%part(k)%X, ion_to_add(s)%part(k)%Y, ion_to_add(s)%part(k)%VX, ion_to_add(s)%part(k)%VY, ion_to_add(s)%part(k)%VZ, ion_to_add(s)%part(k)%tag)                    
                     END IF
@@ -1275,7 +1291,7 @@ SUBROUTINE FIND_ALIENS_IN_ION_ADD_LIST
 !                    END IF
 ! error
                        print '("error-14 in FIND_ALIENS_IN_ION_ADD_LIST")'
-                       stop
+                       CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
 
                  CASE (EMPTY_CORNER_WALL_RIGHT)
                     CALL ADD_ION_TO_SEND_ABOVE(s, ion_to_add(s)%part(k)%X, ion_to_add(s)%part(k)%Y, ion_to_add(s)%part(k)%VX, ion_to_add(s)%part(k)%VY, ion_to_add(s)%part(k)%VZ, ion_to_add(s)%part(k)%tag)
@@ -1302,7 +1318,7 @@ SUBROUTINE FIND_ALIENS_IN_ION_ADD_LIST
 !                 CALL PROCESS_ION_COLL_WITH_BOUNDARY_ABOVE(s, ion_to_add(s)%part(k)%X, ion_to_add(s)%part(k)%Y, ion_to_add(s)%part(k)%VX, ion_to_add(s)%part(k)%VY, ion_to_add(s)%part(k)%VZ, ion_to_add(s)%part(k)%tag)
 ! error
                  print '("error-15 in FIND_ALIENS_IN_ION_ADD_LIST")'
-                 stop
+                 CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
               END IF
               CALL REMOVE_ION_FROM_ADD_LIST(s, k)  !       this subroutine does  N_ions(s) = N_ions(s) - 1 and k = k-1
               CYCLE
@@ -1318,7 +1334,7 @@ SUBROUTINE FIND_ALIENS_IN_ION_ADD_LIST
 !                 CALL PROCESS_ION_COLL_WITH_BOUNDARY_ABOVE(s, ion_to_add(s)%part(k)%X, ion_to_add(s)%part(k)%Y, ion_to_add(s)%part(k)%VX, ion_to_add(s)%part(k)%VY, ion_to_add(s)%part(k)%VZ, ion_to_add(s)%part(k)%tag)
 ! error
                  print '("error-16 in FIND_ALIENS_IN_ION_ADD_LIST")'
-                 stop
+                 CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
               ELSE IF (ion_to_add(s)%part(k)%X.LT.(c_X_area_min+1.0_8)) THEN
 ! particle near the left top corner
                  IF (c_left_top_corner_type.EQ.EMPTY_CORNER_WALL_ABOVE) THEN
@@ -1327,7 +1343,7 @@ SUBROUTINE FIND_ALIENS_IN_ION_ADD_LIST
 !                    CALL PROCESS_ION_COLL_WITH_BOUNDARY_ABOVE(s, ion_to_add(s)%part(k)%X, ion_to_add(s)%part(k)%Y, ion_to_add(s)%part(k)%VX, ion_to_add(s)%part(k)%VY, ion_to_add(s)%part(k)%VZ, ion_to_add(s)%part(k)%tag)
 ! error
                     print '("error-17 in FIND_ALIENS_IN_ION_ADD_LIST")'
-                    stop
+                    CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
                  END IF
               ELSE IF (ion_to_add(s)%part(k)%X.GT.(c_X_area_max-1.0_8)) THEN
 ! particle near the right top corner
@@ -1337,7 +1353,7 @@ SUBROUTINE FIND_ALIENS_IN_ION_ADD_LIST
 !                    CALL PROCESS_ION_COLL_WITH_BOUNDARY_ABOVE(s, ion_to_add(s)%part(k)%X, ion_to_add(s)%part(k)%Y, ion_to_add(s)%part(k)%VX, ion_to_add(s)%part(k)%VY, ion_to_add(s)%part(k)%VZ, ion_to_add(s)%part(k)%tag)
 ! error
                     print '("error-18 in FIND_ALIENS_IN_ION_ADD_LIST")'
-                    stop
+                    CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
                  END IF
               END IF
            END IF
@@ -1355,7 +1371,7 @@ SUBROUTINE FIND_ALIENS_IN_ION_ADD_LIST
 !                 CALL PROCESS_ION_COLL_WITH_BOUNDARY_BELOW(s, ion_to_add(s)%part(k)%X, ion_to_add(s)%part(k)%Y, ion_to_add(s)%part(k)%VX, ion_to_add(s)%part(k)%VY, ion_to_add(s)%part(k)%VZ, ion_to_add(s)%part(k)%tag)
 ! error
                  print '("error-19 in FIND_ALIENS_IN_ION_ADD_LIST")'
-                 stop
+                 CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
               END IF
               CALL REMOVE_ION(s, k)  !       this subroutine does  N_ions(s) = N_ions(s) - 1 and k = k-1
               CYCLE
@@ -1371,7 +1387,7 @@ SUBROUTINE FIND_ALIENS_IN_ION_ADD_LIST
 !                 CALL PROCESS_ION_COLL_WITH_BOUNDARY_BELOW(s, ion_to_add(s)%part(k)%X, ion_to_add(s)%part(k)%Y, ion_to_add(s)%part(k)%VX, ion_to_add(s)%part(k)%VY, ion_to_add(s)%part(k)%VZ, ion_to_add(s)%part(k)%tag)
 ! error
                  print '("error-20 in FIND_ALIENS_IN_ION_ADD_LIST")'
-                 stop
+                 CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
               ELSE IF (ion_to_add(s)%part(k)%X.LT.(c_X_area_min+1.0_8)) THEN
 ! particle near the left bottom corner
                  IF (c_left_bottom_corner_type.EQ.EMPTY_CORNER_WALL_BELOW) THEN
@@ -1380,7 +1396,7 @@ SUBROUTINE FIND_ALIENS_IN_ION_ADD_LIST
 !                    CALL PROCESS_ION_COLL_WITH_BOUNDARY_BELOW(s, ion_to_add(s)%part(k)%X, ion_to_add(s)%part(k)%Y, ion_to_add(s)%part(k)%VX, ion_to_add(s)%part(k)%VY, ion_to_add(s)%part(k)%VZ, ion_to_add(s)%part(k)%tag)
 ! error
                     print '("error-21 in FIND_ALIENS_IN_ION_ADD_LIST")'
-                    stop
+                    CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
                  END IF
               ELSE IF (ion_to_add(s)%part(k)%X.GT.(c_X_area_max-1.0_8)) THEN
 ! particle near the right bottom corner
@@ -1390,7 +1406,7 @@ SUBROUTINE FIND_ALIENS_IN_ION_ADD_LIST
 !                    CALL PROCESS_ION_COLL_WITH_BOUNDARY_BELOW(s, ion_to_add(s)%part(k)%X, ion_to_add(s)%part(k)%Y, ion_to_add(s)%part(k)%VX, ion_to_add(s)%part(k)%VY, ion_to_add(s)%part(k)%VZ, ion_to_add(s)%part(k)%tag)
 ! error
                     print '("error-22 in FIND_ALIENS_IN_ION_ADD_LIST")'
-                    stop
+                    CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
                 END IF
               END IF
            END IF
@@ -1527,7 +1543,7 @@ SUBROUTINE GATHER_ION_CHARGE_DENSITY
   USE IonParticles
   USE ClusterAndItsBoundaries
   USE BlockAndItsBoundaries, ONLY : indx_x_min, indx_x_max, indx_y_min, indx_y_max
-  USE Diagnostics
+!  USE Diagnostics
 
   IMPLICIT NONE
 
@@ -1547,8 +1563,8 @@ SUBROUTINE GATHER_ION_CHARGE_DENSITY
   INTEGER ALLOC_ERR
   INTEGER bufsize
 
-  INTEGER npc ! n-umber of p-robe in c-luster
-  INTEGER npa ! n-umber of p-robe a-ll [in the global list of probes]
+!  INTEGER npc ! n-umber of p-robe in c-luster
+!  INTEGER npa ! n-umber of p-robe a-ll [in the global list of probes]
 
   INTEGER s, i, j, k
   INTEGER pos_i_j, pos_ip1_j, pos_i_jp1, pos_ip1_jp1
@@ -1580,7 +1596,7 @@ SUBROUTINE GATHER_ION_CHARGE_DENSITY
 
   rbufer = 0.0_8
 
-  IF (N_of_probes_cluster.GT.0) probe_Ni_cluster = 0.0_8
+!!  IF (N_of_probes_cluster.GT.0) probe_Ni_cluster = 0.0_8
 
   DO s = 1, N_spec
      DO k = 1, N_ions(s)
@@ -1595,7 +1611,7 @@ SUBROUTINE GATHER_ION_CHARGE_DENSITY
            print '("Process ",i4," : k/s/N_ions(s) : ",i8,2x,i8)', Rank_of_process, k, s, N_ions(s)
            print '("Process ",i4," : x/y/vx/vy/vz/tag : ",5(2x,e14.7),2x,i4)', Rank_of_process, ion(s)%part(k)%X, ion(s)%part(k)%Y, ion(s)%part(k)%VX, ion(s)%part(k)%VY, ion(s)%part(k)%VZ, ion(s)%part(k)%tag
            print '("Process ",i4," : minx/maxx/miny/maxy : ",4(2x,e14.7))', Rank_of_process, c_X_area_min, c_X_area_max, c_Y_area_min, c_Y_area_max
-           stop
+           CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
         end if
 
 !     pos = i - c_indx_x_min + 1 + (j - c_indx_y_min) * (c_indx_x_max - c_indx_x_min + 1)
@@ -1615,23 +1631,23 @@ SUBROUTINE GATHER_ION_CHARGE_DENSITY
         vip1j = ax_ip1 * ay_j
         vijp1 = ax_i   * ay_jp1
 
-! probe diagnostics
-        DO npc = 1, N_of_probes_cluster
-           npa = List_of_probes_cluster(npc)
-           IF (i.EQ.Probe_position(1,npa)) THEN
-              IF (j.EQ.Probe_position(2,npa)) THEN
-                 probe_Ni_cluster(npc, s) = probe_Ni_cluster(npc, s) + vij
-              ELSE IF ((j+1).EQ.Probe_position(2,npa)) THEN
-                 probe_Ni_cluster(npc, s) = probe_Ni_cluster(npc, s) + vijp1
-              END IF
-           ELSE IF ((i+1).EQ.Probe_position(1,npa)) THEN
-              IF (j.EQ.Probe_position(2,npa)) THEN
-                 probe_Ni_cluster(npc, s) = probe_Ni_cluster(npc, s) + vip1j
-              ELSE IF ((j+1).EQ.Probe_position(2,npa)) THEN
-                 probe_Ni_cluster(npc, s) = probe_Ni_cluster(npc, s) + 1.0_8 - vij - vip1j - vijp1
-              END IF
-           END IF
-        END DO
+!! probe diagnostics
+!        DO npc = 1, N_of_probes_cluster
+!           npa = List_of_probes_cluster(npc)
+!           IF (i.EQ.Probe_position(1,npa)) THEN
+!              IF (j.EQ.Probe_position(2,npa)) THEN
+!                 probe_Ni_cluster(npc, s) = probe_Ni_cluster(npc, s) + vij
+!              ELSE IF ((j+1).EQ.Probe_position(2,npa)) THEN
+!                 probe_Ni_cluster(npc, s) = probe_Ni_cluster(npc, s) + vijp1
+!              END IF
+!           ELSE IF ((i+1).EQ.Probe_position(1,npa)) THEN
+!              IF (j.EQ.Probe_position(2,npa)) THEN
+!                 probe_Ni_cluster(npc, s) = probe_Ni_cluster(npc, s) + vip1j
+!              ELSE IF ((j+1).EQ.Probe_position(2,npa)) THEN
+!                 probe_Ni_cluster(npc, s) = probe_Ni_cluster(npc, s) + 1.0_8 - vij - vip1j - vijp1
+!              END IF
+!           END IF
+!        END DO
 
         SELECT CASE(Qs(s))
 ! assume that there may be positive and negative ions with charges up to +/-3e

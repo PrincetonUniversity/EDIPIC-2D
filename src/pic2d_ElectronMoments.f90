@@ -91,7 +91,7 @@ if ((i.lt.c_indx_x_min).or.(i.gt.(c_indx_x_max-1)).or.(j.lt.c_indx_y_min).or.(j.
    print '("Process ",i4," : k/N_electrons : ",i8,2x,i8)', Rank_of_process, k, N_electrons
    print '("Process ",i4," : x/y/vx/vy/vz/tag : ",5(2x,e14.7),2x,i4)', Rank_of_process, electron(k)%X, electron(k)%Y, electron(k)%VX, electron(k)%VY, electron(k)%VZ, electron(k)%tag
    print '("Process ",i4," : minx/maxx/miny/maxy : ",4(2x,e14.7))', Rank_of_process, c_X_area_min, c_X_area_max, c_Y_area_min, c_Y_area_max
-   stop
+   CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
 end if
 
 !     pos = i - c_indx_x_min + 1 + (j - c_indx_y_min) * (c_indx_x_max - c_indx_x_min + 1)
@@ -1531,5 +1531,278 @@ SUBROUTINE ADJUST_DENSITY_AT_WALL_BOUNDARIES
 
   END IF
 
-
 END SUBROUTINE ADJUST_DENSITY_AT_WALL_BOUNDARIES
+
+!------------------------------
+!
+SUBROUTINE COLLECT_ELECTRON_MOMENTS_IN_CLUSTER_PROBES
+
+  USE ParallelOperationValues
+  USE CurrentProblemValues, ONLY : EX, EY, T_cntr
+  USE ElectronParticles
+  USE ClusterAndItsBoundaries
+  USE Diagnostics
+
+  IMPLICIT NONE
+
+  INCLUDE 'mpif.h'
+
+  INTEGER ierr
+!  INTEGER stattus(MPI_STATUS_SIZE)
+!  INTEGER request
+
+  INTEGER bufsize
+  REAL, ALLOCATABLE :: rbufer_local(:)
+  REAL, ALLOCATABLE :: rbufer_local_2(:)
+  INTEGER ALLOC_ERR
+
+  INTEGER i, j, k
+  LOGICAL skip_this_particle
+  INTEGER npc   ! probe number in the list of probes belonging to this cluster
+  INTEGER npa   ! probe number in the global list of probes
+
+  REAL ax_ip1, ax_i, ay_jp1, ay_j
+  REAL vij, vip1j, vijp1, vip1jp1
+ 
+  REAL(8) dax_ip1, dax_i, day_jp1, day_j
+  REAL(8) E_X, E_Y, E_Z
+  REAL(8) Bx, By, Bz, Ez       ! functions
+  REAL(8) alfa_x, alfa_y, alfa_z
+  REAL(8) alfa_x2, alfa_y2, alfa_z2
+  REAL(8) theta2, invtheta
+  REAL(8) K11, K12, K13, K21, K22, K23, K31, K32, K33
+  REAL(8) VX_minus, VY_minus, VZ_minus
+  REAL(8) VX_plus, VY_plus, VZ_plus
+  REAL(8) updVX, updVY, updVZ
+
+  INTEGER pos
+
+! exit if the current time layer is not assigned for the diagnostic output 
+  IF (T_cntr.NE.Save_probes_data_T_cntr) RETURN
+
+  IF (N_of_probes_cluster.LE.0) RETURN
+
+  bufsize = 7 * N_of_probes_cluster  ! {N,JX,JY,JZ,WX,WY,WZ}
+
+  ALLOCATE(rbufer_local(bufsize), STAT=ALLOC_ERR)
+  ALLOCATE(rbufer_local_2(bufsize), STAT=ALLOC_ERR)
+
+  rbufer_local   = 0.0
+  rbufer_local_2 = 0.0
+
+  DO k = 1, N_electrons
+
+     i = INT(electron(k)%X)
+     j = INT(electron(k)%Y)
+     IF (electron(k)%X.EQ.c_X_area_max) i = c_indx_x_max-1
+     IF (electron(k)%Y.EQ.c_Y_area_max) j = c_indx_y_max-1
+
+     skip_this_particle = .TRUE.
+
+! find whether in any corner of the cell containing the particle there is a probe
+
+     DO npc = 1, N_of_probes_cluster
+        npa = List_of_probes_cluster(npc)
+        IF (i.EQ.Probe_position(1,npa)) THEN
+           IF (j.EQ.Probe_position(2,npa)) THEN
+! the probe is in the left top corner of the cell containing the particle
+              skip_this_particle = .FALSE.
+              EXIT
+           ELSE IF ((j+1).EQ.Probe_position(2,npa)) THEN
+! the probe is in the left top corner of the cell containing the particle
+              skip_this_particle = .FALSE.
+              EXIT
+           END IF
+        ELSE IF ((i+1).EQ.Probe_position(1,npa)) THEN
+           IF (j.EQ.Probe_position(2,npa)) THEN
+! the probe is in the right bottom corner of the cell containing the particle
+              skip_this_particle = .FALSE.
+              EXIT
+           ELSE IF ((j+1).EQ.Probe_position(2,npa)) THEN
+! the probe is in the right top corner of the cell containing the particle
+              skip_this_particle = .FALSE.
+              EXIT
+           END IF
+        END IF
+     END DO
+
+     IF (skip_this_particle) CYCLE
+
+     ax_ip1 = REAL(electron(k)%X - DBLE(i))
+     ax_i   = 1.0 - ax_ip1
+
+     ay_jp1 = REAL(electron(k)%Y - DBLE(j))
+     ay_j = 1.0 - ay_jp1
+
+     vij   = ax_i   * ay_j
+     vip1j = ax_ip1 * ay_j
+     vijp1 = ax_i   * ay_jp1
+     vip1jp1 = 1.0 - vij - vip1j - vijp1
+
+! the snapshot is taken after the electric field was calculated but before the electrons were advanced
+! therefore, while the electron coordinates correspond to time level n
+! the electron velocities correspond to time level n-1/2
+! here we advance the electron velocity to time level n (by half-a-time-step)
+! this advanced velocity is used to calculate the 1st and 2nd electron velocity distribution function moments 
+! note that the advanced velocity is a temporary value which is not used beyond this subroutine
+! the actual velocity vector components of a particle DO NOT CHANGE 
+
+     dax_ip1 = electron(k)%X - DBLE(i)
+     dax_i   = 1.0_8 - dax_ip1
+
+     day_jp1 = electron(k)%Y - DBLE(j)
+     day_j = 1.0_8 - day_jp1
+
+     E_X = EX(i,j) * dax_i * day_j + EX(i+1,j) * dax_ip1 * day_j + EX(i,j+1) * dax_i * day_jp1 + EX(i+1,j+1) * dax_ip1 * day_jp1
+     E_Y = EY(i,j) * dax_i * day_j + EY(i+1,j) * dax_ip1 * day_j + EY(i,j+1) * dax_i * day_jp1 + EY(i+1,j+1) * dax_ip1 * day_jp1
+     E_Z = Ez(electron(k)%X, electron(k)%Y)
+
+! calculate magnetic field factors
+
+     alfa_x = -0.5_8 * Bx(electron(k)%X, electron(k)%Y)
+     alfa_y = -0.5_8 * By(electron(k)%X, electron(k)%Y)
+     alfa_z = -0.5_8 * Bz(electron(k)%X, electron(k)%Y)
+
+     alfa_x2 = alfa_x**2
+     alfa_y2 = alfa_y**2
+     alfa_z2 = alfa_z**2
+
+     theta2 = alfa_x2 + alfa_y2 + alfa_z2
+     invtheta = 1.0_8 / (1.0_8 + theta2)
+
+     K11 = (1.0_8 - theta2 + 2.0_8 * alfa_x2) * invtheta
+     K12 =  2.0_8 * (alfa_x * alfa_y + alfa_z) * invtheta
+     K13 =  2.0_8 * (alfa_x * alfa_z - alfa_y) * invtheta
+
+     K21 =  2.0_8 * (alfa_x * alfa_y - alfa_z) * invtheta
+     K22 = (1.0_8 - theta2 + 2.0_8 * alfa_y2) * invtheta
+     K23 =  2.0_8 * (alfa_y * alfa_z + alfa_x) * invtheta
+
+     K31 =  2.0_8 * (alfa_x * alfa_z + alfa_y) * invtheta
+     K32 =  2.0_8 * (alfa_y * alfa_z - alfa_x) * invtheta
+     K33 = (1.0_8 - theta2 + 2.0_8 * alfa_z2) * invtheta
+
+! velocity advance: first half-acceleration due to electric field
+
+     VX_minus = electron(k)%VX - 0.5_8 * E_X
+     VY_minus = electron(k)%VY - 0.5_8 * E_Y
+     VZ_minus = electron(k)%VZ - 0.5_8 * E_Z
+
+! velocity advance: rotation in the magnetic field
+
+     VX_plus = K11 * VX_minus + K12 * VY_minus + K13 * VZ_minus
+     VY_plus = K21 * VX_minus + K22 * VY_minus + K23 * VZ_minus
+     VZ_plus = K31 * VX_minus + K32 * VY_minus + K33 * VZ_minus
+
+! velocity advance: second half-acceleration due to electric field
+
+     updVX = VX_plus - 0.5_8 * E_X
+     updVY = VY_plus - 0.5_8 * E_Y
+     updVZ = VZ_plus - 0.5_8 * E_Z
+
+! since we need the velocity advanced by half-a-time-step only, take the average of previous and updated velocities
+
+     updVX = 0.5_8 * (electron(k)%VX + updVX)
+     updVY = 0.5_8 * (electron(k)%VY + updVY)
+     updVZ = 0.5_8 * (electron(k)%VZ + updVZ)
+
+! collect particle contribution to the electron moments in all close probes
+     DO npc = 1, N_of_probes_cluster
+        npa = List_of_probes_cluster(npc)
+        IF (i.EQ.Probe_position(1,npa)) THEN
+           IF (j.EQ.Probe_position(2,npa)) THEN
+! the probe is in the left bottom corner of the cell containing the particle
+
+              pos = (npc-1) * 7
+
+              rbufer_local(pos+1) = rbufer_local(pos+1) + vij
+
+              rbufer_local(pos+2) = rbufer_local(pos+2) + vij * updVX
+              rbufer_local(pos+3) = rbufer_local(pos+3) + vij * updVY
+              rbufer_local(pos+4) = rbufer_local(pos+4) + vij * updVZ
+
+              rbufer_local(pos+5) = rbufer_local(pos+5) + vij * updVX * updVX
+              rbufer_local(pos+6) = rbufer_local(pos+6) + vij * updVY * updVY
+              rbufer_local(pos+7) = rbufer_local(pos+7) + vij * updVZ * updVZ
+
+           ELSE IF ((j+1).EQ.Probe_position(2,npa)) THEN
+! the probe is in the left top corner of the cell containing the particle
+
+              pos = (npc-1) * 7
+
+              rbufer_local(pos+1) = rbufer_local(pos+1) + vijp1
+
+              rbufer_local(pos+2) = rbufer_local(pos+2) + vijp1 * updVX
+              rbufer_local(pos+3) = rbufer_local(pos+3) + vijp1 * updVY
+              rbufer_local(pos+4) = rbufer_local(pos+4) + vijp1 * updVZ
+
+              rbufer_local(pos+5) = rbufer_local(pos+5) + vijp1 * updVX * updVX
+              rbufer_local(pos+6) = rbufer_local(pos+6) + vijp1 * updVY * updVY
+              rbufer_local(pos+7) = rbufer_local(pos+7) + vijp1 * updVZ * updVZ
+
+           END IF
+
+        ELSE IF ((i+1).EQ.Probe_position(1,npa)) THEN
+           IF (j.EQ.Probe_position(2,npa)) THEN
+! the probe is in the right bottom corner of the cell containing the particle
+
+              pos = (npc-1) * 7
+
+              rbufer_local(pos+1) = rbufer_local(pos+1) + vip1j
+
+              rbufer_local(pos+2) = rbufer_local(pos+2) + vip1j * updVX
+              rbufer_local(pos+3) = rbufer_local(pos+3) + vip1j * updVY
+              rbufer_local(pos+4) = rbufer_local(pos+4) + vip1j * updVZ
+
+              rbufer_local(pos+5) = rbufer_local(pos+5) + vip1j * updVX * updVX
+              rbufer_local(pos+6) = rbufer_local(pos+6) + vip1j * updVY * updVY
+              rbufer_local(pos+7) = rbufer_local(pos+7) + vip1j * updVZ * updVZ
+
+           ELSE IF ((j+1).EQ.Probe_position(2,npa)) THEN
+! the probe is in the right top corner of the cell containing the particle
+
+              pos = (npc-1) * 7
+
+              rbufer_local(pos+1) = rbufer_local(pos+1) + vip1jp1
+
+              rbufer_local(pos+2) = rbufer_local(pos+2) + vip1jp1 * updVX
+              rbufer_local(pos+3) = rbufer_local(pos+3) + vip1jp1 * updVY
+              rbufer_local(pos+4) = rbufer_local(pos+4) + vip1jp1 * updVZ
+
+              rbufer_local(pos+5) = rbufer_local(pos+5) + vip1jp1 * updVX * updVX
+              rbufer_local(pos+6) = rbufer_local(pos+6) + vip1jp1 * updVY * updVY
+              rbufer_local(pos+7) = rbufer_local(pos+7) + vip1jp1 * updVZ * updVZ
+
+           END IF
+        END IF
+     END DO   !###   DO npc = 1, N_of_probes_cluster
+
+  END DO   !###   DO k = 1, N_electrons
+
+! collect moments from all processes in a cluster
+  CALL MPI_REDUCE(rbufer_local, rbufer_local_2, bufsize, MPI_REAL, MPI_SUM, 0, COMM_CLUSTER, ierr)
+
+  IF (cluster_rank_key.EQ.0) THEN
+! cluster master translates the message and stores data in permanent arrays
+     pos=1
+     DO npc = 1, N_of_probes_cluster
+        probe_Ne_cluster(npc) = rbufer_local_2(pos)
+
+        probe_JXe_cluster(npc) = rbufer_local_2(pos+1)
+        probe_JYe_cluster(npc) = rbufer_local_2(pos+2)
+        probe_JZe_cluster(npc) = rbufer_local_2(pos+3)
+
+        probe_WXe_cluster(npc) = rbufer_local_2(pos+4)
+        probe_WYe_cluster(npc) = rbufer_local_2(pos+5)
+        probe_WZe_cluster(npc) = rbufer_local_2(pos+6)
+        
+        pos= pos+7
+     END DO
+  END IF
+
+  IF (ALLOCATED(rbufer_local))   DEALLOCATE(rbufer_local, STAT=ALLOC_ERR)
+  IF (ALLOCATED(rbufer_local_2)) DEALLOCATE(rbufer_local_2, STAT=ALLOC_ERR)
+
+  RETURN
+
+END SUBROUTINE COLLECT_ELECTRON_MOMENTS_IN_CLUSTER_PROBES

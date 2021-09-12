@@ -1647,6 +1647,10 @@ REAL(8) FUNCTION Get_Surface_Charge_Inner_Object(i,j,position_flag, myobject)
   USE CurrentProblemValues
   IMPLICIT NONE
 
+  INCLUDE 'mpif.h'
+
+  INTEGER ierr
+ 
   INTEGER i, j            ! x,y indices of the point of interest
   INTEGER position_flag   ! 9 for a metal object
                           ! 0 inside a dielectric object
@@ -1710,7 +1714,7 @@ REAL(8) FUNCTION Get_Surface_Charge_Inner_Object(i,j,position_flag, myobject)
      RETURN
   ELSE
      print '("Error in Get_Surface_Charge_Inner_Object")'
-     stop
+     CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
   END IF
 
 END FUNCTION Get_Surface_Charge_Inner_Object
@@ -1723,6 +1727,10 @@ SUBROUTINE SET_EPS_ISHIFTED(i, j, eps)  ! here point {i,j} is between nodes {i-1
 
   IMPLICIT NONE
 
+  INCLUDE 'mpif.h'
+
+  INTEGER ierr
+ 
   INTEGER, INTENT(IN) :: i, j
   REAL(8), INTENT(OUT) :: eps
 
@@ -1868,7 +1876,7 @@ SUBROUTINE SET_EPS_ISHIFTED(i, j, eps)  ! here point {i,j} is between nodes {i-1
      RETURN
   ELSE
      PRINT '("Error-3 in SET_EPS_ISHIFTED for i/j ",2x,i4,2x,i4)', i, j
-     STOP
+     CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
   END IF
 
 END SUBROUTINE SET_EPS_ISHIFTED
@@ -1882,6 +1890,10 @@ SUBROUTINE SET_EPS_JSHIFTED(i, j, eps)  ! here point {i,j} is between nodes {i,j
 
   IMPLICIT NONE
 
+  INCLUDE 'mpif.h'
+
+  INTEGER ierr
+ 
   INTEGER, INTENT(IN) :: i, j
   REAL(8), INTENT(OUT) :: eps
 
@@ -2027,7 +2039,7 @@ SUBROUTINE SET_EPS_JSHIFTED(i, j, eps)  ! here point {i,j} is between nodes {i,j
      RETURN
   ELSE
      PRINT '("Error-3 in SET_EPS_JSHIFTED for i/j ",2x,i4,2x,i4)', i, j
-     STOP
+     CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
   END IF
 
 END SUBROUTINE SET_EPS_JSHIFTED

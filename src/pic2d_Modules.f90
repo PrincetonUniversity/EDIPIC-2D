@@ -732,11 +732,30 @@ MODULE Diagnostics
   INTEGER, ALLOCATABLE :: List_of_probes_cluster(:)     ! 1:N_of_probes_cluster
   INTEGER, ALLOCATABLE :: Probe_params_block_list(:,:)  ! 1:3,1:N_of_probes_block
 
-  REAL(8), ALLOCATABLE :: probe_Ne_cluster(:)         ! these arrays keep diagnostics values obtained in different subroutines
-  REAL(8), ALLOCATABLE :: probe_F_cluster(:)          ! till they are saved in the main probe diagnostics routine
-  REAL(8), ALLOCATABLE :: probe_Ni_cluster(:,:)       !
+  REAL, ALLOCATABLE :: probe_F_cluster(:)         ! used by cluster masters in FFT-based field solver
+                                                  ! and to assemble potential from blocks when PETSc-based solver is involved
 
-  REAL(8), ALLOCATABLE :: probe_F_block(:)   ! this array is used by a field calculator to store the potential 
+  REAL, ALLOCATABLE :: probe_F_block(:)           ! used by a field calculator in PETSc-based field solver
+
+  REAL, ALLOCATABLE :: probe_Ne_cluster(:)        ! these arrays keep diagnostics values obtained in different subroutines
+
+  REAL, ALLOCATABLE :: probe_JXe_cluster(:)       ! till they are saved in the main probe diagnostics routine
+  REAL, ALLOCATABLE :: probe_JYe_cluster(:)       !
+  REAL, ALLOCATABLE :: probe_JZe_cluster(:)       !
+
+  REAL, ALLOCATABLE :: probe_WXe_cluster(:)       !
+  REAL, ALLOCATABLE :: probe_WYe_cluster(:)       !
+  REAL, ALLOCATABLE :: probe_WZe_cluster(:)       !
+
+  REAL, ALLOCATABLE :: probe_Ni_cluster(:,:)      !
+
+  REAL, ALLOCATABLE :: probe_JXi_cluster(:,:)     !
+  REAL, ALLOCATABLE :: probe_JYi_cluster(:,:)     !
+  REAL, ALLOCATABLE :: probe_JZi_cluster(:,:)     !
+
+  REAL, ALLOCATABLE :: probe_WXi_cluster(:,:)     !
+  REAL, ALLOCATABLE :: probe_WYi_cluster(:,:)     !
+  REAL, ALLOCATABLE :: probe_WZi_cluster(:,:)     !
 
   TYPE diagnostic_process
      INTEGER rank

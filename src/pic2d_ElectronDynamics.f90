@@ -9,6 +9,10 @@ SUBROUTINE ADVANCE_ELECTRONS
   
   IMPLICIT NONE
 
+  INCLUDE 'mpif.h'
+
+  INTEGER ierr
+
   INTEGER k
   INTEGER i, j
   REAL(8) ax_ip1, ax_i, ay_jp1, ay_j
@@ -52,7 +56,7 @@ SUBROUTINE ADVANCE_ELECTRONS
         print '("Process ",i4," : Error-1 in ADVANCE_ELECTRONS : particle out of bounds xmin/xmax/ymin/ymax : ",4(2x,e14.7))', Rank_of_process, c_X_area_min, c_X_area_max, c_Y_area_min, c_Y_area_max
         print '("Process ",i4," : k/N_electrons : ",i8,2x,i8)', Rank_of_process, k, N_electrons
         print '("Process ",i4," : x/y/vx/vy/vz/tag : ",5(2x,e14.7),2x,i4)', Rank_of_process, electron(k)%X, electron(k)%Y, electron(k)%VX, electron(k)%VY, electron(k)%VZ, electron(k)%tag
-        stop
+        CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
      end if
 
 ! interpolate electric field
@@ -68,7 +72,7 @@ if ((i.lt.c_indx_x_min).or.(i.gt.(c_indx_x_max-1)).or.(j.lt.c_indx_y_min).or.(j.
    print '("Process ",i4," : k/N_electrons : ",i8,2x,i8)', Rank_of_process, k, N_electrons
    print '("Process ",i4," : x/y/vx/vy/vz/tag : ",5(2x,e14.7),2x,i4)', Rank_of_process, electron(k)%X, electron(k)%Y, electron(k)%VX, electron(k)%VY, electron(k)%VZ, electron(k)%tag
    print '("Process ",i4," : minx/maxx/miny/maxy : ",4(2x,e14.7))', Rank_of_process, c_X_area_min, c_X_area_max, c_Y_area_min, c_Y_area_max
-   stop
+   CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
 end if
 
      ax_ip1 = electron(k)%X - DBLE(i)
@@ -131,13 +135,13 @@ end if
 !###     IF (ABS(electron(k)%VX).GT.1.0_8) THEN
 !        PRINT '("Error in process ",i4," too high VX of electron ",i9," :: X/Y/VX/VY/VZ are ",5(2x,e12.5))', &
 !             & Rank_of_process, k, electron(k)%X, electron(k)%Y, electron(k)%VX, electron(k)%VY, electron(k)%VZ
-!        STOP
+!        CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
 !###     END IF
 
 !###     IF(ABS(electron(k)%VY).GT.1.0_8) THEN
 !        PRINT '("Error in process ",i4," too high VY of electron ",i9," :: X/Y/VX/VY/VZ are ",5(2x,e12.5))', &
 !             & Rank_of_process, k, electron(k)%X, electron(k)%Y, electron(k)%VX, electron(k)%VY, electron(k)%VZ
-!        STOP
+!        CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
 !###     END IF
 
      electron(k)%X = electron(k)%X + electron(k)%VX
@@ -291,7 +295,7 @@ end if
         ELSE
 ! ERROR, we shouldn't be here
            PRINT '("ERROR-1 in ADVANCE_ELECTRONS: we should not be here")'
-           STOP
+           CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
         END IF
         CALL REMOVE_ELECTRON(k)  ! this subroutine does  N_electrons = N_electrons - 1 and k = k-1
         CYCLE
@@ -410,7 +414,7 @@ end if
         ELSE
 ! ERROR, we shouldn't be here
            PRINT '("ERROR-2 in ADVANCE_ELECTRONS: we should not be here")'
-           STOP
+           CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
         END IF
         CALL REMOVE_ELECTRON(k)  !       this subroutine does  N_electrons = N_electrons - 1
         CYCLE
@@ -516,13 +520,17 @@ SUBROUTINE REMOVE_ELECTRON(k)
 
   IMPLICIT NONE
 
+  INCLUDE 'mpif.h'
+
+  INTEGER ierr
+
   INTEGER, INTENT(INOUT) :: k
 
   IF ((k.LT.1).OR.(k.GT.N_electrons)) THEN
      PRINT '("Process ",i6," : ERROR in REMOVE_ELECTRON : index k invalid")', Rank_of_process
      PRINT '("Process ",i6," : k= ", i7," N_electrons= ",i7)', Rank_of_process, k, N_electrons
      PRINT '("Process ",i6," : PROGRAM TERMINATED")', Rank_of_process
-     STOP
+     CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
   END IF
 
   IF (k.LT.N_electrons) THEN
@@ -908,13 +916,17 @@ SUBROUTINE REMOVE_ELECTRON_FROM_ADD_LIST(k)
 
   IMPLICIT NONE
 
+  INCLUDE 'mpif.h'
+
+  INTEGER ierr
+
   INTEGER, INTENT(INOUT) :: k
 
   IF ((k.LT.1).OR.(k.GT.N_e_to_add)) THEN
      PRINT '("Process ",i6," : ERROR in REMOVE_ELECTRON_FROM_ADD_LIST : index k invalid")', Rank_of_process
      PRINT '("Process ",i6," : k= ", i7," N_e_to_add= ",i7)', Rank_of_process, k, N_e_to_add
      PRINT '("Process ",i6," : PROGRAM TERMINATED")', Rank_of_process
-     STOP
+     CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
   END IF
 
   IF (k.LT.N_e_to_add) THEN
@@ -951,6 +963,10 @@ SUBROUTINE FIND_ALIENS_IN_ELECTRON_ADD_LIST
   USE ElectronParticles, ONLY : N_e_to_add, electron_to_add
 
   IMPLICIT NONE
+
+  INCLUDE 'mpif.h'
+
+  INTEGER ierr
 
   INTEGER k, n 
 
@@ -998,7 +1014,7 @@ SUBROUTINE FIND_ALIENS_IN_ELECTRON_ADD_LIST
 !                 CALL PROCESS_ELECTRON_COLL_WITH_BOUNDARY_BELOW(electron_to_add(k)%X, electron_to_add(k)%Y, electron_to_add(k)%VX, electron_to_add(k)%VY, electron_to_add(k)%VZ, electron_to_add(k)%tag)
 ! error
                  print '("error-1 in FIND_ALIENS_IN_ELECTRON_ADD_LIST")'
-                 stop
+                 CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
               ELSE
                  CALL ADD_ELECTRON_TO_SEND_BELOW(electron_to_add(k)%X, electron_to_add(k)%Y, electron_to_add(k)%VX, electron_to_add(k)%VY, electron_to_add(k)%VZ, electron_to_add(k)%tag)                       
               END IF
@@ -1009,7 +1025,7 @@ SUBROUTINE FIND_ALIENS_IN_ELECTRON_ADD_LIST
 !                 CALL PROCESS_ELECTRON_COLL_WITH_BOUNDARY_ABOVE(electron_to_add(k)%X, electron_to_add(k)%Y, electron_to_add(k)%VX, electron_to_add(k)%VY, electron_to_add(k)%VZ, electron_to_add(k)%tag)
 ! error
                  print '("error-2 in FIND_ALIENS_IN_ELECTRON_ADD_LIST")'
-                 stop
+                 CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
               ELSE
                  CALL ADD_ELECTRON_TO_SEND_ABOVE(electron_to_add(k)%X, electron_to_add(k)%Y, electron_to_add(k)%VX, electron_to_add(k)%VY, electron_to_add(k)%VZ, electron_to_add(k)%tag)
               END IF
@@ -1030,7 +1046,7 @@ SUBROUTINE FIND_ALIENS_IN_ELECTRON_ADD_LIST
 !#              CALL PROCESS_ELECTRON_COLL_WITH_BOUNDARY_LEFT(electron_to_add(k)%X, electron_to_add(k)%Y, electron_to_add(k)%VX,  electron_to_add(k)%VY, electron_to_add(k)%VZ, electron_to_add(k)%tag)   ! left
 ! error
                  print '("error-3 in FIND_ALIENS_IN_ELECTRON_ADD_LIST")'
-                 stop
+                 CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
            END IF
 
         ELSE IF (electron_to_add(k)%Y.LT.(c_Y_area_min+1.0_8)) THEN
@@ -1052,7 +1068,7 @@ SUBROUTINE FIND_ALIENS_IN_ELECTRON_ADD_LIST
 !                    CALL PROCESS_ELECTRON_COLL_WITH_BOUNDARY_LEFT(electron_to_add(k)%X, electron_to_add(k)%Y, electron_to_add(k)%VX, electron_to_add(k)%VY, electron_to_add(k)%VZ, electron_to_add(k)%tag)
 ! error
                     print '("error-4 in FIND_ALIENS_IN_ELECTRON_ADD_LIST")'
-                    stop
+                    CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
                  ELSE
                     CALL ADD_ELECTRON_TO_SEND_BELOW(electron_to_add(k)%X, electron_to_add(k)%Y, electron_to_add(k)%VX, electron_to_add(k)%VY, electron_to_add(k)%VZ, electron_to_add(k)%tag)                       
                  END IF
@@ -1065,7 +1081,7 @@ SUBROUTINE FIND_ALIENS_IN_ELECTRON_ADD_LIST
 !                 END IF
 ! error
                  print '("error-5 in FIND_ALIENS_IN_ELECTRON_ADD_LIST")'
-                 stop
+                 CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
 
               CASE (EMPTY_CORNER_WALL_LEFT)
                  CALL ADD_ELECTRON_TO_SEND_BELOW(electron_to_add(k)%X, electron_to_add(k)%Y, electron_to_add(k)%VX, electron_to_add(k)%VY, electron_to_add(k)%VZ, electron_to_add(k)%tag)
@@ -1094,7 +1110,7 @@ SUBROUTINE FIND_ALIENS_IN_ELECTRON_ADD_LIST
 !                    CALL PROCESS_ELECTRON_COLL_WITH_BOUNDARY_LEFT(electron_to_add(k)%X, electron_to_add(k)%Y, electron_to_add(k)%VX, electron_to_add(k)%VY, electron_to_add(k)%VZ, electron_to_add(k)%tag)
 ! error
                     print '("error-6 in FIND_ALIENS_IN_ELECTRON_ADD_LIST")'
-                    stop
+                    CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
                  ELSE
                     CALL ADD_ELECTRON_TO_SEND_ABOVE(electron_to_add(k)%X, electron_to_add(k)%Y, electron_to_add(k)%VX, electron_to_add(k)%VY, electron_to_add(k)%VZ, electron_to_add(k)%tag)
                  END IF
@@ -1107,7 +1123,7 @@ SUBROUTINE FIND_ALIENS_IN_ELECTRON_ADD_LIST
 !                 END IF
 ! error
                  print '("error-7 in FIND_ALIENS_IN_ELECTRON_ADD_LIST")'
-                 stop
+                 CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
 
               CASE (EMPTY_CORNER_WALL_LEFT)
                  CALL ADD_ELECTRON_TO_SEND_ABOVE(electron_to_add(k)%X, electron_to_add(k)%Y, electron_to_add(k)%VX, electron_to_add(k)%VY, electron_to_add(k)%VZ, electron_to_add(k)%tag)
@@ -1133,7 +1149,7 @@ SUBROUTINE FIND_ALIENS_IN_ELECTRON_ADD_LIST
 !                 CALL PROCESS_ELECTRON_COLL_WITH_BOUNDARY_BELOW(electron_to_add(k)%X, electron_to_add(k)%Y, electron_to_add(k)%VX, electron_to_add(k)%VY, electron_to_add(k)%VZ, electron_to_add(k)%tag)
 ! error
                  print '("error-8 in FIND_ALIENS_IN_ELECTRON_ADD_LIST")'
-                 stop
+                 CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
               ELSE
                  CALL ADD_ELECTRON_TO_SEND_BELOW(electron_to_add(k)%X, electron_to_add(k)%Y, electron_to_add(k)%VX, electron_to_add(k)%VY, electron_to_add(k)%VZ, electron_to_add(k)%tag)                       
               END IF
@@ -1144,7 +1160,7 @@ SUBROUTINE FIND_ALIENS_IN_ELECTRON_ADD_LIST
 !                 CALL PROCESS_ELECTRON_COLL_WITH_BOUNDARY_ABOVE(electron_to_add(k)%X, electron_to_add(k)%Y, electron_to_add(k)%VX, electron_to_add(k)%VY, electron_to_add(k)%VZ, electron_to_add(k)%tag)
 ! error
                  print '("error-9 in FIND_ALIENS_IN_ELECTRON_ADD_LIST")'
-                 stop
+                 CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
               ELSE
                  CALL ADD_ELECTRON_TO_SEND_ABOVE(electron_to_add(k)%X, electron_to_add(k)%Y, electron_to_add(k)%VX, electron_to_add(k)%VY, electron_to_add(k)%VZ, electron_to_add(k)%tag)
               END IF
@@ -1165,7 +1181,7 @@ SUBROUTINE FIND_ALIENS_IN_ELECTRON_ADD_LIST
 !              CALL PROCESS_ELECTRON_COLL_WITH_BOUNDARY_RIGHT(electron_to_add(k)%X, electron_to_add(k)%Y, electron_to_add(k)%VX, electron_to_add(k)%VY, electron_to_add(k)%VZ, electron_to_add(k)%tag)
 ! error
               print '("error-10 in FIND_ALIENS_IN_ELECTRON_ADD_LIST")'
-              stop
+              CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
            END IF
 
         ELSE IF (electron_to_add(k)%Y.LT.(c_Y_area_min+1.0_8)) THEN
@@ -1187,7 +1203,7 @@ SUBROUTINE FIND_ALIENS_IN_ELECTRON_ADD_LIST
 !                    CALL PROCESS_ELECTRON_COLL_WITH_BOUNDARY_RIGHT(electron_to_add(k)%X, electron_to_add(k)%Y, electron_to_add(k)%VX, electron_to_add(k)%VY, electron_to_add(k)%VZ, electron_to_add(k)%tag)
 ! error
                     print '("error-11 in FIND_ALIENS_IN_ELECTRON_ADD_LIST")'
-                    stop
+                    CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
                  ELSE
                     CALL ADD_ELECTRON_TO_SEND_BELOW(electron_to_add(k)%X, electron_to_add(k)%Y, electron_to_add(k)%VX, electron_to_add(k)%VY, electron_to_add(k)%VZ, electron_to_add(k)%tag)                       
                  END IF
@@ -1200,7 +1216,7 @@ SUBROUTINE FIND_ALIENS_IN_ELECTRON_ADD_LIST
 !                 END IF
 ! error
                     print '("error-12 in FIND_ALIENS_IN_ELECTRON_ADD_LIST")'
-                    stop
+                    CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
 
               CASE (EMPTY_CORNER_WALL_RIGHT)
                  CALL ADD_ELECTRON_TO_SEND_BELOW(electron_to_add(k)%X, electron_to_add(k)%Y, electron_to_add(k)%VX, electron_to_add(k)%VY, electron_to_add(k)%VZ, electron_to_add(k)%tag)
@@ -1229,7 +1245,7 @@ SUBROUTINE FIND_ALIENS_IN_ELECTRON_ADD_LIST
 !                    CALL PROCESS_ELECTRON_COLL_WITH_BOUNDARY_RIGHT(electron_to_add(k)%X, electron_to_add(k)%Y, electron_to_add(k)%VX, electron_to_add(k)%VY, electron_to_add(k)%VZ, electron_to_add(k)%tag)
 ! error
                     print '("error-13 in FIND_ALIENS_IN_ELECTRON_ADD_LIST")'
-                    stop
+                    CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
                  ELSE
                     CALL ADD_ELECTRON_TO_SEND_ABOVE(electron_to_add(k)%X, electron_to_add(k)%Y, electron_to_add(k)%VX, electron_to_add(k)%VY, electron_to_add(k)%VZ, electron_to_add(k)%tag)                    
                  END IF
@@ -1242,7 +1258,7 @@ SUBROUTINE FIND_ALIENS_IN_ELECTRON_ADD_LIST
 !                 END IF
 ! error
                     print '("error-14 in FIND_ALIENS_IN_ELECTRON_ADD_LIST")'
-                    stop
+                    CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
 
               CASE (EMPTY_CORNER_WALL_RIGHT)
                  CALL ADD_ELECTRON_TO_SEND_ABOVE(electron_to_add(k)%X, electron_to_add(k)%Y, electron_to_add(k)%VX, electron_to_add(k)%VY, electron_to_add(k)%VZ, electron_to_add(k)%tag)
@@ -1269,7 +1285,7 @@ SUBROUTINE FIND_ALIENS_IN_ELECTRON_ADD_LIST
 !              CALL PROCESS_ELECTRON_COLL_WITH_BOUNDARY_ABOVE(electron_to_add(k)%X, electron_to_add(k)%Y, electron_to_add(k)%VX, electron_to_add(k)%VY, electron_to_add(k)%VZ, electron_to_add(k)%tag)
 ! error
               print '("error-15 in FIND_ALIENS_IN_ELECTRON_ADD_LIST")'
-              stop
+              CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
            END IF
            CALL REMOVE_ELECTRON_FROM_ADD_LIST(k)  ! this subroutine does  N_e_to_add = N_e_to_add - 1 and k = k-1
            CYCLE
@@ -1285,7 +1301,7 @@ SUBROUTINE FIND_ALIENS_IN_ELECTRON_ADD_LIST
 !              CALL PROCESS_ELECTRON_COLL_WITH_BOUNDARY_ABOVE(electron_to_add(k)%X, electron_to_add(k)%Y, electron_to_add(k)%VX, electron_to_add(k)%VY, electron_to_add(k)%VZ, electron_to_add(k)%tag)
 ! error
               print '("error-16 in FIND_ALIENS_IN_ELECTRON_ADD_LIST")'
-              stop
+              CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
            ELSE IF (electron_to_add(k)%X.LT.(c_X_area_min+1.0_8)) THEN
 ! particle near the left top corner
               IF (c_left_top_corner_type.EQ.EMPTY_CORNER_WALL_ABOVE) THEN
@@ -1294,7 +1310,7 @@ SUBROUTINE FIND_ALIENS_IN_ELECTRON_ADD_LIST
 !                 CALL PROCESS_ELECTRON_COLL_WITH_BOUNDARY_ABOVE(electron_to_add(k)%X, electron_to_add(k)%Y, electron_to_add(k)%VX, electron_to_add(k)%VY, electron_to_add(k)%VZ, electron_to_add(k)%tag)
 ! error
                  print '("error-17 in FIND_ALIENS_IN_ELECTRON_ADD_LIST")'
-                 stop
+                 CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
               END IF
            ELSE IF (electron_to_add(k)%X.GT.(c_X_area_max-1.0_8)) THEN
 ! particle near the right top corner
@@ -1304,7 +1320,7 @@ SUBROUTINE FIND_ALIENS_IN_ELECTRON_ADD_LIST
 !                 CALL PROCESS_ELECTRON_COLL_WITH_BOUNDARY_ABOVE(electron_to_add(k)%X, electron_to_add(k)%Y, electron_to_add(k)%VX, electron_to_add(k)%VY, electron_to_add(k)%VZ, electron_to_add(k)%tag)
 ! error
                  print '("error-18 in FIND_ALIENS_IN_ELECTRON_ADD_LIST")'
-                 stop
+                 CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
               END IF
            END IF
         END IF
@@ -1322,7 +1338,7 @@ SUBROUTINE FIND_ALIENS_IN_ELECTRON_ADD_LIST
 !              CALL PROCESS_ELECTRON_COLL_WITH_BOUNDARY_BELOW(electron_to_add(k)%X, electron_to_add(k)%Y, electron_to_add(k)%VX, electron_to_add(k)%VY, electron_to_add(k)%VZ, electron_to_add(k)%tag)
 ! error
               print '("error-19 in FIND_ALIENS_IN_ELECTRON_ADD_LIST")'
-              stop
+              CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
            END IF
            CALL REMOVE_ELECTRON_FROM_ADD_LIST(k)  ! this subroutine does  N_e_to_add = N_e_to_add - 1 and k = k-1
            CYCLE
@@ -1338,7 +1354,7 @@ SUBROUTINE FIND_ALIENS_IN_ELECTRON_ADD_LIST
 !              CALL PROCESS_ELECTRON_COLL_WITH_BOUNDARY_BELOW(electron_to_add(k)%X, electron_to_add(k)%Y, electron_to_add(k)%VX, electron_to_add(k)%VY, electron_to_add(k)%VZ, electron_to_add(k)%tag)
 ! error
               print '("error-20 in FIND_ALIENS_IN_ELECTRON_ADD_LIST")'
-              stop
+              CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
            ELSE IF (electron_to_add(k)%X.LT.(c_X_area_min+1.0_8)) THEN
 ! particle near the left bottom corner
               IF (c_left_bottom_corner_type.EQ.EMPTY_CORNER_WALL_BELOW) THEN
@@ -1347,7 +1363,7 @@ SUBROUTINE FIND_ALIENS_IN_ELECTRON_ADD_LIST
 !                 CALL PROCESS_ELECTRON_COLL_WITH_BOUNDARY_BELOW(electron_to_add(k)%X, electron_to_add(k)%Y, electron_to_add(k)%VX, electron_to_add(k)%VY, electron_to_add(k)%VZ, electron_to_add(k)%tag)
 ! error
                  print '("error-21 in FIND_ALIENS_IN_ELECTRON_ADD_LIST")'
-                 stop
+                 CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
               END IF
            ELSE IF (electron_to_add(k)%X.GT.(c_X_area_max-1.0_8)) THEN
 ! particle near the right bottom corner
@@ -1357,7 +1373,7 @@ SUBROUTINE FIND_ALIENS_IN_ELECTRON_ADD_LIST
 !                 CALL PROCESS_ELECTRON_COLL_WITH_BOUNDARY_BELOW(electron_to_add(k)%X, electron_to_add(k)%Y, electron_to_add(k)%VX, electron_to_add(k)%VY, electron_to_add(k)%VZ, electron_to_add(k)%tag)
 ! error
                  print '("error-22 in FIND_ALIENS_IN_ELECTRON_ADD_LIST")'
-                 stop
+                 CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
               END IF
            END IF
         END IF
@@ -1522,7 +1538,7 @@ SUBROUTINE GATHER_ELECTRON_CHARGE_DENSITY
   USE ElectronParticles
   USE ClusterAndItsBoundaries
   USE BlockAndItsBoundaries, ONLY : indx_x_min, indx_x_max, indx_y_min, indx_y_max
-  USE Diagnostics
+!  USE Diagnostics
 
   IMPLICIT NONE
 
@@ -1542,8 +1558,8 @@ SUBROUTINE GATHER_ELECTRON_CHARGE_DENSITY
   INTEGER ALLOC_ERR
   INTEGER bufsize
 
-  INTEGER npc   ! number of probe in a cluster list of probes
-  INTEGER npa   ! number of probe in the global list of probes
+!  INTEGER npc   ! number of probe in a cluster list of probes
+!  INTEGER npa   ! number of probe in the global list of probes
 
   INTEGER i, j, k
   INTEGER pos_i_j, pos_ip1_j, pos_i_jp1, pos_ip1_jp1
@@ -1589,7 +1605,7 @@ if ((i.lt.c_indx_x_min).or.(i.gt.(c_indx_x_max-1)).or.(j.lt.c_indx_y_min).or.(j.
    print '("Process ",i4," : k/N_electrons : ",i8,2x,i8)', Rank_of_process, k, N_electrons
    print '("Process ",i4," : x/y/vx/vy/vz/tag : ",5(2x,e14.7),2x,i4)', Rank_of_process, electron(k)%X, electron(k)%Y, electron(k)%VX, electron(k)%VY, electron(k)%VZ, electron(k)%tag
    print '("Process ",i4," : minx/maxx/miny/maxy : ",4(2x,e14.7))', Rank_of_process, c_X_area_min, c_X_area_max, c_Y_area_min, c_Y_area_max
-   stop
+   CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
 end if
 
 !     pos = i - c_indx_x_min + 1 + (j - c_indx_y_min) * (c_indx_x_max - c_indx_x_min + 1)
@@ -1628,17 +1644,17 @@ end if
 ! now cluster masters exchange information about densities in overlapping nodes
   IF (cluster_rank_key.EQ.0) THEN
 
-! ################ diagnostics, electron density ##################
-! since GATHER_ELECTRON_CHARGE_DENSITY is called at every time step,
-! one can collect diagnostics data only at required time steps
-     IF (T_cntr.EQ.Save_probes_data_T_cntr) THEN
-        DO npc = 1, N_of_probes_cluster
-           npa = List_of_probes_cluster(npc)
-           i = Probe_position(1,npa)
-           j = Probe_position(2,npa)
-           probe_Ne_cluster(npc) = c_rho(i,j)   ! add scale factor ###################
-        END DO
-     END IF
+!! ################ diagnostics, electron density ##################
+!! since GATHER_ELECTRON_CHARGE_DENSITY is called at every time step,
+!! one can collect diagnostics data only at required time steps
+!     IF (T_cntr.EQ.Save_probes_data_T_cntr) THEN
+!        DO npc = 1, N_of_probes_cluster
+!           npa = List_of_probes_cluster(npc)
+!           i = Probe_position(1,npa)
+!           j = Probe_position(2,npa)
+!           probe_Ne_cluster(npc) = c_rho(i,j)   ! add scale factor ###################
+!        END DO
+!     END IF
 
      IF (periodic_boundary_X_left.AND.periodic_boundary_X_right) THEN
 ! special case of self-connected X-periodic cluster

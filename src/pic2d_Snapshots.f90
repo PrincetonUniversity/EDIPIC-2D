@@ -13,6 +13,10 @@ SUBROUTINE INITIATE_SNAPSHOTS
 
   IMPLICIT NONE
 
+  INCLUDE 'mpif.h'
+
+  INTEGER ierr
+
   INTEGER T2_old, N2_old
   LOGICAL exists
   CHARACTER (1) buf
@@ -53,130 +57,127 @@ SUBROUTINE INITIATE_SNAPSHOTS
 ! read / write the data file 
   INQUIRE (FILE = 'init_snapshots.dat', EXIST = exists)
 
-  IF (exists) THEN
+  IF (.NOT.exists) THEN
+     PRINT '(2x,"Process ",i4," : ERROR : file init_snapshots.dat not found. Program terminated")', Rank_of_process
+     CALL MPI_FINALIZE(ierr)
+     STOP
+  END IF
 
-     ALLOCATE(               timestep(1:9999), STAT = ALLOC_ERR)
-     ALLOCATE(     evdf_flag_timestep(1:9999), STAT = ALLOC_ERR)
-     ALLOCATE(       pp_flag_timestep(1:9999), STAT = ALLOC_ERR)
-     ALLOCATE(ionrate2d_flag_timestep(1:9999), STAT = ALLOC_ERR)
+  ALLOCATE(               timestep(1:9999), STAT = ALLOC_ERR)
+  ALLOCATE(     evdf_flag_timestep(1:9999), STAT = ALLOC_ERR)
+  ALLOCATE(       pp_flag_timestep(1:9999), STAT = ALLOC_ERR)
+  ALLOCATE(ionrate2d_flag_timestep(1:9999), STAT = ALLOC_ERR)
      
-     IF (Rank_of_process.EQ.0) PRINT '("### File init_snapshots is found. Reading the data file... ###")'
+  IF (Rank_of_process.EQ.0) PRINT '("### File init_snapshots is found. Reading the data file... ###")'
 
-     OPEN (9, FILE = 'init_snapshots.dat')
+  OPEN (9, FILE = 'init_snapshots.dat')
      
-     READ(9, '(A1)') buf  !--- save 2D maps of the following parameters? (1=yes, 0=no)
-     READ(9, '(A1)') buf  !-----F----EX----EY--JXsum--JYsum--JZsum
-     READ(9, '(A1)') buf  !----dd----dd----dd----dd----dd----dd
-     READ(9, '(6(4x,i2))') saveflagi(1:6) 
-     READ(9, '(A1)') buf  !----Ne----JXe---JYe---JZe---VXe---VYe---VZe---WXe---WYe---WZe---TXe---TYe---TZe
-     READ(9, '(A1)') buf  !----dd----dd----dd----dd----dd----dd----dd----dd----dd----dd----dd----dd----dd
-     READ(9, '(13(4x,i2))') saveflagi(7:19)
-     READ(9, '(A1)') buf  !----Ni----JXi---JYi---JZi---VXi---VYi---VZi---WXi---WYi---WZi---TXi---TYi---TZi
-     READ(9, '(A1)') buf  !----dd----dd----dd----dd----dd----dd----dd----dd----dd----dd----dd----dd----dd
-     READ (9, '(13(4x,i2))') saveflagi(20:32)
+  READ(9, '(A1)') buf  !--- save 2D maps of the following parameters? (1=yes, 0=no)
+  READ(9, '(A1)') buf  !-----F----EX----EY--JXsum--JYsum--JZsum
+  READ(9, '(A1)') buf  !----dd----dd----dd----dd----dd----dd
+  READ(9, '(6(4x,i2))') saveflagi(1:6) 
+  READ(9, '(A1)') buf  !----Ne----JXe---JYe---JZe---VXe---VYe---VZe---WXe---WYe---WZe---TXe---TYe---TZe
+  READ(9, '(A1)') buf  !----dd----dd----dd----dd----dd----dd----dd----dd----dd----dd----dd----dd----dd
+  READ(9, '(13(4x,i2))') saveflagi(7:19)
+  READ(9, '(A1)') buf  !----Ni----JXi---JYi---JZi---VXi---VYi---VZi---WXi---WYi---WZi---TXi---TYi---TZi
+  READ(9, '(A1)') buf  !----dd----dd----dd----dd----dd----dd----dd----dd----dd----dd----dd----dd----dd
+  READ (9, '(13(4x,i2))') saveflagi(20:32)
 
-     save_data = .TRUE.
-     DO i = 1, 32
-        IF (saveflagi(i).EQ.0) save_data(i) = .FALSE.
-     END DO
+  save_data = .TRUE.
+  DO i = 1, 32
+     IF (saveflagi(i).EQ.0) save_data(i) = .FALSE.
+  END DO
 
-     READ (9, '(A1)') buf !---dd--- Number of groups of snapshots ( >= 0 )
-     READ (9, '(3x,i2)') N_of_snap_groups
-     READ (9, '(A1)') buf !---ddddddd.ddd---ddddddd.ddd---dddd---d---d---d--- group: start (ns) / finish (ns) / number of snapshots / save VDFs (0/1/2/3 = No/1d/2d/1d+2d) / save phase planes (0/1/2/3 = No/e/i/e+i) / save ionization rates (0/1 = No/Yes)
+  READ (9, '(A1)') buf !---dd--- Number of groups of snapshots ( >= 0 )
+  READ (9, '(3x,i2)') N_of_snap_groups
+  READ (9, '(A1)') buf !---ddddddd.ddd---ddddddd.ddd---dddd---d---d---d--- group: start (ns) / finish (ns) / number of snapshots / save VDFs (0/1/2/3 = No/1d/2d/1d+2d) / save phase planes (0/1/2/3 = No/e/i/e+i) / save ionization rates (0/1 = No/Yes)
 
-     DO i = 1, N_of_snap_groups
+  DO i = 1, N_of_snap_groups
 ! read the parameters of current set of snapshot from the data file
-        READ (9, '(3x,f11.3,3x,f11.3,3x,i4,3x,i1,3x,i1,3x,i1)') Rqst_snap_start_ns, Rqst_snap_finish_ns, Rqst_n_of_snaps, Rqst_evdf_flag, Rqst_pp_flag, Rqst_ionrate2d_flag
+     READ (9, '(3x,f11.3,3x,f11.3,3x,i4,3x,i1,3x,i1,3x,i1)') Rqst_snap_start_ns, Rqst_snap_finish_ns, Rqst_n_of_snaps, Rqst_evdf_flag, Rqst_pp_flag, Rqst_ionrate2d_flag
 ! try the next group of snapshots if the current group snapshot number is zero
-        IF (Rqst_n_of_snaps.LT.1) CYCLE
+     IF (Rqst_n_of_snaps.LT.1) CYCLE
 ! get the timestep, coinciding with the diagnostic output timestep and closest to Rqst_snap_start_ns
-        T1 = Rqst_snap_start_ns / (delta_t_s * 1.0d9)
-        IF (T1.LT.Save_probes_data_T_cntr_rff) T1 = Save_probes_data_T_cntr_rff
-        N1 = (T1 - Save_probes_data_T_cntr_rff) / Save_probes_data_step
-        T1 = Save_probes_data_T_cntr_rff + N1 * Save_probes_data_step
+     T1 = Rqst_snap_start_ns / (delta_t_s * 1.0d9)
+     IF (T1.LT.Save_probes_data_T_cntr_rff) T1 = Save_probes_data_T_cntr_rff
+     N1 = (T1 - Save_probes_data_T_cntr_rff) / Save_probes_data_step
+     T1 = Save_probes_data_T_cntr_rff + N1 * Save_probes_data_step
 ! get the timestep, coinciding with the diagnostic output timestep and closest to Rqst_snap_finish_ns
-        T2 = Rqst_snap_finish_ns / (delta_t_s * 1.0d9)
-        IF (T2.LT.Save_probes_data_T_cntr_rff) T2 = Save_probes_data_T_cntr_rff
-        N2 = (T2 - Save_probes_data_T_cntr_rff) / Save_probes_data_step
-        T2 = Save_probes_data_T_cntr_rff + N2 * Save_probes_data_step 
+     T2 = Rqst_snap_finish_ns / (delta_t_s * 1.0d9)
+     IF (T2.LT.Save_probes_data_T_cntr_rff) T2 = Save_probes_data_T_cntr_rff
+     N2 = (T2 - Save_probes_data_T_cntr_rff) / Save_probes_data_step
+     T2 = Save_probes_data_T_cntr_rff + N2 * Save_probes_data_step 
 ! adjust, if necessary, the start timesteps if it is before (less than) the finish timestep for the previous set of snapshots T2_old
-        IF (T1.LE.T2_old) THEN 
-           T1 = T2_old + Save_probes_data_step
-           N1 = N2_old + 1
-        END IF
+     IF (T1.LE.T2_old) THEN 
+        T1 = T2_old + Save_probes_data_step
+        N1 = N2_old + 1
+     END IF
 ! adjust, if necessary, the finish timestep if it is after (larger than) the last simulation timestep
-        DO WHILE (T2.GT.Max_T_cntr)
-           T2 = T2 - Save_probes_data_step
-           N2 = N2 - 1
-        END DO
+     DO WHILE (T2.GT.Max_T_cntr)
+        T2 = T2 - Save_probes_data_step
+        N2 = N2 - 1
+     END DO
 ! skip the line if the start moment is after (larger than) the finish moment
-        IF (T1.GT.T2) CYCLE
+     IF (T1.GT.T2) CYCLE
 ! if we are here then T1 and T2 can be used for calculation of moments of snapshots
 ! calculate the number of snapshots which can be made in current set
-        IF (Rqst_n_of_snaps.EQ.1) THEN
-           large_step = 0
-           Fact_n_of_snaps = 1
-           T2 = T1
-           N2 = N1
+     IF (Rqst_n_of_snaps.EQ.1) THEN
+        large_step = 0
+        Fact_n_of_snaps = 1
+        T2 = T1
+        N2 = N1
+     ELSE
+        large_step = (N2 - N1) / (Rqst_n_of_snaps - 1)
+        IF (large_step.EQ.0) THEN 
+           large_step = 1
+           Fact_n_of_snaps = N2 - N1 + 1
         ELSE
-           large_step = (N2 - N1) / (Rqst_n_of_snaps - 1)
-           IF (large_step.EQ.0) THEN 
-              large_step = 1
-              Fact_n_of_snaps = N2 - N1 + 1
-           ELSE
-              Fact_n_of_snaps = Rqst_n_of_snaps
-              N2 = N1 + large_step * (Fact_n_of_snaps - 1)
-              T2 = Save_probes_data_T_cntr_rff + N2 * Save_probes_data_step 
-           END IF
+           Fact_n_of_snaps = Rqst_n_of_snaps
+           N2 = N1 + large_step * (Fact_n_of_snaps - 1)
+           T2 = Save_probes_data_T_cntr_rff + N2 * Save_probes_data_step 
         END IF
+     END IF
 ! save the final moment of the current snapshot set
-        T2_old = T2
-        N2_old = N2
+     T2_old = T2
+     N2_old = N2
 ! for all possible snapshots of the current set
-        DO n = 1, Fact_n_of_snaps
+     DO n = 1, Fact_n_of_snaps
 ! Calculate and save the snapshot moment in the temporary array
-           N_of_all_snaps = N_of_all_snaps + 1
-                          timestep(N_of_all_snaps) =  T1 + (n - 1) * large_step * Save_probes_data_step
-                evdf_flag_timestep(N_of_all_snaps) = MAX(0,MIN(3,Rqst_evdf_flag))
-                  pp_flag_timestep(N_of_all_snaps) = MAX(0,MIN(3,Rqst_pp_flag))
-           ionrate2d_flag_timestep(N_of_all_snaps) = MAX(0,MIN(1,Rqst_ionrate2d_flag))
-        END DO        ! end of cycle over snapshots in one set
-     END DO           ! end of cycle over sets of snapshots     
+        N_of_all_snaps = N_of_all_snaps + 1
+        timestep(N_of_all_snaps) =  T1 + (n - 1) * large_step * Save_probes_data_step
+        evdf_flag_timestep(N_of_all_snaps) = MAX(0,MIN(3,Rqst_evdf_flag))
+        pp_flag_timestep(N_of_all_snaps) = MAX(0,MIN(3,Rqst_pp_flag))
+        ionrate2d_flag_timestep(N_of_all_snaps) = MAX(0,MIN(1,Rqst_ionrate2d_flag))
+     END DO        ! end of cycle over snapshots in one set
+  END DO           ! end of cycle over sets of snapshots     
 
 ! for calculation of velocity distribution functions inside the plasma volume, 
 ! the simulation domain of each cluster will be split into sub-domains called boxes
 ! maximal velocity in each direction for electrons will be N_max_vel electron thermal velocities
 ! maximal velocity in each direction for ion species s will be N_max_vel / sqrt(Ms(s)) electron thermal velocities
 
-     READ (9, '(A1)') buf !-------- Parameters for calculation of velocity distribution functions
-     READ (9, '(A1)') buf !--d-d--- Number of spatial boxes along the X / Y direction in a cluster (>=0)
-     READ (9, '(2x,i1,1x,i1)') N_vdfbox_x, N_vdfbox_y
-     READ (9, '(A1)') buf !--ddd--- Electrons, maximal velocity [in units of v_Te_ms]
-     READ (9, '(2x,i3)') N_max_vel_e
-     READ (9, '(A1)') buf !--ddd--- Electrons, number of velocity bins per v_Te_ms
-     READ (9, '(2x,i3)') N_vbins_e
-     READ (9, '(A1)') buf !--ddd--- Ions, maximal velocity [in units of v_Te_ms*sqrt(me/Ms)]
-     READ (9, '(2x,i3)') N_max_vel_i
-     READ (9, '(A1)') buf !--ddd--- Number of velocity bins per v_Te_ms*sqrt(me/Ms) for ions
-     READ (9, '(2x,i3)') N_vbins_i
+  READ (9, '(A1)') buf !-------- Parameters for calculation of velocity distribution functions
+  READ (9, '(A1)') buf !--d-d--- Number of spatial boxes along the X / Y direction in a cluster (>=0)
+  READ (9, '(2x,i1,1x,i1)') N_vdfbox_x, N_vdfbox_y
+  READ (9, '(A1)') buf !--ddd--- Electrons, maximal velocity [in units of v_Te_ms]
+  READ (9, '(2x,i3)') N_max_vel_e
+  READ (9, '(A1)') buf !--ddd--- Electrons, number of velocity bins per v_Te_ms
+  READ (9, '(2x,i3)') N_vbins_e
+  READ (9, '(A1)') buf !--ddd--- Ions, maximal velocity [in units of v_Te_ms*sqrt(me/Ms)]
+  READ (9, '(2x,i3)') N_max_vel_i
+  READ (9, '(A1)') buf !--ddd--- Number of velocity bins per v_Te_ms*sqrt(me/Ms) for ions
+  READ (9, '(2x,i3)') N_vbins_i
 
-     READ (9, '(A1)') buf !-------- Parameters for saving phase planes
-     READ (9, '(A1)') buf !--dd---- Number of rectangular spatial boxes (>=0)
-     READ (9, '(2x,i2)') N_pp_boxes
-     ALLOCATE(pp_box(1:N_pp_boxes), STAT=ALLOC_ERR)
-     READ (9, '(A1)') buf !--dddd--dddd----dddd--dddd--- left bottom corner X/Y (node index) / right top corner X/Y (node index)
-     DO n = 1, N_pp_boxes
-        READ (9, '(2x,i4,2x,i4,4x,i4,2x,i4)') pp_box(n)%imin, pp_box(n)%jmin, pp_box(n)%imax, pp_box(n)%jmax 
-     END DO
+  READ (9, '(A1)') buf !-------- Parameters for saving phase planes
+  READ (9, '(A1)') buf !--dd---- Number of rectangular spatial boxes (>=0)
+  READ (9, '(2x,i2)') N_pp_boxes
+  ALLOCATE(pp_box(1:N_pp_boxes), STAT=ALLOC_ERR)
+  READ (9, '(A1)') buf !--dddd--dddd----dddd--dddd--- left bottom corner X/Y (node index) / right top corner X/Y (node index)
+  DO n = 1, N_pp_boxes
+     READ (9, '(2x,i4,2x,i4,4x,i4,2x,i4)') pp_box(n)%imin, pp_box(n)%jmin, pp_box(n)%imax, pp_box(n)%jmax 
+  END DO
 
-     CLOSE (9, STATUS = 'KEEP')
-
-  ELSE
-
-     PRINT '(2x,"Process ",i4," : ERROR : file init_snapshots.dat not found. Program terminated")', Rank_of_process
-     STOP
-
-  END IF
+  CLOSE (9, STATUS = 'KEEP')
 
   current_snap = 1   ! default value
 
@@ -968,7 +969,7 @@ SUBROUTINE SAVE_GLOBAL_2D_ARRAY(arr, filename)
   IF (cluster_rank_key.NE.0) THEN
 ! just in case 
      PRINT '("Proc ",i4," Error in SAVE_GLOBAL_2D_ARRAY :: this process is not a cluster master, cluster_rank_key = ",i2," it should not call this subroutine")', Rank_of_process, cluster_rank_key
-     STOP
+     CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
   END IF
 
   DO col = 1, N_clusters_x
