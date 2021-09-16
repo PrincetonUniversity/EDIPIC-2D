@@ -46,7 +46,8 @@ simulation:
 #SBATCH --mail-user=your@email.aaa 
 
 # Load compiler and openmpi environments
-module load intel openmpi
+module load intel/2021.1
+module load openmpi/intel-2021.1/4.1.0
 
 # Set PETSC_DIR environment variable
 export PETSC_DIR=location_of_PETSc_installation
@@ -58,7 +59,7 @@ export LD_LIBRARY_PATH=${PETSC_DIR}/lib:${LD_LIBRARY_PATH}
 srun -n 32 ./edipic2d >& output.log
 ```
 
-This job script can be found here: [slurm_script](./slurm_script)
+Here is a job script to run with 96 MPI taks on stellar.princeton.edu: [stellar slurm_script](./slurm_script)
 
 To submit this job to the queuing system, copy the slurm script to your run directory and do:
 
