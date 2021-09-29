@@ -29,6 +29,8 @@ SUBROUTINE INITIATE_PROBE_DIAGNOSTICS
 
   INTEGER count_skip
 
+  INTEGER temp_N_of_probes_cluster
+
   INTEGER npa, npc, npb  ! used to denote index of probe global (a=all), in cluster (c), and in block (b)
 
   REAL r_dummy
@@ -371,16 +373,16 @@ SUBROUTINE INITIATE_PROBE_DIAGNOSTICS
 
 ! field calculators receive number of probes from the master
         CALL MPI_RECV(ibufer(1), 1, MPI_INTEGER, field_master, field_master, MPI_COMM_WORLD, stattus, ierr)
-        N_of_probes_cluster = ibufer(1)  ! here N_of_probes_cluster is a temporary value which will be replaced
+        temp_N_of_probes_cluster = ibufer(1)  ! here temp_N_of_probes_cluster is a temporary value which will be replaced
                                          ! once the process becomes associated with a cluster as a particle calculator
 
         N_of_probes_block = 0   ! default assumption
 
-        IF (N_of_probes_cluster.GT.0) THEN
+        IF (temp_N_of_probes_cluster.GT.0) THEN
 ! field calculators receive list of probes from the master
-           CALL MPI_RECV(ibufer(1:N_of_probes_cluster), N_of_probes_cluster, MPI_INTEGER, field_master, field_master+100000, MPI_COMM_WORLD, stattus, ierr)
+           CALL MPI_RECV(ibufer(1:temp_N_of_probes_cluster), temp_N_of_probes_cluster, MPI_INTEGER, field_master, field_master+100000, MPI_COMM_WORLD, stattus, ierr)
 ! identify how many probes from the list are inside the field calculator domain
-           DO npc = 1, N_of_probes_cluster
+           DO npc = 1, temp_N_of_probes_cluster
               npa = ibufer(npc)
               IF ( (Probe_position(1,npa).GE.indx_x_min).AND. &
                  & (Probe_position(1,npa).LE.indx_x_max).AND. &
@@ -393,7 +395,7 @@ SUBROUTINE INITIATE_PROBE_DIAGNOSTICS
            IF (N_of_probes_block.GT.0) THEN
               ALLOCATE(Probe_params_block_list(1:3,1:N_of_probes_block), STAT = ALLOC_ERR)
               npb = 0
-              DO npc = 1, N_of_probes_cluster
+              DO npc = 1, temp_N_of_probes_cluster
                  npa = ibufer(npc)
                  IF ( (Probe_position(1,npa).GE.indx_x_min).AND. &
                     & (Probe_position(1,npa).LE.indx_x_max).AND. &
