@@ -18,3 +18,7 @@
        0.000
 ----dddd.ddd--- energy of the electron beam [eV] (>3Tb/2)
      400.000
+-------d------- save ions collided with this object in snapshots? (1/0 = Yes/No)
+       0
+-------d------- save electrons collided with this object in snapshots? (1/0 = Yes/No)
+       0
