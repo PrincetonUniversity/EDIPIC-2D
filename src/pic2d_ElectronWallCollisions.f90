@@ -36,6 +36,8 @@ SUBROUTINE PROCESS_ELECTRON_COLL_WITH_BOUNDARY_LEFT(x, y, vx, vy, vz, tag)
 
         whole_object(nwo)%electron_hit_count = whole_object(nwo)%electron_hit_count + 1
 
+        CALL ADD_ELECTRON_TO_BO_COLLS_LIST(REAL(y), REAL(vx), REAL(vy), REAL(vz), tag, nwo, c_local_object_part(m)%segment_number)
+
         SELECT CASE (whole_object(nwo)%object_type)
            CASE (VACUUM_GAP)
            CASE (METAL_WALL)
@@ -105,6 +107,8 @@ SUBROUTINE PROCESS_ELECTRON_COLL_WITH_BOUNDARY_RIGHT(x, y, vx, vy, vz, tag)
         nwo = c_local_object_part(m)%object_number
 
         whole_object(nwo)%electron_hit_count = whole_object(nwo)%electron_hit_count + 1
+
+        CALL ADD_ELECTRON_TO_BO_COLLS_LIST(REAL(y), REAL(vx), REAL(vy), REAL(vz), tag, nwo, c_local_object_part(m)%segment_number)
 
         SELECT CASE (whole_object(nwo)%object_type)
            CASE (VACUUM_GAP)
@@ -176,6 +180,8 @@ SUBROUTINE PROCESS_ELECTRON_COLL_WITH_BOUNDARY_BELOW(x, y, vx, vy, vz, tag)
 
         whole_object(nwo)%electron_hit_count = whole_object(nwo)%electron_hit_count + 1
 
+        CALL ADD_ELECTRON_TO_BO_COLLS_LIST(REAL(x), REAL(vx), REAL(vy), REAL(vz), tag, nwo, c_local_object_part(m)%segment_number)
+
         SELECT CASE (whole_object(nwo)%object_type)
            CASE (VACUUM_GAP)
            CASE (METAL_WALL)
@@ -245,6 +251,8 @@ SUBROUTINE PROCESS_ELECTRON_COLL_WITH_BOUNDARY_ABOVE(x, y, vx, vy, vz, tag)
         nwo = c_local_object_part(m)%object_number
 
         whole_object(nwo)%electron_hit_count = whole_object(nwo)%electron_hit_count + 1
+
+        CALL ADD_ELECTRON_TO_BO_COLLS_LIST(REAL(x), REAL(vx), REAL(vy), REAL(vz), tag, nwo, c_local_object_part(m)%segment_number)
 
         SELECT CASE (whole_object(nwo)%object_type)
            CASE (VACUUM_GAP)
@@ -475,6 +483,8 @@ SUBROUTINE TRY_ELECTRON_COLL_WITH_INNER_OBJECT(x, y, vx, vy, vz, tag) !, myobjec
 
   INTEGER coll_direction_flag
 
+  REAL coll_coord   ! coordinate of collision point, y/x for collisions with vertical/horizontal segments, respectively
+
   xorg = x - vx
   yorg = y - vy
 
@@ -514,13 +524,19 @@ SUBROUTINE TRY_ELECTRON_COLL_WITH_INNER_OBJECT(x, y, vx, vy, vz, tag) !, myobjec
   SELECT CASE (mcross)
      CASE (1)
         coll_direction_flag = 3
+        coll_coord = REAL(ycross)
      CASE (2)
         coll_direction_flag = 4
+        coll_coord = REAL(xcross)
      CASE (3)
         coll_direction_flag = 1
+        coll_coord = REAL(ycross)
      CASE (4)
         coll_direction_flag = 2
+        coll_coord = REAL(xcross)
   END SELECT
+
+  CALL ADD_ELECTRON_TO_BO_COLLS_LIST(coll_coord, REAL(vx), REAL(vy), REAL(vz), tag, n_do, mcross)
 
   CALL DO_ELECTRON_COLL_WITH_INNER_OBJECT(xcross, ycross, vx, vy, vz, tag, whole_object(n_do), coll_direction_flag)
 
@@ -954,143 +970,6 @@ SUBROUTINE GetMaxwellVelocity(U)
   
 END SUBROUTINE GetMaxwellVelocity
 
-!-----------------------------------------
-!
-SUBROUTINE TRY_ELECTRON_COLL_WITH_INNER_OBJECTold(x, y, vx, vy, vz, tag, myobject)
-
-  USE ParallelOperationValues
-  USE ClusterAndItsBoundaries
-  USE CurrentProblemValues !, ONLY : inner_object, METAL_WALL, DIELECTRIC
-
-  IMPLICIT NONE
-
-!  INTEGER nio  ! number of the inner object
-  REAL(8) x, y, vx, vy, vz
-  INTEGER tag
-  TYPE(boundary_object) myobject
-
-  REAL(8) xmin, xmax, ymin, ymax
-  REAL(8) xorg, yorg
-
-  INTEGER coll_direction_flag
-
-  INTEGER mm, i, n
-  INTEGER mcross
-  REAL(8) xcross, ycross
-
-real(8) rdummy
-
-! function
-  REAL(8) vector_product_z
-
-! identify side of the inner object hit by the particle
-
-  xmin = myobject%Xmin
-  xmax = myobject%Xmax
-  ymin = myobject%Ymin
-  ymax = myobject%Ymax
-
-  xorg = x - vx
-  yorg = y - vy
-
-! 1  2  3
-! 8 *** 4
-! 7  6  5
-
-  IF (xorg.LT.xmin) THEN
-
-! default assumption
-     coll_direction_flag = 3                                                                      ! collided with the left side of inner obejct ("wall on the right" for the particle)
-     IF (yorg.GT.ymax) THEN
-! origin in sector 1
-        IF (vector_product_z(xmin - xorg, ymax - yorg, vx, vy).GT.0.0_8) coll_direction_flag = 4  ! collided with the top side of inner obejct ("wall below" for the particle)
-     ELSE IF (yorg.LT.ymin) THEN
-! origin in sector 7
-        IF (vector_product_z(xmin - xorg, ymin - yorg, vx, vy).LT.0.0_8) coll_direction_flag = 2  ! collided with the bottom side of inner obejct ("wall above" for the particle)
-     END IF
-
-  ELSE IF (xorg.GT.xmax) THEN
-
-! default assumption
-     coll_direction_flag = 1                                                                      ! collided with the right side of inner obejct ("wall on the left" for the particle)
-     IF (yorg.GT.ymax) THEN
-! origin in sector 3
-        IF (vector_product_z(xmax - xorg, ymax - yorg, vx, vy).LT.0.0_8) coll_direction_flag = 4  ! collided with the top side of inner obejct ("wall below" for the particle)
-     ELSE IF (yorg.LT.ymin) THEN
-! origin in sector 5
-        IF (vector_product_z(xmax - xorg, ymin - yorg, vx, vy).GT.0.0_8) coll_direction_flag = 2  ! collided with the bottom side of inner obejct ("wall above" for the particle)
-     END IF
-
-  ELSE IF (yorg.GE.ymax) THEN
-
-     coll_direction_flag = 4  ! collided with the top horizontal wall ("wall below" for the particle)
-
-  ELSE IF (yorg.LE.ymin) THEN
-
-     coll_direction_flag = 2  ! collided with the bottom horizontal wall ("wall above" for the particle)
-
-  ELSE
-! error
-  END IF
-
-! check whether the point where the electron hit the object is in the non-covered or covered part
-
-  SELECT CASE (coll_direction_flag)
-     CASE (3)
-! left wall of the object, segment 1
-        mm=1
-        i = MAX(myobject%jbottom, MIN(INT(y),myobject%jtop-1))
-     CASE (4)
-! top wall of the object, segment 2
-        mm=2
-        i =  MAX(myobject%ileft, MIN(INT(x),myobject%iright-1))
-     CASE (1)
-! right wall of the object, segment 3
-        mm=3
-        i = MAX(myobject%jbottom, MIN(INT(y),myobject%jtop-1))
-     CASE (2)
-! bottom wall of the object, segment 4
-        mm=4
-        i = MAX(myobject%ileft, MIN(INT(x),myobject%iright-1))
-  END SELECT
-
-  IF (myobject%segment(mm)%cell_is_covered(i)) THEN 
-! the electron hit the object in the covered part which is not good
-! most likely there was a collision with a different object, try to find it
-! this is an unlikely situation, so some extra numerical cost here is ok
-
-     DO n = N_of_boundary_objects+1, N_of_boundary_and_inner_objects
-
-        CALL FIND_CLOSEST_INTERSECTION_WITH_OBJECT(xorg, yorg, x, y, n, mcross, xcross, ycross, rdummy)
-
-        IF (mcross.LT.0) CYCLE  ! no crossing found
-
-        SELECT CASE (mcross)
-           CASE (1)
-              coll_direction_flag = 3
-           CASE (2)
-              coll_direction_flag = 4
-           CASE (3)
-              coll_direction_flag = 1
-           CASE (4)
-              coll_direction_flag = 2
-        END SELECT
-
-        CALL DO_ELECTRON_COLL_WITH_INNER_OBJECT(xcross, ycross, vx, vy, vz, tag, whole_object(n), coll_direction_flag)
-
-        EXIT
-
-     END DO   !### DO n = N_of_boundary_objects+1, N_of_boundary_and_inner_objects
-
-  ELSE   !### IF (myobject%segment(mm)%cell_is_covered(i)) THEN 
-! the electron hit the object in the part which is not covered, proceed as usual
-
-     CALL DO_ELECTRON_COLL_WITH_INNER_OBJECT(x, y, vx, vy, vz, tag, myobject, coll_direction_flag)
-
-  END IF   !### IF (myobject%segment(mm)%cell_is_covered(i)) THEN 
-
-END SUBROUTINE TRY_ELECTRON_COLL_WITH_INNER_OBJECTold
-
 !-------------------------
 !
 REAL(8) FUNCTION vector_product_z(ax, ay, bx, by)
@@ -1101,3 +980,75 @@ REAL(8) FUNCTION vector_product_z(ax, ay, bx, by)
   vector_product_z = ax * by - ay * bx
 
 END FUNCTION vector_product_z
+
+!---------------------------------------------------------
+!
+SUBROUTINE ADD_ELECTRON_TO_BO_COLLS_LIST(coll_coord, vx, vy, vz, tag, nwo, nseg)
+
+  USE CurrentProblemValues, ONLY : e_colls_with_bo
+  USE Snapshots
+
+  IMPLICIT NONE
+
+  REAL coll_coord, vx, vy, vz
+  INTEGER tag
+  
+  INTEGER nwo   ! number of the boundary object
+  INTEGER nseg  ! number of the segment of the boundary object
+  
+  TYPE collided_particle
+     INTEGER token
+     REAL coll_coord
+     REAL VX
+     REAL VY
+     REAL VZ
+  END TYPE collided_particle
+
+  TYPE(collided_particle), ALLOCATABLE :: bufer(:)
+  INTEGER ALLOC_ERR
+
+  INTEGER k
+  INTEGER current_N
+
+  IF (.NOT.e_colls_with_bo(nwo)%must_be_saved) RETURN
+
+  IF (current_snap.GT.N_of_all_snaps) RETURN
+
+  IF (.NOT.save_e_collided_with_bo(current_snap)) RETURN
+
+  e_colls_with_bo(nwo)%N_of_saved_parts = e_colls_with_bo(nwo)%N_of_saved_parts+1
+
+  IF (e_colls_with_bo(nwo)%N_of_saved_parts.GT.e_colls_with_bo(nwo)%max_N_of_saved_parts) THEN
+! increase the size of the array
+     current_N = e_colls_with_bo(nwo)%max_N_of_saved_parts
+     ALLOCATE(bufer(1:current_N), STAT=ALLOC_ERR)
+     DO k = 1, current_N
+        bufer(k)%token      = e_colls_with_bo(nwo)%part(k)%token
+        bufer(k)%coll_coord = e_colls_with_bo(nwo)%part(k)%coll_coord
+        bufer(k)%VX         = e_colls_with_bo(nwo)%part(k)%VX
+        bufer(k)%VY         = e_colls_with_bo(nwo)%part(k)%VY
+        bufer(k)%VZ         = e_colls_with_bo(nwo)%part(k)%VZ
+     END DO
+     IF (ALLOCATED(e_colls_with_bo(nwo)%part)) DEALLOCATE(e_colls_with_bo(nwo)%part, STAT=ALLOC_ERR)
+     e_colls_with_bo(nwo)%max_N_of_saved_parts = e_colls_with_bo(nwo)%max_N_of_saved_parts + MAX(50, e_colls_with_bo(nwo)%max_N_of_saved_parts/10)
+     ALLOCATE(e_colls_with_bo(nwo)%part(1:e_colls_with_bo(nwo)%max_N_of_saved_parts), STAT=ALLOC_ERR)
+     DO k = 1, current_N
+        e_colls_with_bo(nwo)%part(k)%token      = bufer(k)%token
+        e_colls_with_bo(nwo)%part(k)%coll_coord = bufer(k)%coll_coord
+        e_colls_with_bo(nwo)%part(k)%VX         = bufer(k)%VX
+        e_colls_with_bo(nwo)%part(k)%VY         = bufer(k)%VY
+        e_colls_with_bo(nwo)%part(k)%VZ         = bufer(k)%VZ
+     END DO
+     IF (ALLOCATED(bufer)) DEALLOCATE(bufer, STAT=ALLOC_ERR)
+  END IF
+
+  k = e_colls_with_bo(nwo)%N_of_saved_parts
+
+  e_colls_with_bo(nwo)%part(k)%token = tag + 100 * nseg
+
+  e_colls_with_bo(nwo)%part(k)%coll_coord = coll_coord
+  e_colls_with_bo(nwo)%part(k)%VX = vx
+  e_colls_with_bo(nwo)%part(k)%VY = vy
+  e_colls_with_bo(nwo)%part(k)%VZ = vz
+
+END SUBROUTINE ADD_ELECTRON_TO_BO_COLLS_LIST

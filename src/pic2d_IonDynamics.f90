@@ -39,6 +39,7 @@ SUBROUTINE ADVANCE_IONS
 ! clear counters of particles that hit the boundary objects
   DO k = 1, N_of_boundary_and_inner_objects
      whole_object(k)%ion_hit_count(1:N_spec) = 0
+     ion_colls_with_bo(k)%N_of_saved_parts = 0
   END DO
 
 ! cycle over ion species

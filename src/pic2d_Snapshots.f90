@@ -33,6 +33,7 @@ SUBROUTINE INITIATE_SNAPSHOTS
   INTEGER Rqst_evdf_flag            ! requested flag defining which velocity distribution functions to save (0/1/2/3 = No/1d only/2d only/1d and 2d)
   INTEGER Rqst_pp_flag              ! requested flag defining which phase planes to save (0/1/2/3 = No/electrons only/ions only/electrons and ions)
   INTEGER Rqst_ionrate2d_flag       ! requested flag defining whether to save ionization rates (0/1 = No/Yes)
+  INTEGER Rqst_part_coll_walls      ! requested flag defining whether to save particles collided with walls (0/1/2/3 = No/electrons only/ions only/electrons and ions)
 
   INTEGER T1, T2, N1, N2 
 
@@ -45,6 +46,7 @@ SUBROUTINE INITIATE_SNAPSHOTS
   INTEGER, ALLOCATABLE :: evdf_flag_timestep(:)   ! array for temporary storage of vdf save flags
   INTEGER, ALLOCATABLE ::   pp_flag_timestep(:)   ! array for temporary storage of phase planes save flags
   INTEGER, ALLOCATABLE :: ionrate2d_flag_timestep(:)   ! array for temporary storage of ionization rate save flags
+  INTEGER, ALLOCATABLE :: part_coll_walls_flag_timestep(:)   ! array for temporary storage of particles collided with walls save flags
 
   INTEGER ALLOC_ERR
 
@@ -63,10 +65,11 @@ SUBROUTINE INITIATE_SNAPSHOTS
      STOP
   END IF
 
-  ALLOCATE(               timestep(1:9999), STAT = ALLOC_ERR)
-  ALLOCATE(     evdf_flag_timestep(1:9999), STAT = ALLOC_ERR)
-  ALLOCATE(       pp_flag_timestep(1:9999), STAT = ALLOC_ERR)
-  ALLOCATE(ionrate2d_flag_timestep(1:9999), STAT = ALLOC_ERR)
+  ALLOCATE(                     timestep(1:9999), STAT = ALLOC_ERR)
+  ALLOCATE(           evdf_flag_timestep(1:9999), STAT = ALLOC_ERR)
+  ALLOCATE(             pp_flag_timestep(1:9999), STAT = ALLOC_ERR)
+  ALLOCATE(      ionrate2d_flag_timestep(1:9999), STAT = ALLOC_ERR)
+  ALLOCATE(part_coll_walls_flag_timestep(1:9999), STAT = ALLOC_ERR)
      
   IF (Rank_of_process.EQ.0) PRINT '("### File init_snapshots is found. Reading the data file... ###")'
 
@@ -89,12 +92,12 @@ SUBROUTINE INITIATE_SNAPSHOTS
   END DO
 
   READ (9, '(A1)') buf !---dd--- Number of groups of snapshots ( >= 0 )
-  READ (9, '(3x,i2)') N_of_snap_groups
-  READ (9, '(A1)') buf !---ddddddd.ddd---ddddddd.ddd---dddd---d---d---d--- group: start (ns) / finish (ns) / number of snapshots / save VDFs (0/1/2/3 = No/1d/2d/1d+2d) / save phase planes (0/1/2/3 = No/e/i/e+i) / save ionization rates (0/1 = No/Yes)
+  READ (9, '(3x,i2)') N_of_snap_groups    ! below:: save VDFs (0/1/2/3 = No/1d/2d/1d+2d) / save phase planes (0/1/2/3 = No/e/i/e+i) / save ionization rates (0/1 = No/Yes) / save particles collided with walls (0/1/2/3 = No/e/i/e+i)
+  READ (9, '(A1)') buf !---ddddddd.ddd---ddddddd.ddd---dddd---d---d---d---d--- group: start (ns) / finish (ns) / number of snapshots / VDFs / phase planes / ionization rates / particles collided with walls
 
   DO i = 1, N_of_snap_groups
 ! read the parameters of current set of snapshot from the data file
-     READ (9, '(3x,f11.3,3x,f11.3,3x,i4,3x,i1,3x,i1,3x,i1)') Rqst_snap_start_ns, Rqst_snap_finish_ns, Rqst_n_of_snaps, Rqst_evdf_flag, Rqst_pp_flag, Rqst_ionrate2d_flag
+     READ (9, '(3x,f11.3,3x,f11.3,3x,i4,4(3x,i1))') Rqst_snap_start_ns, Rqst_snap_finish_ns, Rqst_n_of_snaps, Rqst_evdf_flag, Rqst_pp_flag, Rqst_ionrate2d_flag, Rqst_part_coll_walls
 ! try the next group of snapshots if the current group snapshot number is zero
      IF (Rqst_n_of_snaps.LT.1) CYCLE
 ! get the timestep, coinciding with the diagnostic output timestep and closest to Rqst_snap_start_ns
@@ -148,6 +151,7 @@ SUBROUTINE INITIATE_SNAPSHOTS
         evdf_flag_timestep(N_of_all_snaps) = MAX(0,MIN(3,Rqst_evdf_flag))
         pp_flag_timestep(N_of_all_snaps) = MAX(0,MIN(3,Rqst_pp_flag))
         ionrate2d_flag_timestep(N_of_all_snaps) = MAX(0,MIN(1,Rqst_ionrate2d_flag))
+        part_coll_walls_flag_timestep(N_of_all_snaps) = MAX(0,MIN(3,Rqst_part_coll_walls))
      END DO        ! end of cycle over snapshots in one set
   END DO           ! end of cycle over sets of snapshots     
 
@@ -210,9 +214,11 @@ SUBROUTINE INITIATE_SNAPSHOTS
 ! allocate the array of moments of snapshots
   ALLOCATE(Tcntr_snapshot(1:N_of_all_snaps), STAT=ALLOC_ERR)
 ! allocate control arrays
-  ALLOCATE(      save_evdf_snapshot(1:N_of_all_snaps), STAT=ALLOC_ERR)
-  ALLOCATE(        save_pp_snapshot(1:N_of_all_snaps), STAT=ALLOC_ERR)
-  ALLOCATE(save_ionization_rates_2d(1:N_of_all_snaps), STAT=ALLOC_ERR)
+  ALLOCATE(        save_evdf_snapshot(1:N_of_all_snaps), STAT=ALLOC_ERR)
+  ALLOCATE(          save_pp_snapshot(1:N_of_all_snaps), STAT=ALLOC_ERR)
+  ALLOCATE(  save_ionization_rates_2d(1:N_of_all_snaps), STAT=ALLOC_ERR)
+  ALLOCATE(save_ions_collided_with_bo(1:N_of_all_snaps), STAT=ALLOC_ERR)
+  ALLOCATE(   save_e_collided_with_bo(1:N_of_all_snaps), STAT=ALLOC_ERR)
 
 ! move the calculated snapshot moments from the temporary array to the allocated array 
       Tcntr_snapshot(1:N_of_all_snaps) =           timestep(1:N_of_all_snaps)
@@ -221,25 +227,44 @@ SUBROUTINE INITIATE_SNAPSHOTS
     save_pp_snapshot(1:N_of_all_snaps) =   pp_flag_timestep(1:N_of_all_snaps)
 ! set logical switches
   save_ionization_rates_2d = .FALSE.
+  save_ions_collided_with_bo = .FALSE.
+  save_e_collided_with_bo = .FALSE.
   DO i = 1, N_of_all_snaps
      IF (ionrate2d_flag_timestep(i).GT.0) save_ionization_rates_2d(i) = .TRUE.
+     SELECT CASE (part_coll_walls_flag_timestep(i))
+        CASE (1)
+           save_e_collided_with_bo(i) = .TRUE.
+        CASE (2)
+           save_ions_collided_with_bo(i) = .TRUE.
+        CASE (3)
+           save_e_collided_with_bo(i) = .TRUE.
+           save_ions_collided_with_bo(i) = .TRUE.
+     END SELECT    
   END DO
  
   DEALLOCATE(               timestep, STAT = ALLOC_ERR)
   DEALLOCATE(     evdf_flag_timestep, STAT = ALLOC_ERR)
   DEALLOCATE(       pp_flag_timestep, STAT = ALLOC_ERR)
   DEALLOCATE(ionrate2d_flag_timestep, STAT = ALLOC_ERR)
+  DEALLOCATE(part_coll_walls_flag_timestep, STAT = ALLOC_ERR)
  
   IF (Rank_of_process.EQ.0) THEN 
      PRINT '("### The program will create ",i4," snapshots ###")', N_of_all_snaps
 
 ! write moments of snapshot creation into the file
      OPEN (41, FILE = '_snapmoments.dat')
-!                 "--****-----*******.*****----********----*----*----*"
-     WRITE (41, '(" number       time(ns)       T_cntr    vdf  pp  ioniz")')
+!                 "--****-----*******.*****----********----*----*----*----*----*"
+     WRITE (41, '(" number       time(ns)       T_cntr    vdf  pp  ioniz icbo ecbo ")')
      DO i = 1, N_of_all_snaps
-        WRITE (41, '(2x,i4,5x,f13.5,4x,i8,4x,i1,4x,i1,4x,L1)') &
-             & i, Tcntr_snapshot(i) * 1.0d9 * delta_t_s, Tcntr_snapshot(i), save_evdf_snapshot(i), save_pp_snapshot(i), save_ionization_rates_2d(i)
+        WRITE (41, '(2x,i4,5x,f13.5,4x,i8,4x,i1,4x,i1,4x,L1,4x,L1,4x,L1)') &
+             & i, &
+             & Tcntr_snapshot(i) * 1.0d9 * delta_t_s, &
+             & Tcntr_snapshot(i), &
+             & save_evdf_snapshot(i), &
+             & save_pp_snapshot(i), &
+             & save_ionization_rates_2d(i), &
+             & save_ions_collided_with_bo(i), &
+             & save_e_collided_with_bo(i)
      END DO
      CLOSE (41, STATUS = 'KEEP')
   END IF
@@ -2004,6 +2029,337 @@ END SUBROUTINE SAVE_en_COLLISIONS_2D
 
 !---------------------------------------------------------------------------------------------------
 !
+SUBROUTINE SAVE_IONS_COLLIDED_WITH_BOUNDARY_OBJECTS
+
+  USE ParallelOperationValues
+  USE CurrentProblemValues, ONLY : N_subcycles, T_cntr, N_of_boundary_and_inner_objects, delta_t_s, &
+                                 & delta_x_m, V_scale_ms, N_scale_part_m3, ion_colls_with_bo, whole_object
+  USE IonParticles, ONLY : N_spec, M_i_amu
+  USE Snapshots
+
+  IMPLICIT NONE
+
+  INCLUDE 'mpif.h'
+
+  INTEGER ierr
+  INTEGER stattus(MPI_STATUS_SIZE)
+  INTEGER request
+
+  LOGICAL start_new_bo_coll_file
+  LOGICAL this_was_last_record_to_bo_coll_file
+
+  INTEGER shortibuf1(1), shortibuf2(1)
+
+  CHARACTER(34) filename      ! _NNNN_ions_collided_with_bo_NN.bin
+                              ! ----x----I----x----I----x----I----
+  INTEGER file_handle
+
+  INTEGER n, pos, bufsize, ibufsize, m, s, k
+
+  REAL, ALLOCATABLE :: rbufer(:)
+  INTEGER, ALLOCATABLE :: ibufer(:)
+  INTEGER ALLOC_ERR
+
+  INTERFACE
+     FUNCTION convert_int_to_txt_string(int_number, length_of_string)
+       CHARACTER*(length_of_string) convert_int_to_txt_string
+       INTEGER int_number
+       INTEGER length_of_string
+     END FUNCTION convert_int_to_txt_string
+  END INTERFACE
+
+  IF (current_snap.GT.N_of_all_snaps) RETURN
+
+  IF (.NOT.save_ions_collided_with_bo(current_snap)) RETURN
+
+  start_new_bo_coll_file = .FALSE.
+  this_was_last_record_to_bo_coll_file = .FALSE.
+
+! this procedure is called after the ion advance 
+  IF (current_snap.EQ.1) THEN
+! for the very first snapshot, make the first record at the first ion advance time step
+     IF (T_cntr.LT.N_subcycles) start_new_bo_coll_file = .TRUE.
+  ELSE
+! make the first record at the ion advance time step which is the closest to (and follows) the time step of the previous snapshot
+     IF ((T_cntr-Tcntr_snapshot(current_snap-1)).LT.N_subcycles) start_new_bo_coll_file = .TRUE.
+  END IF
+
+! the last record is made at the ion advance time step which is the closest to (and precede) the time step of the current  snapshot
+  IF ((Tcntr_snapshot(current_snap)-T_cntr).LE.N_subcycles) this_was_last_record_to_bo_coll_file = .TRUE.
+
+  DO n = 1, N_of_boundary_and_inner_objects
+
+     IF (.NOT.ion_colls_with_bo(n)%must_be_saved) CYCLE
+
+     shortibuf1(1) = ion_colls_with_bo(n)%N_of_saved_parts
+     shortibuf2(1) = 0
+
+     CALL MPI_REDUCE(shortibuf1, shortibuf2, 1, MPI_INTEGER, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
+
+     filename = '_NNNN_ions_collided_with_bo_NN.bin'
+     filename(2:5) = convert_int_to_txt_string(current_snap, 4)
+     filename(29:30) = convert_int_to_txt_string(n, 2)
+
+     pos = 1
+     bufsize = 5 * ion_colls_with_bo(n)%N_of_saved_parts
+     ALLOCATE(rbufer(1:(bufsize+4+N_spec+2)), STAT=ALLOC_ERR)  ! 4+N_spec+2 allows same process save 
+                                                               ! start time, mesh size, scale density to particle number ratio, scale_velocity, 
+                                                               ! ion masses, total number of particles (from all processes), and record time
+
+     IF (start_new_bo_coll_file) THEN
+        CALL MPI_FILE_OPEN( MPI_COMM_WORLD, &
+                          & filename,  &
+                          & MPI_MODE_WRONLY + MPI_MODE_CREATE, & 
+                          & MPI_INFO_NULL, &
+                          & file_handle, &
+                          & ierr )
+
+        IF (Rank_of_process.EQ.0) THEN
+
+           PRINT '("Started creating file ",A34)', filename
+
+! the first process saves the following additional values
+! integers: the number of segments, the segment ends coordinates, the number of ion species
+           ibufsize = 2 + 4 * whole_object(n)%number_of_segments
+           ALLOCATE(ibufer(1:ibufsize), STAT=ALLOC_ERR)
+           ibufer(1) = whole_object(n)%number_of_segments
+           DO m = 1, whole_object(n)%number_of_segments
+              ibufer(1+4*(m-1)+1) = whole_object(n)%segment(m)%istart
+              ibufer(1+4*(m-1)+2) = whole_object(n)%segment(m)%jstart
+              ibufer(1+4*(m-1)+3) = whole_object(n)%segment(m)%iend
+              ibufer(1+4*(m-1)+4) = whole_object(n)%segment(m)%jend
+           END DO
+           ibufer(ibufsize) = N_spec
+           
+! reals : time when the set begins (ns), mesh size (m), density of one macroparticle, scale velocity
+           bufsize = bufsize+4+N_spec
+           rbufer(1) = (T_cntr - N_subcycles) * (delta_t_s * 1.0d9) ! start time [ns]
+           rbufer(2) = delta_x_m
+           rbufer(3) = N_scale_part_m3
+           rbufer(4) = V_scale_ms
+           DO s = 1, N_spec
+              rbufer(4+s) = M_i_amu(s)
+           END DO
+           pos = 4 + N_spec + 1
+
+        ELSE
+           ALLOCATE(ibufer(1), STAT=ALLOC_ERR)
+           ibufsize=0
+        END IF
+! here only the zero rank process actually writes integer data, other processes do a zero-length record, that is nothing
+! and this happens only when the file was opened or the very first time (created)
+        CALL MPI_FILE_WRITE_ORDERED( file_handle, ibufer, ibufsize, MPI_INTEGER, stattus, ierr )
+     ELSE
+        CALL MPI_FILE_OPEN( MPI_COMM_WORLD, &
+                          & filename,  &
+                          & MPI_MODE_WRONLY + MPI_MODE_APPEND, & 
+                          & MPI_INFO_NULL, &
+                          & file_handle, &
+                          & ierr )
+     END IF
+
+     IF (Rank_of_process.EQ.0) THEN
+        rbufer(pos) = T_cntr * (delta_t_s * 1.0d9) ! record time [ns]
+        rbufer(pos+1) = shortibuf2(1)
+        bufsize = bufsize+2
+        pos = pos+2
+     END IF
+
+     DO k = 1, ion_colls_with_bo(n)%N_of_saved_parts
+        rbufer(pos)   = ion_colls_with_bo(n)%part(k)%token
+        rbufer(pos+1) = ion_colls_with_bo(n)%part(k)%coll_coord
+        rbufer(pos+2) = ion_colls_with_bo(n)%part(k)%VX
+        rbufer(pos+3) = ion_colls_with_bo(n)%part(k)%VY
+        rbufer(pos+4) = ion_colls_with_bo(n)%part(k)%VZ
+        pos = pos+5
+     END DO
+
+     CALL MPI_FILE_WRITE_ORDERED( file_handle, rbufer, bufsize, MPI_REAL, stattus, ierr )
+
+     CALL MPI_FILE_CLOSE(file_handle, ierr)
+
+     IF (Rank_of_process.EQ.0) THEN
+        IF (this_was_last_record_to_bo_coll_file) PRINT '("Finished creating file ",A34)', filename
+     END IF
+
+! cleanup
+     IF (ALLOCATED(rbufer)) DEALLOCATE(rbufer, STAT=ALLOC_ERR)
+     IF (ALLOCATED(ibufer)) DEALLOCATE(ibufer, STAT=ALLOC_ERR)
+
+  END DO
+
+END SUBROUTINE SAVE_IONS_COLLIDED_WITH_BOUNDARY_OBJECTS
+
+!---------------------------------------------------------------------------------------------------
+!
+SUBROUTINE SAVE_ELECTRONS_COLLIDED_WITH_BOUNDARY_OBJECTS
+
+  USE ParallelOperationValues
+  USE CurrentProblemValues, ONLY : N_subcycles, T_cntr, N_of_boundary_and_inner_objects, delta_t_s, &
+                                 & delta_x_m, V_scale_ms, N_scale_part_m3, e_colls_with_bo, whole_object
+  USE Snapshots
+
+  IMPLICIT NONE
+
+  INCLUDE 'mpif.h'
+
+  INTEGER ierr
+  INTEGER stattus(MPI_STATUS_SIZE)
+  INTEGER request
+
+  LOGICAL start_new_bo_coll_file
+  LOGICAL this_was_last_record_to_bo_coll_file
+
+  INTEGER shortibuf1(1), shortibuf2(1)
+
+  CHARACTER(31) filename      ! _NNNN_e_collided_with_bo_NN.bin
+                              ! ----x----I----x----I----x----I-
+  INTEGER file_handle
+
+  INTEGER n, pos, bufsize, ibufsize, m, k
+
+  REAL, ALLOCATABLE :: rbufer(:)
+  INTEGER, ALLOCATABLE :: ibufer(:)
+  INTEGER ALLOC_ERR
+
+  INTERFACE
+     FUNCTION convert_int_to_txt_string(int_number, length_of_string)
+       CHARACTER*(length_of_string) convert_int_to_txt_string
+       INTEGER int_number
+       INTEGER length_of_string
+     END FUNCTION convert_int_to_txt_string
+  END INTERFACE
+
+  IF (current_snap.GT.N_of_all_snaps) RETURN
+
+  IF (.NOT.save_e_collided_with_bo(current_snap)) RETURN
+
+  start_new_bo_coll_file = .FALSE.
+  this_was_last_record_to_bo_coll_file = .FALSE.
+
+! note, in the main cycle the order of subroutines is
+! CREATE_SNAPSHOT => ADVANCE_ELECTRONS => SAVE_ELECTRONS_COLLIDED_WITH_BOUNDARY_OBJECTS
+!
+! if Tcntr_snapshot(1)>0 then the very first call of SAVE_ELECTRONS_COLLIDED_WITH_BOUNDARY_OBJECTS @ Tcntr=0 is when current_snap == 1
+! in this case the first branch of the IF below works
+!
+! if Tcntr_snapshot(1)==0 then the very first call of SAVE_ELECTRONS_COLLIDED_WITH_BOUNDARY_OBJECTS @ T_cntr=0 is when current_snap == 2 (or larger)
+! in this case the second branch of the IF below works
+
+! this procedure is called after the electron advance 
+  IF (current_snap.EQ.1) THEN
+! for the very first snapshot, make the first record at the first time step
+     IF (T_cntr.EQ.0) start_new_bo_coll_file = .TRUE.
+  ELSE
+! make the first record at the time step when the previous snapshot was created
+     IF (T_cntr.EQ.Tcntr_snapshot(current_snap-1)) start_new_bo_coll_file = .TRUE.
+  END IF
+
+! the last record is made at the time step which precedes the time step of the current snapshot
+  IF (T_cntr.EQ.(Tcntr_snapshot(current_snap)-1)) this_was_last_record_to_bo_coll_file = .TRUE.
+
+  DO n = 1, N_of_boundary_and_inner_objects
+
+     IF (.NOT.e_colls_with_bo(n)%must_be_saved) CYCLE
+
+     shortibuf1(1) = e_colls_with_bo(n)%N_of_saved_parts
+     shortibuf2(1) = 0
+
+     CALL MPI_REDUCE(shortibuf1, shortibuf2, 1, MPI_INTEGER, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
+
+     filename = '_NNNN_e_collided_with_bo_NN.bin'
+     filename(2:5) = convert_int_to_txt_string(current_snap, 4)
+     filename(26:27) = convert_int_to_txt_string(n, 2)
+
+     pos = 1
+     bufsize = 5 * e_colls_with_bo(n)%N_of_saved_parts
+     ALLOCATE(rbufer(1:(bufsize+6)), STAT=ALLOC_ERR)  ! 6=4+2 allows same process save 
+                                                      ! start time, mesh size, scale density to particle number ratio, scale_velocity, 
+                                                      ! total number of particles (from all processes), and record time
+                                                      ! (reserved fora an improbable case when one process has to save everything)
+
+     IF (start_new_bo_coll_file) THEN
+        CALL MPI_FILE_OPEN( MPI_COMM_WORLD, &
+                          & filename,  &
+                          & MPI_MODE_WRONLY + MPI_MODE_CREATE, & 
+                          & MPI_INFO_NULL, &
+                          & file_handle, &
+                          & ierr )
+
+        IF (Rank_of_process.EQ.0) THEN
+
+           PRINT '("Started creating file ",A31)', filename
+
+! the first process saves the following additional values
+! integers: the number of segments, the segment ends coordinates, the number of ion species
+           ibufsize = 1 + 4 * whole_object(n)%number_of_segments
+           ALLOCATE(ibufer(1:ibufsize), STAT=ALLOC_ERR)
+           ibufer(1) = whole_object(n)%number_of_segments
+           DO m = 1, whole_object(n)%number_of_segments
+              ibufer(1+4*(m-1)+1) = whole_object(n)%segment(m)%istart
+              ibufer(1+4*(m-1)+2) = whole_object(n)%segment(m)%jstart
+              ibufer(1+4*(m-1)+3) = whole_object(n)%segment(m)%iend
+              ibufer(1+4*(m-1)+4) = whole_object(n)%segment(m)%jend
+           END DO
+           
+! reals : time when the set begins (ns), mesh size (m), density of one macroparticle, scale velocity
+           bufsize = bufsize+4
+           rbufer(1) = (T_cntr - 1) * (delta_t_s * 1.0d9) ! start time [ns]
+           rbufer(2) = delta_x_m
+           rbufer(3) = N_scale_part_m3
+           rbufer(4) = V_scale_ms
+           pos = 5
+
+        ELSE
+           ALLOCATE(ibufer(1), STAT=ALLOC_ERR)
+           ibufsize=0
+        END IF
+! here only the zero rank process actually writes integer data, other processes do a zero-length record, that is nothing
+! and this happens only when the file was opened or the very first time (created)
+        CALL MPI_FILE_WRITE_ORDERED( file_handle, ibufer, ibufsize, MPI_INTEGER, stattus, ierr )
+     ELSE
+        CALL MPI_FILE_OPEN( MPI_COMM_WORLD, &
+                          & filename,  &
+                          & MPI_MODE_WRONLY + MPI_MODE_APPEND, & 
+                          & MPI_INFO_NULL, &
+                          & file_handle, &
+                          & ierr )
+     END IF
+
+     IF (Rank_of_process.EQ.0) THEN
+        rbufer(pos) = T_cntr * (delta_t_s * 1.0d9) ! record time [ns]
+        rbufer(pos+1) = shortibuf2(1)
+        bufsize = bufsize+2
+        pos = pos+2
+     END IF
+
+     DO k = 1, e_colls_with_bo(n)%N_of_saved_parts
+        rbufer(pos)   = e_colls_with_bo(n)%part(k)%token
+        rbufer(pos+1) = e_colls_with_bo(n)%part(k)%coll_coord
+        rbufer(pos+2) = e_colls_with_bo(n)%part(k)%VX
+        rbufer(pos+3) = e_colls_with_bo(n)%part(k)%VY
+        rbufer(pos+4) = e_colls_with_bo(n)%part(k)%VZ
+        pos = pos+5
+     END DO
+
+     CALL MPI_FILE_WRITE_ORDERED( file_handle, rbufer, bufsize, MPI_REAL, stattus, ierr )
+
+     CALL MPI_FILE_CLOSE(file_handle, ierr)
+
+     IF (Rank_of_process.EQ.0) THEN
+        IF (this_was_last_record_to_bo_coll_file) PRINT '("Finished creating file ",A31)', filename
+     END IF
+
+! cleanup
+     IF (ALLOCATED(rbufer)) DEALLOCATE(rbufer, STAT=ALLOC_ERR)
+     IF (ALLOCATED(ibufer)) DEALLOCATE(ibufer, STAT=ALLOC_ERR)
+
+  END DO
+
+END SUBROUTINE SAVE_ELECTRONS_COLLIDED_WITH_BOUNDARY_OBJECTS
+
+!---------------------------------------------------------------------------------------------------
+!
 SUBROUTINE FINISH_SNAPSHOTS
 
   USE Snapshots
@@ -2015,5 +2371,7 @@ SUBROUTINE FINISH_SNAPSHOTS
   IF (ALLOCATED(save_evdf_snapshot)) DEALLOCATE(save_evdf_snapshot, STAT=DEALLOC_ERR)
   IF (ALLOCATED(save_pp_snapshot)) DEALLOCATE(save_pp_snapshot, STAT=DEALLOC_ERR)
   IF (ALLOCATED(save_ionization_rates_2d)) DEALLOCATE(save_ionization_rates_2d, STAT=DEALLOC_ERR)
+  IF (ALLOCATED(save_ions_collided_with_bo)) DEALLOCATE(save_ions_collided_with_bo, STAT=DEALLOC_ERR)
+  IF (ALLOCATED(save_e_collided_with_bo)) DEALLOCATE(save_e_collided_with_bo, STAT=DEALLOC_ERR)
 
 END SUBROUTINE FINISH_SNAPSHOTS

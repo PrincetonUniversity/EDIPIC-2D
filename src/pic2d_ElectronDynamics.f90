@@ -38,6 +38,7 @@ SUBROUTINE ADVANCE_ELECTRONS
 
 ! clear counters of particles that hit boundary objects
   whole_object(1:N_of_boundary_and_inner_objects)%electron_hit_count = 0
+  e_colls_with_bo(1:N_of_boundary_and_inner_objects)%N_of_saved_parts = 0
 
 ! clear counters of particles emitted by boundary objects in order to account for the secondary electron emission
   whole_object(1:N_of_boundary_and_inner_objects)%electron_emit_count = 0  !### ?????

@@ -170,6 +170,9 @@ SUBROUTINE INITIATE_PARAMETERS
 
   ALLOCATE(whole_object(1:N_of_boundary_and_inner_objects), STAT=ALLOC_ERR)
 
+  ALLOCATE(ion_colls_with_bo(1:N_of_boundary_and_inner_objects), STAT=ALLOC_ERR)
+  ALLOCATE(  e_colls_with_bo(1:N_of_boundary_and_inner_objects), STAT=ALLOC_ERR)
+
   DO n = 1, N_of_boundary_objects
      READ (9, '(A1)') buf !"===dd===dd=== object type, number of segments")')
      READ (9, '(3x,i2,3x,i2)') whole_object(n)%object_type, &
@@ -2732,7 +2735,7 @@ SUBROUTINE DISTRIBUTE_CLUSTER_PARAMETERS
                   & 4 + &
                   & 2 + &
                   & 2 + &
-                  & 5 * c_N_of_local_object_parts + &
+                  & 6 * c_N_of_local_object_parts + &
                   & c_N_of_local_object_parts_left + &
                   & c_N_of_local_object_parts_right + &
                   & c_N_of_local_object_parts_above + &
@@ -2795,12 +2798,12 @@ SUBROUTINE DISTRIBUTE_CLUSTER_PARAMETERS
      pos=22
      DO n = 1, c_N_of_local_object_parts 
         ibufer(pos+1) = c_local_object_part(n)%object_number
-!##### note that particle calculators do not get/use c_local_object_part(n)%%segment_number ##########
-        ibufer(pos+2) = c_local_object_part(n)%istart
-        ibufer(pos+3) = c_local_object_part(n)%jstart
-        ibufer(pos+4) = c_local_object_part(n)%iend
-        ibufer(pos+5) = c_local_object_part(n)%jend
-        pos=pos+5
+        ibufer(pos+2) = c_local_object_part(n)%segment_number
+        ibufer(pos+3) = c_local_object_part(n)%istart
+        ibufer(pos+4) = c_local_object_part(n)%jstart
+        ibufer(pos+5) = c_local_object_part(n)%iend
+        ibufer(pos+6) = c_local_object_part(n)%jend
+        pos=pos+6
      END DO
 
      DO n = 1, c_N_of_local_object_parts_left
@@ -2927,11 +2930,12 @@ SUBROUTINE DISTRIBUTE_CLUSTER_PARAMETERS
 
      pos=22
      DO n = 1, c_N_of_local_object_parts 
-        c_local_object_part(n)%object_number = ibufer(pos+1)
-        c_local_object_part(n)%istart        = ibufer(pos+2)
-        c_local_object_part(n)%jstart        = ibufer(pos+3)
-        c_local_object_part(n)%iend          = ibufer(pos+4)
-        c_local_object_part(n)%jend          = ibufer(pos+5)
+        c_local_object_part(n)%object_number  = ibufer(pos+1)
+        c_local_object_part(n)%segment_number = ibufer(pos+2)
+        c_local_object_part(n)%istart         = ibufer(pos+3)
+        c_local_object_part(n)%jstart         = ibufer(pos+4)
+        c_local_object_part(n)%iend           = ibufer(pos+5)
+        c_local_object_part(n)%jend           = ibufer(pos+6)
 
 ! for dielectric walls
         IF (whole_object(c_local_object_part(n)%object_number)%object_type.EQ.DIELECTRIC) THEN
@@ -2952,9 +2956,8 @@ SUBROUTINE DISTRIBUTE_CLUSTER_PARAMETERS
            END IF
         END IF
 
-        pos=pos+5
+        pos=pos+6
      END DO
-
 
      DO n = 1, c_N_of_local_object_parts_left
         c_index_of_local_object_part_left(n) = ibufer(pos+n)

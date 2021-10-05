@@ -55,7 +55,7 @@ PROGRAM MainProg
 
   DO T_cntr = Start_T_cntr, Max_T_cntr
 
-if (Rank_of_process.eq.0) print *, T_cntr
+     if (Rank_of_process.eq.0) print *, T_cntr
 
      t0 = MPI_WTIME()
 
@@ -69,7 +69,7 @@ if (Rank_of_process.eq.0) print *, T_cntr
 
      t1 = MPI_WTIME()
 
-call report_total_number_of_particles
+     call report_total_number_of_particles
 
      IF (T_cntr.EQ.T_cntr_global_load_balance) THEN
         IF (n_sub.NE.0) THEN
@@ -161,6 +161,11 @@ call report_total_number_of_particles
 
      CALL ADVANCE_ELECTRONS                      !   velocity: n-1/2 ---> n+1/2
                                                  ! coordinate: n     ---> n+1
+
+     CALL MPI_BARRIER(MPI_COMM_WORLD, ierr) 
+
+     CALL SAVE_ELECTRONS_COLLIDED_WITH_BOUNDARY_OBJECTS
+
      IF ((n_sub+1).NE.N_subcycles) CALL FIND_ALIENS_IN_ELECTRON_ADD_LIST        ! when n_sub+1==N_subcycles, the ions will be advanced below
                                                                                 ! there may be more electrons in the electron_to_add array due to ion-induced SEE
                                                                                 ! so at this timestep we call this procedure later, inside the ion IF clause
@@ -176,6 +181,11 @@ call report_total_number_of_particles
 
         CALL ADVANCE_IONS                      !   velocity: n-N_e_subcycles+1/2 ---> n+1/2
                                                ! coordinate: n-int(N_e_subcycles/2) ---> n-int(N_e_subcycles/2)+N_e_subcycles
+
+        CALL MPI_BARRIER(MPI_COMM_WORLD, ierr) 
+
+        CALL SAVE_IONS_COLLIDED_WITH_BOUNDARY_OBJECTS
+
         ions_moved = .TRUE.
         CALL FIND_ALIENS_IN_ION_ADD_LIST
         CALL FIND_ALIENS_IN_ELECTRON_ADD_LIST

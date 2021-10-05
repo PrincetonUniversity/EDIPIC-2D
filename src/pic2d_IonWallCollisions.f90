@@ -38,6 +38,8 @@ SUBROUTINE PROCESS_ION_COLL_WITH_BOUNDARY_LEFT(s, x, y, vx, vy, vz, tag)
 
         whole_object(nwo)%ion_hit_count(s) = whole_object(nwo)%ion_hit_count(s) + 1
 
+        CALL ADD_ION_TO_BO_COLLS_LIST(s, REAL(y), REAL(vx), REAL(vy), REAL(vz), tag, nwo, c_local_object_part(m)%segment_number)
+
         IF (whole_object(nwo)%reflects_all_ions) THEN
            CALL INJECT_REFLECTED_ION(s, x, y, vx, vy, vz, tag, whole_object(nwo), m, 1)   ! "1" is for a left wall 
            particle_not_processed = .FALSE.
@@ -115,6 +117,8 @@ SUBROUTINE PROCESS_ION_COLL_WITH_BOUNDARY_RIGHT(s, x, y, vx, vy, vz, tag)
         nwo = c_local_object_part(m)%object_number
 
         whole_object(nwo)%ion_hit_count(s) = whole_object(nwo)%ion_hit_count(s) + 1
+
+        CALL ADD_ION_TO_BO_COLLS_LIST(s, REAL(y), REAL(vx), REAL(vy), REAL(vz), tag, nwo, c_local_object_part(m)%segment_number)
 
         IF (whole_object(nwo)%reflects_all_ions) THEN
            CALL INJECT_REFLECTED_ION(s, x, y, vx, vy, vz, tag, whole_object(nwo), m, 3)   ! "3" is for a right wall 
@@ -194,6 +198,8 @@ SUBROUTINE PROCESS_ION_COLL_WITH_BOUNDARY_BELOW(s, x, y, vx, vy, vz, tag)
 
         whole_object(nwo)%ion_hit_count(s) = whole_object(nwo)%ion_hit_count(s) + 1
 
+        CALL ADD_ION_TO_BO_COLLS_LIST(s, REAL(x), REAL(vx), REAL(vy), REAL(vz), tag, nwo, c_local_object_part(m)%segment_number)
+
         IF (whole_object(nwo)%reflects_all_ions) THEN
            CALL INJECT_REFLECTED_ION(s, x, y, vx, vy, vz, tag, whole_object(nwo), m, 4)   ! "4" is for a wall below
            particle_not_processed = .FALSE.
@@ -271,6 +277,8 @@ SUBROUTINE PROCESS_ION_COLL_WITH_BOUNDARY_ABOVE(s, x, y, vx, vy, vz, tag)
         nwo = c_local_object_part(m)%object_number
 
         whole_object(nwo)%ion_hit_count(s) = whole_object(nwo)%ion_hit_count(s) + 1
+
+        CALL ADD_ION_TO_BO_COLLS_LIST(s, REAL(x), REAL(vx), REAL(vy), REAL(vz), tag, nwo, c_local_object_part(m)%segment_number)
 
         IF (whole_object(nwo)%reflects_all_ions) THEN
            CALL INJECT_REFLECTED_ION(s, x, y, vx, vy, vz, tag, whole_object(nwo), m, 2)   ! "2" is for a wall above
@@ -412,6 +420,8 @@ SUBROUTINE TRY_ION_COLL_WITH_INNER_OBJECT(s, x, y, vx, vy, vz, tag)
 
   INTEGER coll_direction_flag
 
+  REAL coll_coord   ! coordinate of collision point, y/x for collisions with vertical/horizontal segments, respectively
+
   xorg = x - vx*N_subcycles
   yorg = y - vy*N_subcycles
 
@@ -451,13 +461,19 @@ SUBROUTINE TRY_ION_COLL_WITH_INNER_OBJECT(s, x, y, vx, vy, vz, tag)
   SELECT CASE (mcross)
      CASE (1)
         coll_direction_flag = 3
+        coll_coord = REAL(ycross)
      CASE (2)
         coll_direction_flag = 4
+        coll_coord = REAL(xcross)
      CASE (3)
         coll_direction_flag = 1
+        coll_coord = REAL(ycross)
      CASE (4)
         coll_direction_flag = 2
+        coll_coord = REAL(xcross)
   END SELECT
+
+  CALL ADD_ION_TO_BO_COLLS_LIST(s, coll_coord, REAL(vx), REAL(vy), REAL(vz), tag, n_do, mcross)
 
   CALL DO_ION_COLL_WITH_INNER_OBJECT(s, xcross, ycross, vx, vy, vz, tag, whole_object(n_do), coll_direction_flag)
 
@@ -1084,3 +1100,76 @@ SUBROUTINE GATHER_SURFACE_CHARGE_DENSITY_INNER_OBJECTS
   RETURN
 
 END SUBROUTINE GATHER_SURFACE_CHARGE_DENSITY_INNER_OBJECTS
+
+!---------------------------------------------------------
+!
+SUBROUTINE ADD_ION_TO_BO_COLLS_LIST(s, coll_coord, vx, vy, vz, tag, nwo, nseg)
+
+  USE CurrentProblemValues, ONLY : ion_colls_with_bo
+  USE Snapshots
+
+  IMPLICIT NONE
+
+  INTEGER s
+  REAL coll_coord, vx, vy, vz
+  INTEGER tag
+  
+  INTEGER nwo   ! number of the boundary object
+  INTEGER nseg  ! number of the segment of the boundary object
+  
+  TYPE collided_particle
+     INTEGER token
+     REAL coll_coord
+     REAL VX
+     REAL VY
+     REAL VZ
+  END TYPE collided_particle
+
+  TYPE(collided_particle), ALLOCATABLE :: bufer(:)
+  INTEGER ALLOC_ERR
+
+  INTEGER k
+  INTEGER current_N
+
+  IF (.NOT.ion_colls_with_bo(nwo)%must_be_saved) RETURN
+
+  IF (current_snap.GT.N_of_all_snaps) RETURN
+
+  IF (.NOT.save_ions_collided_with_bo(current_snap)) RETURN
+
+  ion_colls_with_bo(nwo)%N_of_saved_parts = ion_colls_with_bo(nwo)%N_of_saved_parts+1
+
+  IF (ion_colls_with_bo(nwo)%N_of_saved_parts.GT.ion_colls_with_bo(nwo)%max_N_of_saved_parts) THEN
+! increase the size of the array
+     current_N = ion_colls_with_bo(nwo)%max_N_of_saved_parts
+     ALLOCATE(bufer(1:current_N), STAT=ALLOC_ERR)
+     DO k = 1, current_N
+        bufer(k)%token      = ion_colls_with_bo(nwo)%part(k)%token
+        bufer(k)%coll_coord = ion_colls_with_bo(nwo)%part(k)%coll_coord
+        bufer(k)%VX         = ion_colls_with_bo(nwo)%part(k)%VX
+        bufer(k)%VY         = ion_colls_with_bo(nwo)%part(k)%VY
+        bufer(k)%VZ         = ion_colls_with_bo(nwo)%part(k)%VZ
+     END DO
+     IF (ALLOCATED(ion_colls_with_bo(nwo)%part)) DEALLOCATE(ion_colls_with_bo(nwo)%part, STAT=ALLOC_ERR)
+     ion_colls_with_bo(nwo)%max_N_of_saved_parts = ion_colls_with_bo(nwo)%max_N_of_saved_parts + MAX(50, ion_colls_with_bo(nwo)%max_N_of_saved_parts/10)
+     ALLOCATE(ion_colls_with_bo(nwo)%part(1:ion_colls_with_bo(nwo)%max_N_of_saved_parts), STAT=ALLOC_ERR)
+     DO k = 1, current_N
+        ion_colls_with_bo(nwo)%part(k)%token      = bufer(k)%token
+        ion_colls_with_bo(nwo)%part(k)%coll_coord = bufer(k)%coll_coord
+        ion_colls_with_bo(nwo)%part(k)%VX         = bufer(k)%VX
+        ion_colls_with_bo(nwo)%part(k)%VY         = bufer(k)%VY
+        ion_colls_with_bo(nwo)%part(k)%VZ         = bufer(k)%VZ
+     END DO
+     IF (ALLOCATED(bufer)) DEALLOCATE(bufer, STAT=ALLOC_ERR)
+  END IF
+
+  k = ion_colls_with_bo(nwo)%N_of_saved_parts
+
+  ion_colls_with_bo(nwo)%part(k)%token = tag + 100 * nseg + 10000 * s
+
+  ion_colls_with_bo(nwo)%part(k)%coll_coord = coll_coord
+  ion_colls_with_bo(nwo)%part(k)%VX = vx
+  ion_colls_with_bo(nwo)%part(k)%VY = vy
+  ion_colls_with_bo(nwo)%part(k)%VZ = vz
+
+END SUBROUTINE ADD_ION_TO_BO_COLLS_LIST

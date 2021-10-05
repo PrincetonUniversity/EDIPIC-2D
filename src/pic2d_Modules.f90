@@ -353,13 +353,30 @@ MODULE CurrentProblemValues
 
   INTEGER N_of_boundary_objects
   INTEGER N_of_inner_objects
+! inner objects can only be of type METAL_WALL or DIELECTRIC
+! inner objects may overlap
+! inner objects may touch the boundary of the domain
   INTEGER N_of_boundary_and_inner_objects  ! = N_of_boundary_objects + N_of_inner_objects
 
   TYPE(boundary_object), ALLOCATABLE :: whole_object(:)
 
-!  TYPE(boundary_object), ALLOCATABLE :: inner_object(:) ! inner objects can only be of type METAL_WALL or DIELECTRIC
-!                                                        ! inner objects may overlap
-!                                                        ! inner objects may touch the boundary of the domain
+  TYPE collided_particle
+     INTEGER token
+     REAL coll_coord
+     REAL VX
+     REAL VY
+     REAL VZ
+  END TYPE collided_particle
+
+  TYPE boundary_object_statistics
+     LOGICAL must_be_saved
+     INTEGER max_N_of_saved_parts
+     INTEGER N_of_saved_parts
+     TYPE(collided_particle), ALLOCATABLE :: part(:)
+  END TYPE boundary_object_statistics
+
+  TYPE(boundary_object_statistics), ALLOCATABLE :: ion_colls_with_bo(:)
+  TYPE(boundary_object_statistics), ALLOCATABLE :: e_colls_with_bo(:)
 
   REAL(8), ALLOCATABLE :: EX(:,:)        ! these arrays cover the whole cluster
   REAL(8), ALLOCATABLE :: EY(:,:)        !
@@ -779,6 +796,12 @@ MODULE Snapshots
   INTEGER, ALLOCATABLE ::   save_pp_snapshot(:)     ! flags controlling saving of phase planes
 
   LOGICAL, ALLOCATABLE :: save_ionization_rates_2d(:)   ! turns on/off accumulation and saving of ioniization rates
+
+  LOGICAL, ALLOCATABLE :: save_ions_collided_with_bo(:)    ! turns on/off saving of ions collided with boundary objects
+                                                           ! (this must be confirmed by individual request for each boundary object)
+
+  LOGICAL, ALLOCATABLE :: save_e_collided_with_bo(:)    ! turns on/off saving of electrons collided with boundary objects
+                                                        ! (this must be confirmed by individual request for each boundary object)
 
   INTEGER current_snap                          ! index of current snapshot (which must be created)
 

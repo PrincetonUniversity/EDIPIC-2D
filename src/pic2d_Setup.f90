@@ -22,6 +22,11 @@ SUBROUTINE PREPARE_SETUP_VALUES
   REAL(8) Te_parallel_constant_emit_eV
   REAL(8) We_beam_constant_emit_eV
 
+  INTEGER save_collided_ions_flag
+  INTEGER save_collided_electrons_flag
+
+  INTEGER ALLOC_ERR
+
   INTERFACE
      FUNCTION convert_int_to_txt_string(int_number, length_of_string)
        CHARACTER*(length_of_string) convert_int_to_txt_string
@@ -42,6 +47,15 @@ SUBROUTINE PREPARE_SETUP_VALUES
      whole_object(n)%factor_convert_vinj_normal_constant_emit = 0.0_8
      whole_object(n)%factor_convert_vinj_parallel_constant_emit = 0.0_8
      whole_object(n)%v_ebeam_constant_emit = 0.0_8
+
+     ion_colls_with_bo(n)%must_be_saved = .FALSE.
+       e_colls_with_bo(n)%must_be_saved = .FALSE.
+
+     ion_colls_with_bo(n)%max_N_of_saved_parts = 50
+     ion_colls_with_bo(n)%N_of_saved_parts = 0
+
+     e_colls_with_bo(n)%max_N_of_saved_parts = 100
+     e_colls_with_bo(n)%N_of_saved_parts = 0
 
      whole_object(n)%use_waveform = .FALSE.
 
@@ -76,6 +90,10 @@ SUBROUTINE PREPARE_SETUP_VALUES
      READ (9, '(4x,f8.3)') Te_parallel_constant_emit_eV
      READ (9, '(A1)') buf !----dddd.ddd--- energy of the electron beam [eV] (>3Tb/2)
      READ (9, '(4x,f8.3)') We_beam_constant_emit_eV
+     READ (9, '(A1)') buf !-------d------- save ions collided with this object in snapshots? (1/0 = Yes/No)
+     READ (9, '(7x,i1)') save_collided_ions_flag
+     READ (9, '(A1)') buf !-------d------- save electrons collided with this object in snapshots? (1/0 = Yes/No)
+     READ (9, '(7x,i1)') save_collided_electrons_flag
 
      CLOSE (9, STATUS = 'KEEP')
 
@@ -104,7 +122,17 @@ SUBROUTINE PREPARE_SETUP_VALUES
 
      whole_object(n)%factor_convert_vinj_parallel_constant_emit = SQRT(Te_parallel_constant_emit_eV / T_e_eV) / N_max_vel
 
-  END DO
+     IF (save_collided_ions_flag.GT.0) THEN
+        ion_colls_with_bo(n)%must_be_saved = .TRUE.
+        ALLOCATE(ion_colls_with_bo(n)%part(1:ion_colls_with_bo(n)%max_N_of_saved_parts), STAT = ALLOC_ERR)
+     END IF
+
+     IF (save_collided_electrons_flag.GT.0) THEN  
+        e_colls_with_bo(n)%must_be_saved = .TRUE.
+        ALLOCATE(e_colls_with_bo(n)%part(1:e_colls_with_bo(n)%max_N_of_saved_parts), STAT = ALLOC_ERR)
+     END IF
+
+  END DO    !###   DO n = 1, N_of_boundary_and_inner_objects
 
   CALL PREPARE_WAVEFORMS
   
