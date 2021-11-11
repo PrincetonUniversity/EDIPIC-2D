@@ -11,14 +11,15 @@
 #SBATCH --mail-type=end 
 #SBATCH --mail-user=your@email.aaa 
 
-# Load compiler and openmpi environments
+# Load compiler and MPI environments
 # On the Princeton University systems, the modules need to be spelled out
-module load intel/2021.1
-module load openmpi/intel-2021.1/4.1.0
+# We use the Intel-MPI library on Stellar
+module load intel/2021.1.2
+module load intel-mpi/intel/2021.3.1
 
 # Set PETSC_DIR environment variable
 # This location should work but you can also build your own version of PETSc
-export PETSC_DIR=/scratch/gpfs/ethier/STELLAR/Software/INTEL_2021
+export PETSC_DIR=/scratch/gpfs/ethier/STELLAR/Software/INTEL_MPI_2021
 
 # Add $PETSC_DIR/lib to shared libraries search path
 export LD_LIBRARY_PATH=${PETSC_DIR}/lib:${LD_LIBRARY_PATH}
