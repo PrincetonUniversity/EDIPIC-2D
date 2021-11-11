@@ -90,3 +90,39 @@ PETSc and HYPRE and the lowest level so it is important to use the fastest
 version possible. The **MKLROOT** environment variable contains the location
 of the MKL library on the system. It is set when loading the `intel` module.
 
+
+## Another example: Building PETSc+HYPRE on STELLAR at Princeton University
+
+Users of the Princeton University clusters also manage their environment with the `module` tool.
+On STELLAR we use the Intel compiler and Intel-MPI library:
+
+```
+   module purge                            # clear environment
+   module load intel/2021.1.2              # load default Intel development tools and libraries
+   module load intel-mpi/intel/2021.3.1    # load Intel-MPI library
+
+   cd software
+   git clone -b release https://gitlab.com/petsc/petsc.git petsc
+   cd petsc
+   git checkout v3.14.6    # get version 3.14.6
+
+   ./configure --with-cc=mpicc --with-cxx=mpicxx --with-fc=mpif90 \
+            COPTFLAGS='-O2' CXXOPTFLAGS='-O2' FOPTFLAGS='-O2' \
+            --with-blaslapack-dir=$MKLROOT \
+            --download-hypre \
+            --prefix=${HOME}/software  \
+            PETSC_ARCH=INTEL_MPI_2021  \
+            PETSC_DIR=${PWD}
+
+   make PETSC_DIR=${PWD} PETSC_ARCH=INTEL_MPI_2021 all
+   make PETSC_DIR=${PWD} PETSC_ARCH=INTEL_MPI_2021 install
+```
+
+Notice that we added the line `--with-blaslapack-dir=$MKLROOT` to the configure
+step. The Intel development software comes with the highly optimized
+**Math Kernel Library (MKL)**, which includes highly optimized versions of
+the **BLAS** and **LAPACK** libraries. These library functions are used by
+PETSc and HYPRE and the lowest level so it is important to use the fastest
+version possible. The **MKLROOT** environment variable contains the location
+of the MKL library on the system. It is set when loading the `intel` module.
+
