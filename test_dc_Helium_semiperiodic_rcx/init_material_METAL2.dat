@@ -1,0 +1,67 @@
+------dd.ddd- dielectric constant
+       1.000
+=======d===== ELASTIC ELECTRON REFLECTION MODEL (0/1/2 = turned off/model 1/model 2)
+       0 2
+-------d----- ELASTIC ELECTRON REFLECTION TYPE (0/1 = specular/random)
+       1
+              ELASTIC ELECTRON REFLECTION, MODEL 1, PARAMETERS:
+-------d.ddd- emission coefficient (from 0 to 1), constant for energies between E_min and E_max
+       1.000
+--dddddd.ddd- lower energy boundary E_min, [eV]
+       0.000
+--dddddd.ddd- upper energy boundary E_max, [eV]
+   10000.000
+              ELASTIC ELECTRON REFLECTION, MODEL 2, PARAMETERS:
+--dddddd.ddd- threshold energy, [eV]
+       2.000
+--dddddd.ddd- energy of maximum of the emission coefficient [eV]
+      10.000
+-------d.ddd- maximum of the emission coefficient (from 0 to 1)
+       0.550
+--dddddd.ddd- energy scale of decaying part for energy above the coefficient maximum energy, [eV]
+      14.000
+-------d.ddd- additional fraction of the classic emission coefficient, (>=0, <<1)
+       0.030
+=======d===== INELASTIC ELECTRON REFLECTION MODEL (0/1/2 = turned off/model 1/model 2)
+       0 2
+              INELASTIC ELECTRON REFLECTION, MODEL 1, PARAMETERS:
+-------d.ddd- emission coefficient (from 0 to 1), constant for energies between E_min and E_max
+       1.000
+--dddddd.ddd- lower energy boundary E_min, [eV]
+       0.000
+--dddddd.ddd- upper energy boundary E_max, [eV]
+   10000.000
+              INELASTIC ELECTRON REFLECTION, MODEL 2, PARAMETERS:
+-------d.ddd- fraction of the classic emission coefficient (>=0, <<1)
+       0.070
+=======d===== TRUE SECONDARY EMISSION MODEL (0/1/2 = turned off/model 1/model 2)
+       0 2
+--dddddd.ddd- temperature of true secondary electrons, [eV]
+       2.000
+              TRUE SECONDARY EMISSION, MODEL 1, PARAMETERS:
+-------d.ddd- emission coefficient (>=0), constant for energies between E_min and E_max
+       0.300
+--dddddd.ddd- lower energy boundary E_min, [eV]
+       4.000
+--dddddd.ddd- upper energy boundary E_max, [eV]
+   10000.000
+              TRUE SECONDARY EMISSION, MODEL 2 (AND CLASSIC), PARAMETERS
+--dddddd.ddd- threshold energy, [eV]
+      13.000
+--dddddd.ddd- energy of maximum of the emission coefficient, [eV]
+     500.000
+------dd.ddd- maximum of the emission coefficient (>0)
+       3.000
+-------d.ddd- Smoothness factor (0 = very rough, 2 = polished)
+       1.000
+=======d===== ION-MATERIAL INTERACTION MODEL (0/1/2 = 100% ion adsorption/100% specular reflection/ion-induced electron emission)
+       2
+------------- ION-INDUCED ELECTRON EMISSION, ION SPECIES 1, PARAMETERS:
+-------d.ddd- emission coefficient (>=0), constant for energies between E_min and E_max
+       0.200
+--dddddd.ddd- lower energy boundary E_min, [eV]
+     100.000
+--dddddd.ddd- upper energy boundary E_max, [eV]
+   10000.000
+--dddddd.ddd- temperature of emitted electrons, [eV]
+       2.000
