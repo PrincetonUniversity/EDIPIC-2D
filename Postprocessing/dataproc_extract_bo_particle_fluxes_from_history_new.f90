@@ -45,9 +45,68 @@ module physical_constants
 
   REAL(8), PARAMETER :: e_Cl     = 1.602189d-19      ! Charge of single electron [Cl]
   REAL(8), PARAMETER :: m_e_kg   = 9.109534d-31      ! Mass of single electron [kg]
-  REAL(8), PARAMETER :: eps_0_Fm = 8.854188d-12      ! The dielectric constant [F/m]
+
+  REAL(8), PARAMETER :: true_eps_0_Fm = 8.854188d-12      ! True value of the vacuum permittivity constant [F/m]
+
+  REAL(8) eps_0_Fm      ! The vacuum permittivity constant as used in the simulation [F/m]
+                        ! It can be different from the true value if it was set so in the PIC simulation,
+                        ! to get the actual value the program will seek for file init_physconstants.dat.
+                        ! if the file is not found, the default value is used which is true_eps_0_Fm = 8.854188d-12 
 
 end module physical_constants
+!------------------------------------------
+!
+SUBROUTINE SET_PHYSICAL_CONSTANTS
+
+  USE physical_constants, ONLY : true_eps_0_Fm, eps_0_Fm
+
+  IMPLICIT NONE
+
+  LOGICAL exists
+  INTEGER IOS
+  CHARACTER(1) buf
+  REAL(8) temp
+
+  eps_0_Fm = true_eps_0_Fm   ! default value
+
+  INQUIRE (FILE = 'init_physconstants.dat', EXIST = exists)
+
+  IF (.NOT.exists) THEN
+     PRINT '("###### File init_physconstants.dat not found, use default/true eps_0 = ",e15.8," F/m ######")', eps_0_Fm
+     RETURN
+  END IF
+ 
+  OPEN (9, FILE = 'init_physconstants.dat')
+
+  READ (9, '(A1)', IOSTAT=IOS) buf ! the vacuum permittivity constant is in the line below (the true value is 8.854188e-12 F/m)
+
+  IF (IOS.NE.0) THEN
+     PRINT '("###### Error while reading from file init_physconstants.dat, use default/true eps_0 = ",e15.8," F/m ######")', eps_0_Fm
+     CLOSE (9, STATUS = 'KEEP')
+     RETURN
+  END IF
+
+  READ (9, *, IOSTAT=IOS) temp
+
+  IF (IOS.NE.0) THEN
+     PRINT '("###### Error while reading from file init_physconstants.dat, use default/true eps_0 = ",e15.8," F/m ######")', eps_0_Fm
+     CLOSE (9, STATUS = 'KEEP')
+     RETURN
+  END IF
+
+  CLOSE (9, STATUS = 'KEEP')
+
+  IF (temp.LE.0.0_8) THEN
+! omit negative or zero values
+     PRINT '("###### The eps_0 value acquired from file init_physconstants.dat is not positive, use default/true eps_0 = ",e15.8," F/m ######")', eps_0_Fm
+     RETURN
+  END IF
+
+! since we are here use what is in the file
+  eps_0_Fm = temp
+  PRINT '("###### WARNING ####### The value of vacuum permittivity is obtained from init_physconstants.dat and is eps_0 = ",e15.8," F/m ###### WARNING ######")', eps_0_Fm
+
+END SUBROUTINE SET_PHYSICAL_CONSTANTS
 
 !------------------------------------
 !
@@ -94,6 +153,8 @@ program get_particle_wall_fluxes
        INTEGER length_of_string
      END FUNCTION convert_int_to_txt_string
   END INTERFACE
+
+  call SET_PHYSICAL_CONSTANTS
 
   call read_init_configuration(delta_x_m, delta_t_s, N_plasma_m3, N_of_particles_cell, N_of_boundary_objects, N_subcycles, N_spec, bo_L_m)
 
