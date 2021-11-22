@@ -677,10 +677,7 @@ SUBROUTINE CALCULATE_ELECTRIC_FIELD
 
      IF (ALLOCATED(rbufer)) DEALLOCATE(rbufer, STAT=ALLOC_ERR)
 
-! send complete field array to all members of the cluster
-     bufsize = (c_indx_x_max - c_indx_x_min + 1) * (c_indx_y_max - c_indx_y_min + 1)
-     CALL MPI_BCAST(EX, bufsize, MPI_DOUBLE_PRECISION, 0, COMM_CLUSTER, ierr)
-     CALL MPI_BCAST(EY, bufsize, MPI_DOUBLE_PRECISION, 0, COMM_CLUSTER, ierr)
+! ready to send complete field array to all members of the cluster
 
   ELSE
 
@@ -779,12 +776,17 @@ SUBROUTINE CALCULATE_ELECTRIC_FIELD
      DEALLOCATE(loc_EY, STAT=ALLOC_ERR)
      DEALLOCATE(rbufer, STAT=ALLOC_ERR)
 
-! receive complete field array from the master of the cluster
-     bufsize = (c_indx_x_max - c_indx_x_min + 1) * (c_indx_y_max - c_indx_y_min + 1)
-     CALL MPI_BCAST(EX, bufsize, MPI_DOUBLE_PRECISION, 0, COMM_CLUSTER, ierr)
-     CALL MPI_BCAST(EY, bufsize, MPI_DOUBLE_PRECISION, 0, COMM_CLUSTER, ierr)
+! ready to receive complete field array from the master of the cluster
 
   END IF
+
+! master of the cluster distributes complete field arrays
+
+  bufsize = (c_indx_x_max - c_indx_x_min + 1) * (c_indx_y_max - c_indx_y_min + 1)
+  call mpi_barrier(mpi_comm_world, ierr)
+  CALL MPI_BCAST(EX, bufsize, MPI_DOUBLE_PRECISION, 0, COMM_CLUSTER, ierr) 
+  call mpi_barrier(mpi_comm_world, ierr)
+  CALL MPI_BCAST(EY, bufsize, MPI_DOUBLE_PRECISION, 0, COMM_CLUSTER, ierr)
 
 ! each member (master and non-master) in each cluster accumulates fields for ions in the whoole cluster domain 
 ! (in this case there is no need for communications at all)

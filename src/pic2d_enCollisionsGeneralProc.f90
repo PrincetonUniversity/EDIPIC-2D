@@ -1,5 +1,7 @@
 
 !===================================================================================================
+! this procedure must be called before INITIATE_ION_NEUTRAL_COLLISIONS
+!
 SUBROUTINE INITIATE_ELECTRON_NEUTRAL_COLLISIONS
 
   USE ParallelOperationValues
@@ -48,6 +50,7 @@ SUBROUTINE INITIATE_ELECTRON_NEUTRAL_COLLISIONS
      END FUNCTION convert_int_to_txt_string
   END INTERFACE
 
+  N_neutral_spec = 0
   en_collisions_turned_off = .TRUE.
   no_ionization_collisions = .TRUE.
 
@@ -64,7 +67,9 @@ SUBROUTINE INITIATE_ELECTRON_NEUTRAL_COLLISIONS
   READ (9, '(A1)') buf    !----------dd--- number of neutral species
   READ (9, '(10x,i2)') N_neutral_spec
 
-  IF (N_neutral_spec.LE.0) THEN
+  IF (N_neutral_spec.LT.0) N_neutral_spec = 0  ! will be used for checks later
+
+  IF (N_neutral_spec.EQ.0) THEN
      IF (Rank_of_process.EQ.0) PRINT '("### file init_neutrals.dat found, neutrals deactivated, electron-neutral collisions are turned off ###")'
      RETURN
   END IF
@@ -211,7 +216,7 @@ SUBROUTINE INITIATE_ELECTRON_NEUTRAL_COLLISIONS
         collision_e_neutral(n)%colproc_info(count)%threshold_energy_eV = neutral(n)%en_colproc(p)%threshold_energy_eV 
 
         s = neutral(n)%en_colproc(p)%ion_species_produced
-        IF ((s.GE.1).AND.(s.LE.N_spec)) collision_e_neutral(n)%colproc_info(count)%ion_velocity_factor = SQRT(neutral(n)%T_K * kB_JK / (T_e_eV * e_Cl)) / (N_max_vel * SQRT(Ms(s))) 
+        IF ((s.GE.1).AND.(s.LE.N_spec)) collision_e_neutral(n)%colproc_info(count)%ion_velocity_factor = SQRT(neutral(n)%T_K * kB_JK / (T_e_eV * e_Cl)) / (N_max_vel * SQRT(Ms(s)))
 
      END DO
 
@@ -468,7 +473,12 @@ SUBROUTINE PERFORM_ELECTRON_NEUTRAL_COLLISIONS
 
         SELECT CASE (collision_e_neutral(n)%colproc_info(indx_coll)%type)
         CASE (10)
+! scattering with the angle Ksi from Okhrimovsky
            CALL en_Collision_Elastic_10( n, random_j, energy_eV, &
+                                       & collision_e_neutral(n)%counter(indx_coll))
+        CASE (11)
+! isotropic scattering
+           CALL en_Collision_Elastic_11( n, random_j, energy_eV, &
                                        & collision_e_neutral(n)%counter(indx_coll))
         CASE (20)
            CALL en_Collision_Inelastic_20( n, random_j, energy_eV, &

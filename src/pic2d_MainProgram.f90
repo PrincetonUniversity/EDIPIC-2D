@@ -16,11 +16,24 @@ PROGRAM MainProg
   INTEGER n_sub
   LOGICAL ions_moved
 
+  CHARACTER(54) rmandmkdir_command    ! rm -rfv checkdir_TTTTTTTT ; mkdir -v checkdir_TTTTTTTT
+                                      ! ----x----I----x----I----x----I----x----I----x----I----
+
   REAL(8) t0, t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12, t13, t14, t15, t16, t17, t18, t19, t20
+
+  INTERFACE
+     FUNCTION convert_int_to_txt_string(int_number, length_of_string)
+       CHARACTER*(length_of_string) convert_int_to_txt_string
+       INTEGER int_number
+       INTEGER length_of_string
+     END FUNCTION convert_int_to_txt_string
+  END INTERFACE
 
   CALL MPI_INIT(ierr)
   CALL MPI_COMM_RANK(MPI_COMM_WORLD, Rank_of_process, ierr)
   CALL MPI_COMM_SIZE(MPI_COMM_WORLD, N_of_processes, ierr)
+
+  CALL SET_PHYSICAL_CONSTANTS
 
   CALL PrepareMaxwellDistribIntegral
 
@@ -33,6 +46,8 @@ PROGRAM MainProg
 
   CALL INITIATE_ELECTRON_NEUTRAL_COLLISIONS
 
+  CALL INITIATE_ION_NEUTRAL_COLLISIONS
+
 !print *, "did INITIATE_ELECTRON_NEUTRAL_COLLISIONS"
 !CALL MPI_BARRIER(MPI_COMM_WORLD, ierr) 
 !CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
@@ -44,9 +59,20 @@ PROGRAM MainProg
 
   CALL INITIATE_en_COLL_DIAGNOSTICS
 
+  CALL INITIATE_in_COLL_DIAGNOSTICS
+
   CALL INITIATE_SNAPSHOTS
 
   CALL ADJUST_T_CNTR_SAVE_CHECKPOINT
+
+  IF ((.NOT.use_mpiio_checkpoint).AND.(Rank_of_process.EQ.0).AND.(T_cntr_save_checkpoint.GE.Start_T_cntr)) THEN
+! create a directory for a future checkpoint to make sure that the directory exists before the checkpoint files are saved
+     rmandmkdir_command = 'rm -rfv checkdir_TTTTTTTT ; mkdir -v checkdir_TTTTTTTT'
+                         ! ----x----I----x----I----x----I----x----I----x----I----
+     rmandmkdir_command(18:25) = convert_int_to_txt_string(T_cntr_save_checkpoint, 8)
+     rmandmkdir_command(47:54) = convert_int_to_txt_string(T_cntr_save_checkpoint, 8)
+     CALL SYSTEM(rmandmkdir_command)
+  END IF
 
   start = MPI_WTIME()
 
@@ -60,9 +86,21 @@ PROGRAM MainProg
      t0 = MPI_WTIME()
 
      IF (T_cntr.EQ.T_cntr_save_checkpoint) THEN
-        CALL SAVE_CHECKPOINT_MPIIO_2(n_sub)
+        IF (use_mpiio_checkpoint) THEN
+           CALL SAVE_CHECKPOINT_MPIIO_2(n_sub)
+        ELSE
+           CALL SAVE_CHECKPOINT_POSIX(n_sub)
+        END IF
         T_cntr_save_checkpoint = T_cntr_save_checkpoint + dT_save_checkpoint
         CALL ADJUST_T_CNTR_SAVE_CHECKPOINT
+        IF ((.NOT.use_mpiio_checkpoint).AND.(Rank_of_process.EQ.0)) THEN
+! create a directory for a future checkpoint to make sure that the directory exists before the checkpoint files are saved
+           rmandmkdir_command = 'rm -rfv checkdir_TTTTTTTT ; mkdir -v checkdir_TTTTTTTT'
+                               ! ----x----I----x----I----x----I----x----I----x----I----
+           rmandmkdir_command(18:25) = convert_int_to_txt_string(T_cntr_save_checkpoint, 8)
+           rmandmkdir_command(47:54) = convert_int_to_txt_string(T_cntr_save_checkpoint, 8)
+           CALL SYSTEM(rmandmkdir_command)
+        END IF
      END IF
 
      CALL MPI_BARRIER(MPI_COMM_WORLD, ierr) 
@@ -228,6 +266,14 @@ PROGRAM MainProg
         CALL MPI_BARRIER(MPI_COMM_WORLD, ierr) 
 
         CALL SAVE_en_COLLISIONS_2D
+
+        CALL MPI_BARRIER(MPI_COMM_WORLD, ierr) 
+
+        CALL PERFORM_RESONANT_CHARGE_EXCHANGE    ! the only ion-neutral collision kind for now, does not produce new ions
+
+        CALL MPI_BARRIER(MPI_COMM_WORLD, ierr) 
+
+        CALL SAVE_in_COLLISIONS
 
         CALL MPI_BARRIER(MPI_COMM_WORLD, ierr) 
 

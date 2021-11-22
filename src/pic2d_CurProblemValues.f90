@@ -1,5 +1,60 @@
 !------------------------------------------
 !
+SUBROUTINE SET_PHYSICAL_CONSTANTS
+
+  USE CurrentProblemValues, ONLY : true_eps_0_Fm, eps_0_Fm
+  USE ParallelOperationValues, ONLY : Rank_of_process
+
+  IMPLICIT NONE
+
+  LOGICAL exists
+  INTEGER IOS
+  CHARACTER(1) buf
+  REAL(8) temp
+
+  eps_0_Fm = true_eps_0_Fm   ! default value
+
+  INQUIRE (FILE = 'init_physconstants.dat', EXIST = exists)
+
+  IF (.NOT.exists) THEN
+     IF (Rank_of_process.EQ.0) PRINT '("###### File init_physconstants.dat not found, use default/true eps_0 = ",e15.8," F/m ######")', eps_0_Fm
+     RETURN
+  END IF
+ 
+  OPEN (9, FILE = 'init_physconstants.dat')
+
+  READ (9, '(A1)', IOSTAT=IOS) buf ! --+d.ddddddE+dd the vacuum permittivity constant is in the line below (the true value is 8.854188e-12 F/m)
+
+  IF (IOS.NE.0) THEN
+     IF (Rank_of_process.EQ.0) PRINT '("###### Error while reading from file init_physconstants.dat, use default/true eps_0 = ",e15.8," F/m ######")', eps_0_Fm
+     CLOSE (9, STATUS = 'KEEP')
+     RETURN
+  END IF
+
+  READ (9, *, IOSTAT=IOS) temp
+
+  IF (IOS.NE.0) THEN
+     IF (Rank_of_process.EQ.0) PRINT '("###### Error while reading from file init_physconstants.dat, use default/true eps_0 = ",e15.8," F/m ######")', eps_0_Fm
+     CLOSE (9, STATUS = 'KEEP')
+     RETURN
+  END IF
+
+  CLOSE (9, STATUS = 'KEEP')
+
+  IF (temp.LE.0.0_8) THEN
+! omit negative or zero values
+     IF (Rank_of_process.EQ.0) PRINT '("###### The eps_0 value acquired from file init_physconstants.dat is not positive, use default/true eps_0 = ",e15.8," F/m ######")', eps_0_Fm
+     RETURN
+  END IF
+
+! since we are here use what is in the file
+  eps_0_Fm = temp
+  IF (Rank_of_process.EQ.0) PRINT '("###### WARNING ####### The value of vacuum permittivity is obtained from init_physconstants.dat and is eps_0 = ",e15.8," F/m ###### WARNING ######")', eps_0_Fm
+
+END SUBROUTINE SET_PHYSICAL_CONSTANTS
+
+!------------------------------------------
+!
 !
 SUBROUTINE INITIATE_PARAMETERS
 
@@ -735,7 +790,7 @@ SUBROUTINE INITIATE_PARAMETERS
   READ (9, '(6x,i4)') dT_cluster_load_balance
   READ (9, '(A1)') buf !"------dddd--------- number of internal cluster load balancing events between global load balancing events")')
   READ (9, '(6x,i4)') dT_global_load_balance
-  READ (9, '(A1)') buf !"---ddddddd--------- number of ion cycles between checkpoints (no checkpoints if <=0)")')
+  READ (9, '(A1)') buf !"---ddddddd--------- number of ion cycles between checkpoints (no checkpoints if 0, MPIIO if >0, POSIX if <0)")')
   READ (9, '(3x,i7)') dT_save_checkpoint
   READ (9, '(A1)') buf !"---------d--------- use checkpoint (2/1/0 = Yes, to start/Yes, to continue/No)")')
   READ (9, '(9x,i1)') use_checkpoint
@@ -755,6 +810,14 @@ SUBROUTINE INITIATE_PARAMETERS
 
   dT_cluster_load_balance = dT_cluster_load_balance * N_subcycles             ! must be an integer number of N_subcycles
   dT_global_load_balance  = dT_global_load_balance * dT_cluster_load_balance  ! must be an integer number of dT_cluster_load_balance
+
+  use_mpiio_checkpoint = .TRUE.
+  IF (dT_save_checkpoint.LT.0) THEN
+! in this case a checkpoint will consist of many files (one per process)
+     use_mpiio_checkpoint = .FALSE.
+     dT_save_checkpoint = ABS(dT_save_checkpoint)
+  END IF
+
   dT_save_checkpoint = dT_save_checkpoint * N_subcycles                       ! must be an integer number of N_subcycles
 
   IF (dT_save_checkpoint.EQ.0) dT_save_checkpoint = -N_subcycles              ! zero dT_save_checkpoint produces unnecessary checkpoint at 
@@ -974,18 +1037,17 @@ if (Rank_of_process.eq.0) print *, "SET_CLUSTER_STRUCTURE done"
 
      CALL PREPARE_SYS_Y
 
-     CALL MPI_BARRIER(MPI_COMM_WORLD, ierr)
-
   ELSE
 
      CALL SolverInitialization(MPI_COMM_WORLD)
 
   END IF
 
+  CALL MPI_BARRIER(MPI_COMM_WORLD, ierr)
+
   IF (use_checkpoint.GT.0) THEN
-     CALL READ_CHECKPOINT_MPIIO_2                 ! may change particle_master
-                                                  ! set all particles
-                                                  ! read random number generator state
+     CALL READ_A_CHECKPOINT      ! may change particle_master, reads random number generator state, sets all particles
+                                 ! calls either READ_CHECKPOINT_MPIIO_2 or READ_CHECKPOINT_POSIX
   END IF
 
   IF (use_checkpoint.EQ.2) THEN

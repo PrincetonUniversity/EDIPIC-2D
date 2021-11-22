@@ -154,12 +154,14 @@ MODULE CurrentProblemValues
 
   REAL(8), PARAMETER :: e_Cl     = 1.602189d-19      ! Charge of single electron [Cl]
   REAL(8), PARAMETER :: m_e_kg   = 9.109534d-31      ! Mass of single electron [kg]
-  REAL(8), PARAMETER :: eps_0_Fm = 8.854188d-12      ! The dielectric constant [F/m]
+  REAL(8), PARAMETER :: true_eps_0_Fm = 8.854188d-12      ! The dielectric constant [F/m]
   REAL(8), PARAMETER :: mu_0_Hm  = 1.25663706d-6     ! vacuum permeability [H/m] or [m kg s^-2 A^-2]
   REAL(8), PARAMETER :: amu_kg   = 1.660565d-27      ! atomic mass unit [kg]
   REAL(8), PARAMETER :: kB_JK    = 1.38064852d-23    ! Boltzmann constant [J/K]
 
   REAL(8), PARAMETER :: pi = 3.141592653589793_8
+
+  REAL(8) eps_0_Fm
 
   INTEGER i_given_F_double_period_sys    ! in a system which is periodic in both X and Y directions, if there is no metal objects with given potential
   INTEGER j_given_F_double_period_sys    ! it is necessary to specify a point with some given potential, otherwise the field solver converges only if no dielectric objects are inside (pure plasma)
@@ -956,6 +958,8 @@ END MODULE SetupValues
 !
 MODULE Checkpoints
 
+  LOGICAL use_mpiio_checkpoint
+
   INTEGER use_checkpoint             ! 0/1/2 = don't use / use to continue older run / use to start a new run
   INTEGER T_cntr_to_continue
 
@@ -974,6 +978,7 @@ MODULE MCCollisions
 
   LOGICAL en_collisions_turned_off
   LOGICAL no_ionization_collisions
+  LOGICAL no_rcx_collisions
 
   INTEGER N_neutral_spec
 
@@ -997,6 +1002,11 @@ MODULE MCCollisions
      TYPE(collision_type), ALLOCATABLE :: en_colproc(:)
      REAL(8), ALLOCATABLE :: energy_segment_boundary_value(:)
      REAL(8), ALLOCATABLE :: energy_segment_step(:)
+
+     logical rcx_on
+     integer rcx_ion_species_index
+     real(8) sigma_rcx_m2_1eV
+     real(8) alpha_rcx
   END TYPE neutral_type
 
   TYPE(neutral_type), ALLOCATABLE :: neutral(:)
@@ -1024,6 +1034,17 @@ MODULE MCCollisions
   END TYPE selected_collision_probability
 
   TYPE(selected_collision_probability), ALLOCATABLE :: collision_e_neutral(:)
+
+  TYPE rcx_collision_data
+     logical rcx_on
+     integer neutral_species_index
+     real(8) probab_thermal
+!     real(8) factor_eV
+     real(8) vfactor !to scale the Maxwellian distribution
+     INTEGER counter  ! to be used for diagnostics
+  END TYPE rcx_collision_data
+
+  TYPE(rcx_collision_data), allocatable :: collision_rcx(:)
 
 ! LINKED LIST, which store the numbers of particles participating in collisions
 

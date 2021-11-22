@@ -14,6 +14,11 @@ SUBROUTINE GLOBAL_LOAD_BALANCE
 
   INCLUDE 'mpif.h'
 
+! these variables are used to print ranks of processes in cluster communicator
+  integer clustergroup, worldgroup
+  integer, allocatable :: clusterranks(:), worldranks(:)
+  integer clustergroup_size
+
   INTEGER ierr
   INTEGER stattus(MPI_STATUS_SIZE)
   INTEGER request
@@ -292,11 +297,13 @@ print '("MASTER MESSAGE :: Rank_of_process ",i4," Rank_cluster ",i4," particle_m
   
   DEALLOCATE(new_particle_masters, STAT=ALLOC_ERR)
 
-  CALL MPI_COMM_FREE(COMM_HORIZONTAL, ierr)
+!  CALL MPI_COMM_FREE(COMM_HORIZONTAL, ierr)
+  CALL MPI_COMM_DISCONNECT(COMM_HORIZONTAL, ierr)
 
   CALL MPI_BARRIER(MPI_COMM_WORLD, ierr) 
 
-  CALL MPI_COMM_FREE(COMM_CLUSTER, ierr)
+!  CALL MPI_COMM_FREE(COMM_CLUSTER, ierr)
+  CALL MPI_COMM_DISCONNECT(COMM_CLUSTER, ierr)
 
   CALL MPI_BARRIER(MPI_COMM_WORLD, ierr) 
 
@@ -308,6 +315,25 @@ print '("MASTER MESSAGE :: Rank_of_process ",i4," Rank_cluster ",i4," particle_m
 !  CALL BALANCE_LOAD_WITHIN_CLUSTER
 
 !print '("GLOBAL_LOAD_BALANCE-2 : ",i4,2x,i4,2x,i8,2x,i4,2x,i8)', Rank_of_process, Rank_cluster, N_electrons, particle_master, max_N_electrons
+
+  CALL MPI_BARRIER(MPI_COMM_WORLD, ierr) 
+
+  if (Rank_cluster.ne.0) return
+
+  call mpi_comm_group(COMM_CLUSTER, clustergroup, ierr)
+  call mpi_comm_group(MPI_COMM_WORLD, worldgroup, ierr)
+  call mpi_group_size(clustergroup, clustergroup_size, ierr)
+  allocate(clusterranks(clustergroup_size))
+  do i = 1, clustergroup_size
+     clusterranks(i) = i-1
+  end do
+  allocate(worldranks(clustergroup_size))
+  call mpi_group_translate_ranks(clustergroup, clustergroup_size, clusterranks, worldgroup, worldranks, ierr)
+  print '(">>>>>>>>>>>",2x,i4,2x,i4,10(2x,i4))', Rank_of_process, clustergroup_size, worldranks
+  if (allocated(clusterranks)) deallocate(clusterranks)
+  if (allocated(worldranks)) deallocate(worldranks)
+  call mpi_group_free(clustergroup, ierr)
+  call mpi_group_free(worldgroup, ierr)
 
 END SUBROUTINE GLOBAL_LOAD_BALANCE
 
@@ -548,7 +574,7 @@ SUBROUTINE BALANCE_LOAD_WITHIN_CLUSTER
   INTEGER distr_pos(0:N_spec)
   INTEGER max_distr_pos(0:N_spec)
 
-  INTEGER message_size
+  INTEGER message_size, probed_message_size
   INTEGER pos1, pos2
 
   INTEGER delta_N, ibuf
@@ -652,6 +678,15 @@ SUBROUTINE BALANCE_LOAD_WITHIN_CLUSTER
            message_size = 6 * (N_particles_spec_proc(s,m) - avg_N_particles(s))
            pos1 = distr_pos(s)
            pos2 = distr_pos(s)+message_size-1
+
+           CALL MPI_PROBE(m, m+SHIFT1+s, COMM_CLUSTER, stattus, ierr)
+           CALL MPI_GET_COUNT(stattus, MPI_DOUBLE_PRECISION, probed_message_size, ierr)
+           IF (message_size.NE.probed_message_size) THEN
+              PRINT '("Proc ",i4," :: Error-1 in BALANCE_LOAD_WITHIN_CLUSTER :: ",2x,i4,2x,i8,2x,i8,2x,i2)', &
+                   & Rank_of_process, m, message_size, probed_message_size, s
+              CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
+           END IF
+
            CALL MPI_RECV(rbufer(pos1:pos2), message_size, MPI_DOUBLE_PRECISION, m, m+SHIFT1+s, COMM_CLUSTER, stattus, ierr)
            distr_pos(s) = distr_pos(s) + message_size
         END DO
@@ -785,6 +820,15 @@ SUBROUTINE BALANCE_LOAD_WITHIN_CLUSTER
            CALL RESIZE_ELECTRON_ARRAY(new_size)
         END IF
         message_size = 6 * (avg_N_particles(0) - N_electrons)
+
+        CALL MPI_PROBE(0, 0, COMM_CLUSTER, stattus, ierr)
+        CALL MPI_GET_COUNT(stattus, MPI_DOUBLE_PRECISION, probed_message_size, ierr)
+        IF (message_size.NE.probed_message_size) THEN
+           PRINT '("Proc ",i4," :: Error-2 in BALANCE_LOAD_WITHIN_CLUSTER :: ",2x,i4,2x,i8,2x,i8)', &
+                & Rank_of_process, m, message_size, probed_message_size
+           CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
+        END IF
+
         ALLOCATE(rbufer(1:message_size), STAT = ALLOC_ERR)
         CALL MPI_RECV(rbufer, message_size, MPI_DOUBLE_PRECISION, 0, 0, COMM_CLUSTER, stattus, ierr)
         ibuf = 1
@@ -810,6 +854,15 @@ SUBROUTINE BALANCE_LOAD_WITHIN_CLUSTER
               CALL RESIZE_ION_ARRAY(s, new_size)
            END IF
            message_size = 6 * (avg_N_particles(s) - N_ions(s))
+
+           CALL MPI_PROBE(0, s, COMM_CLUSTER, stattus, ierr)
+           CALL MPI_GET_COUNT(stattus, MPI_DOUBLE_PRECISION, probed_message_size, ierr)
+           IF (message_size.NE.probed_message_size) THEN
+              PRINT '("Proc ",i4," :: Error-3 in BALANCE_LOAD_WITHIN_CLUSTER :: ",2x,i4,2x,i8,2x,i8,2x,i2)', &
+                   & Rank_of_process, m, message_size, probed_message_size, s
+              CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
+           END IF
+
            ALLOCATE(rbufer(1:message_size), STAT = ALLOC_ERR)
            CALL MPI_RECV(rbufer, message_size, MPI_DOUBLE_PRECISION, 0, s, COMM_CLUSTER, stattus, ierr)
            ibuf = 1

@@ -184,6 +184,92 @@ END SUBROUTINE en_Collision_Elastic_10
 
 !-------------------------------------------------------------------------
 !
+SUBROUTINE en_Collision_Elastic_11(indx_neutral, indx_particle, energy_eV, counter)
+
+  USE MCCollisions
+  USE ElectronParticles
+
+  USE rng_wrapper
+
+  IMPLICIT NONE
+
+  INTEGER indx_neutral          ! ordering numer of neutral species
+  INTEGER indx_particle         ! ordering number of particle 
+  REAL(8) energy_eV             ! particle energy [eV]
+  INTEGER counter               ! counter of collisions
+
+  REAL(8) R                ! random number             
+  REAL(8) Ksi              ! scattering angle (relative to the initial direction)
+  REAL(8) CosKsi, SinKsi     
+  REAL(8) Fi               ! azimuthal scattering angle 
+  REAL(8) CosFi, SinFi     
+  REAL(8) Vx, Vy, Vz       ! velocity components, before scattering
+  REAL(8) Vx_s, Vy_s, Vz_s ! velocity components, after scattering
+  REAL(8) V, V_xy, a, b            
+  REAL(8) delta_energy     ! electron energy drop due to collision
+  REAL(8) alpha            ! coefficient, accounting the electron energy drop
+
+
+! Calculate the scattering angle relative to the initial direction of electron
+  R = well_random_number()
+
+! #####  CosKsi = (2.0_8 + energy_eV - 2.0_8 * (1.0_8 + energy_eV)**R) / energy_eV #####
+! the formula above was in the older code and it was based on Surendra's differential cross section
+! below is the corrected expression from Okhrimovsky et al., Phys.Rev.E, 65, 037402 (2002).
+!  CosKsi = 1.0_8 - 2.0_8 * R / (1.0_8 + 8.0_8 * (energy_eV / 27.21_8) * (1.0_8 - R))
+
+! isotropic scattering, to be used with momentum-transfer cross-section table:
+  CosKsi = 1.0_8 - 2.0_8 * R
+
+  CosKsi = MAX(MIN(0.999999999999_8, CosKsi), -0.999999999999_8)   !############ to avoid an unlikely situation when |CosKsi|>1
+  Ksi = ACOS(CosKsi)
+  SinKsi = SIN(Ksi)
+! Calculate the azimuthal scattering angle
+  R = well_random_number()
+  Fi = R * 6.28318530718_8
+  CosFi = COS(Fi)
+  SinFi = SIN(Fi)
+! Take the velocity 
+  Vx = electron(indx_particle)%VX !VX_of_spec(1)%part(num)
+  Vy = electron(indx_particle)%VY !VY_of_spec(1)%part(num)
+  Vz = electron(indx_particle)%VZ !VZ_of_spec(1)%part(num)
+! Turn the velocity  
+  V    = SQRT(Vx*Vx + Vy*Vy + Vz*Vz) 
+  V_xy = SQRT(Vx*Vx + Vy*Vy)
+  IF (V_xy.GT.1.0d-20) THEN
+     a = Vx / V_xy
+     b = Vy / V_xy
+     Vx_s = Vx * CosKsi + (SinFi * V * b + CosFi * Vz * a) * SinKsi
+     Vy_s = Vy * CosKsi - (SinFi * V * a - CosFi * Vz * b) * SinKsi
+     Vz_s = Vz * CosKsi - V_xy * CosFi * SinKsi
+  ELSE
+     Vx_s = ABS(Vz) * SinKsi * CosFi
+     Vy_s = ABS(Vz) * SinKsi * SinFi
+     Vz_s = Vz * CosKsi
+  END IF
+
+! Calculate the energy drop [eV]
+  delta_energy = (0.001097161_8 / neutral(indx_neutral)%M_amu) * (1.0_8 - CosKsi) ! * energy_eV 
+!! 0.001097161 = 2 * m_e_kg / 1_amu_kg = 2 * 9.109534e-31 / 1.660565e-27 
+!! ####### NOTE, VAHEDI'S EQ.(12) EITHER HAS A MISTAKE IN THE ABOVE EXPRESSION - MISSED " * ENERGY_EV"
+!! ####### OR IS GIVEN ALREADY FOR THE RELATIVE ENERGY LOSS ...
+!  alpha    = SQRT(1.0_8 - delta_eV / energy_eV)
+  alpha = 1.0_8-delta_energy
+  alpha = SQRT(alpha)
+! Renormalize the velocity in order to account the energy drop
+  Vx_s = Vx_s * alpha
+  Vy_s = Vy_s * alpha
+  Vz_s = Vz_s * alpha
+  electron(indx_particle)%VX = Vx_s !  VX_of_spec(1)%part(num) = Vx_s
+  electron(indx_particle)%VY = Vy_s !  VY_of_spec(1)%part(num) = Vy_s
+  electron(indx_particle)%VZ = Vz_s !  VZ_of_spec(1)%part(num) = Vz_s
+
+  counter = counter + 1
+
+END SUBROUTINE en_Collision_Elastic_11
+
+!-------------------------------------------------------------------------
+!
 SUBROUTINE en_Collision_Inelastic_20(indx_neutral, indx_particle, energy_eV, threshold_energy_eV, counter)
 
 !???  USE MCCollisions
