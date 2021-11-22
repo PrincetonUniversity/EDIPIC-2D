@@ -1,6 +1,6 @@
 FC := mpif90
 CC := mpicc
-# Get the actual Fortran compiler invoked by mpifort. Need to use double $$ in awk.
+# Get the actual Fortran compiler invoked by mpif90. Need to use double $$ in awk.
 BASE_FCOMP := $(shell mpif90 -show | awk '{print $$1}' | awk -F/ '{print $$NF}')
 
 # Make sure that the PETSC_DIR environment variable is set. Otherwise exit with error message.
@@ -41,6 +41,7 @@ OBJ := WELL19937a_new.o pic2d_Modules.o pic2d_Snapshots.o pic2d_Prepare_FFTX_SYS
        pic2d_Materials.o pic2d_ElectronDynamics.o pic2d_ElectronExchange.o \
        pic2d_ElectronMoments.o pic2d_ElectronWallCollisions.o pic2d_enCollisionsGeneralProc.o \
        pic2d_enCollisionsSpecificProc.o pic2d_ExternalFields.o pic2d_HTSetup.o \
+       pic2d_inCollisionsGeneralProc.o pic2d_inCollisionsSpecificProc.o \
        pic2d_IonDynamics.o pic2d_PETSc_Solver.o pic2d_ElectricFieldCalc_PETSc.o \
        pic2d_CurProblemValues.o pic2d_SEEmission.o pic2d_IonEmissions.o
 
