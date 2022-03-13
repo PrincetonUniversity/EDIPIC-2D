@@ -1,0 +1,42 @@
+---ddd.ddd--- mass [a.m.u.]
+    40.000
+--------dd--- number of all possible collisional processes
+         3
+---dd--d--dd--- collision #1 :: type / activated (1/0 = Yes/No) / ion species produced (ionization collisions only)
+   10  1   0
+---dd--d--dd--- collision #2 :: type / activated (1/0 = Yes/No) / ion species produced (ionization collisions only)
+   20  1   0
+---dd--d--dd--- collision #3 :: type / activated (1/0 = Yes/No) / ion species produced (ionization collisions only)
+   30  1   1
+--------dd--- number of energy segments for collision probabilities (>0)
+        10
+--ddddd.ddd------------- minimal energy [eV]
+      0.000
+--ddddd.ddd---ddd.ddd--- energy segment 1 :: upper boundary [eV] / resolution [eV]
+      0.040     0.005
+--ddddd.ddd---ddd.ddd--- energy segment 2 :: upper boundary [eV] / resolution [eV]
+      0.100     0.010
+--ddddd.ddd---ddd.ddd--- energy segment 3 :: upper boundary [eV] / resolution [eV]
+      0.400     0.020
+--ddddd.ddd---ddd.ddd--- energy segment 4 :: upper boundary [eV] / resolution [eV]
+      1.000     0.050
+--ddddd.ddd---ddd.ddd--- energy segment 5 :: upper boundary [eV] / resolution [eV]
+     10.000     0.200
+--ddddd.ddd---ddd.ddd--- energy segment 6 :: upper boundary [eV] / resolution [eV]
+     20.000     0.100
+--ddddd.ddd---ddd.ddd--- energy segment 7 :: upper boundary [eV] / resolution [eV]
+     60.000     0.500
+--ddddd.ddd---ddd.ddd--- energy segment 8 :: upper boundary [eV] / resolution [eV]
+    200.000     5.000
+--ddddd.ddd---ddd.ddd--- energy segment 9 :: upper boundary [eV] / resolution [eV]
+   1000.000    10.000
+--ddddd.ddd---ddd.ddd--- energy segment 10 :: upper boundary [eV] / resolution [eV]
+  10000.000    50.000
+
+! collision types
+! 10 = elastic
+! 20 = inelastic
+!   21, 22, 23, etc.
+! 30 = ionization, ion+ and e-
+! 40 = ionization, ion++ and e- e-
+

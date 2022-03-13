@@ -1,0 +1,17 @@
+Step for saving (ion timesteps if >=1, 0 means save as frequent as possible), type below
+        0
+Start saving data at (timesteps, >=0), type below
+         0
+Skip periods of writing between text outputs (>=0), type below [obsolete]
+        50
+Number of probes (off if <=0), type below
+         8
+Probe coordinates (x/y, node numbers), type below
+    155    120
+    180    120
+    205    120
+    230    120
+    120    155
+    120    180
+    120    205
+    120    230
