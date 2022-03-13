@@ -1,0 +1,8 @@
+----------dd--- number of neutral species
+           1
+------AAAAAA--- code/abbreviation of the neutral gas, character string
+      Argon0
+--#d.dddE#dd--- Density [m^-3]
+   1.000E+20 1.000E+20
+-----ddddd.d--- Temperature [K]
+       300.0

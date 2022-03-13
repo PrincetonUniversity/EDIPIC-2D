@@ -1,0 +1,12 @@
+total number of electrodes whose potential must be solved (>0, if <=0 then no external circuit)
+   1
+below list in one column numbers of electrodes whose potential must be solved
+   1
+below is amplitude of potential oscillations in the driving rf voltage source [V]
+   100.0
+below is frequency of potential oscillations in the driving rf voltage source [Hz]
+   2.5E+07
+below is phase of potential oscillations in the driving rf voltage source [deg]
+   0.0
+below is capacitance of capacitor [F]
+   1.0E-09

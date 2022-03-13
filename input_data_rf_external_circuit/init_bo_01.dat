@@ -1,0 +1,24 @@
+------AAAAAA--- code/abbreviation of the material, character string
+      METAL0
+---ddddd.ddd--- constant potential [V]
+       0.000
+---ddddd.ddd--- amplitude of potential oscillations [V]
+       0.000  100.000
+---ddddd.ddd--- frequency [MHz]
+       0.000  100.000
+---ddddd.ddd--- phase [deg] for sin(omega*t+phase)
+       0.000
+---ddddd.ddd--- number of electron macroparticles injected each timestep, constant [dim-less]
+       0.000
+-------d------- emission model (0 = thermal emission, 1 = electron beam)
+       0
+----dddd.ddd--- temperature of emitted electrons / half-energy-spread of the beam (Tb) normal to the wall [eV] (>=0)
+       0.000
+----dddd.ddd--- temperature of emitted electrons parallel to the wall [eV] (>=0)
+       0.000
+----dddd.ddd--- energy of the electron beam [eV] (>3Tb/2)
+       0.000
+-------d------- save ions collided with this object in snapshots? (1/0 = Yes/No)
+       0
+-------d------- save electrons collided with this object in snapshots? (1/0 = Yes/No)
+       0
