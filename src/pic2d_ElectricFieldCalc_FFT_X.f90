@@ -7,7 +7,7 @@ SUBROUTINE SOLVE_POISSON_FFTX_LINSYSY
   USE ClusterAndItsBoundaries
   USE BlockAndItsBoundaries, ONLY : indx_x_min, indx_x_max, indx_y_min, indx_y_max
   USE ParallelFFTX
-  USE Diagnostics, ONLY : Save_probes_data_T_cntr, N_of_probes_cluster, List_of_probes_cluster, Probe_position, probe_F_cluster
+  USE Diagnostics, ONLY : Save_probes_e_data_T_cntr, N_of_probes_cluster, List_of_probes_cluster, Probe_position, probe_F_cluster
   USE SetupValues, ONLY : ht_soft_grid_requested, ht_grid_requested, grid_j, F_grid
 
   IMPLICIT NONE
@@ -1301,7 +1301,7 @@ character(10) myfilename ! A_NNNN.dat
 
 ! ################ diagnostics, electrostatic potential #################
 !
-     IF (T_cntr.EQ.Save_probes_data_T_cntr) THEN
+     IF (T_cntr.EQ.Save_probes_e_data_T_cntr) THEN
         DO npc = 1, N_of_probes_cluster
            npa = List_of_probes_cluster(npc)
            i = Probe_position(1,npa)

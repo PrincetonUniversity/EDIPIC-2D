@@ -2044,3 +2044,143 @@ SUBROUTINE SET_EPS_JSHIFTED(i, j, eps)  ! here point {i,j} is between nodes {i,j
 
 END SUBROUTINE SET_EPS_JSHIFTED
 
+!-----------------------------------------------
+! this is a simplified verions
+! it is expected that point x is INSIDE some inner object or OUTSIDE, but not at the border of the object
+!
+SUBROUTINE GET_EPS_IN_POINT(x, y, eps)
+
+  USE CurrentProblemValues
+
+  IMPLICIT NONE
+
+  INCLUDE 'mpif.h'
+
+  INTEGER ierr
+ 
+  REAL(8), INTENT(IN) :: x, y
+  REAL(8), INTENT(OUT) :: eps
+
+  INTEGER count  ! counts dielectric objects
+  LOGICAL point_is_inside_dielectric_object
+  LOGICAL point_is_on_surface_of_metal_object
+  INTEGER n1
+
+! find all inner objects owning segment {i,j-1}-{i,j}
+! assume that only two dielectric objects may own a common segment
+! allow a metal object to be added on top of that
+
+  eps = 0.0_8
+  count = 0
+  point_is_inside_dielectric_object = .FALSE.
+
+! first, look through the dielectric objects only
+  DO n1 = N_of_boundary_objects+1, N_of_boundary_and_inner_objects
+
+     IF (whole_object(n1)%object_type.EQ.METAL_WALL) CYCLE
+
+! find an inner object containing point x, y
+
+     IF (x.LT.whole_object(n1)%Xmin) CYCLE
+     IF (x.GT.whole_object(n1)%Xmax) CYCLE
+     IF (y.LT.whole_object(n1)%Ymin) CYCLE
+     IF (y.GT.whole_object(n1)%Ymax) CYCLE
+
+! since we are here, point x,y is either at the surface or inside inner object n1
+
+     count = count + 1
+     eps = eps + whole_object(n1)%eps_diel
+
+     IF ( (x.GT.whole_object(n1)%Xmin).AND. &
+        & (x.LT.whole_object(n1)%Xmax).AND. &
+        & (y.GT.whole_object(n1)%Ymin).AND. &
+        & (y.LT.whole_object(n1)%Ymax) ) THEN
+! point inside
+        point_is_inside_dielectric_object = .TRUE.
+        EXIT
+     END IF
+
+  END DO   !###  DO n1 = N_of_boundary_objects+1, N_of_boundary_and_inner_objects
+
+! at this point
+! if count==0 then the point is either in/on metal object or in vacuum
+! if count==1 then the point is either inside a dielectric object or on the surface of ONE (not two) dielectric object
+! if count==2,3,4 then the point is at the interface between 2,3,4 dielectrics
+! if count>=5 this is an error
+
+! second, look through the metal objects only
+! if point belongs to a metal object 
+! return zero if it is inside
+! if it is on the surface
+! return (#1) epsilon of adjacent dielectric object or (#2) 1 if the metal object is in vacuum or (#3) 0 if the metal object is attached to another metal object
+
+  point_is_on_surface_of_metal_object = .FALSE.
+
+  DO n1 = N_of_boundary_objects+1, N_of_boundary_and_inner_objects
+
+     IF (whole_object(n1)%object_type.NE.METAL_WALL) CYCLE
+
+! find an inner object containing point x, y
+
+     IF (x.LT.whole_object(n1)%Xmin) CYCLE
+     IF (x.GT.whole_object(n1)%Xmax) CYCLE
+     IF (y.LT.whole_object(n1)%Ymin) CYCLE
+     IF (y.GT.whole_object(n1)%Ymax) CYCLE
+
+! since we are here, point x,y is either at the surface or inside inner object n1
+
+     IF ( (x.EQ.whole_object(n1)%Xmin).OR. &
+        & (x.EQ.whole_object(n1)%Xmax).OR. &
+        & (y.EQ.whole_object(n1)%Ymin).OR. &
+        & (y.EQ.whole_object(n1)%Ymax) ) THEN
+! point is on the surface
+        IF (point_is_on_surface_of_metal_object) THEN
+! #3
+! another metal object already has this segment on its border, so the segment is between two metal objects
+! return zero epsilon
+           eps = 0.0_8
+           RETURN
+        END IF
+! remember that a metal object was found
+        point_is_on_surface_of_metal_object = .TRUE.
+     ELSE
+! point is inside
+        eps = 0.0_8
+        RETURN
+     END IF
+
+  END DO   !###  DO n1 = N_of_boundary_objects+1, N_of_boundary_and_inner_objects
+
+! note that cases when segment is inside a metal object or in between two attached metal objects are already processed above, followed by RETURN calls
+
+  IF (point_is_on_surface_of_metal_object) THEN
+     IF (count.EQ.0) THEN
+! point on metal surface facing vacuum
+        eps = 1.0_8
+     ELSE
+! point on metal surface facing dielectric
+        eps = eps / count
+     END IF
+     RETURN
+  END IF
+
+  IF (count.EQ.0) THEN
+! point is in vacuum
+     eps = 1.0_8
+     RETURN
+  ELSE IF (count.EQ.1) THEN
+! point is inside a dielectric object
+     IF (point_is_inside_dielectric_object) RETURN
+! segment is on the surface of a dielectric object, facing vacuum
+     eps = (1.0_8 + eps) / 2.0_8
+     RETURN
+  ELSE IF (count.LT.4) THEN
+     eps = eps / DBLE(count)
+     RETURN
+  ELSE
+     PRINT '("Error-3 in GET_EPS_IN_POINT for x/y ",2x,f11.3,2x,f11.3)', x, y
+     CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
+  END IF
+
+END SUBROUTINE GET_EPS_IN_POINT
+

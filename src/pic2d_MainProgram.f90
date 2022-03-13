@@ -44,6 +44,12 @@ PROGRAM MainProg
   CALL INITIATE_PARAMETERS
 !print *, "did INITIATE_PARAMETERS"
 
+  CALL ANALYZE_BOUNDARY_OBJECTS
+
+  CALL CALCULATE_OBJECT_POTENTIALS_2D
+
+  CALL CALCULATE_OBJECT_POTENTIAL_CHARGE_COEFFS
+
   CALL INITIATE_ELECTRON_NEUTRAL_COLLISIONS
 
   CALL INITIATE_ION_NEUTRAL_COLLISIONS
@@ -57,9 +63,13 @@ PROGRAM MainProg
 !###  CALL INITIATE_WALL_DIAGNOSTICS_HT_SETUP   ! only one of the two actually works
   CALL INITIATE_WALL_DIAGNOSTICS            !
 
+  CALL INITIATE_EXT_CIRCUIT_DIAGNOSTICS
+
   CALL INITIATE_en_COLL_DIAGNOSTICS
 
   CALL INITIATE_in_COLL_DIAGNOSTICS
+
+  CALL INITIATE_AVERAGED_SNAPSHOTS
 
   CALL INITIATE_SNAPSHOTS
 
@@ -159,6 +169,8 @@ PROGRAM MainProg
 
         t6 = MPI_WTIME()
 
+        CALL SOLVE_EXTERNAL_CONTOUR
+
         CALL CALCULATE_ELECTRIC_FIELD               ! n
 
      ELSE IF (periodicity_flag.EQ.PERIODICITY_X) THEN
@@ -177,15 +189,7 @@ PROGRAM MainProg
 
      t7 = MPI_WTIME()
 
-     CALL COLLECT_ELECTRON_MOMENTS_IN_CLUSTER_PROBES
-
-     CALL MPI_BARRIER(MPI_COMM_WORLD, ierr) 
-
-     CALL COLLECT_ION_MOMENTS_IN_CLUSTER_PROBES(ions_moved)  ! ion moments in probes are updated only if ions moved since the most recent writing to probe data files
-
-     CALL MPI_BARRIER(MPI_COMM_WORLD, ierr) 
-
-     CALL DO_PROBE_DIAGNOSTICS(ions_moved)  ! if it writes to files, it sets ions_moved=.FALSE.
+     CALL COLLECT_F_EX_EY_FOR_AVERAGED_SNAPSHOT
 
      CALL MPI_BARRIER(MPI_COMM_WORLD, ierr) 
 
@@ -197,8 +201,9 @@ PROGRAM MainProg
 
      t9 = MPI_WTIME()
 
-     CALL ADVANCE_ELECTRONS                      !   velocity: n-1/2 ---> n+1/2
-                                                 ! coordinate: n     ---> n+1
+     CALL ADVANCE_ELECTRONS_PLUS                      !   velocity: n-1/2 ---> n+1/2
+                                                      ! coordinate: n     ---> n+1 
+                                                      ! may calculate electron moments for averaged snapshots
 
      CALL MPI_BARRIER(MPI_COMM_WORLD, ierr) 
 
@@ -217,8 +222,8 @@ PROGRAM MainProg
 
         if (Rank_of_process.eq.0) print '("----- doing ions at step ",i6," ------")', T_cntr
 
-        CALL ADVANCE_IONS                      !   velocity: n-N_e_subcycles+1/2 ---> n+1/2
-                                               ! coordinate: n-int(N_e_subcycles/2) ---> n-int(N_e_subcycles/2)+N_e_subcycles
+        CALL ADVANCE_IONS_PLUS                      !   velocity: n-N_e_subcycles+1/2 ---> n+1/2
+                                                    ! coordinate: n-int(N_e_subcycles/2) ---> n-int(N_e_subcycles/2)+N_e_subcycles
 
         CALL MPI_BARRIER(MPI_COMM_WORLD, ierr) 
 
@@ -323,6 +328,14 @@ PROGRAM MainProg
         t16 = t13
 
      END IF
+
+     CALL DO_PROBE_DIAGNOSTICS
+
+     CALL MPI_BARRIER(MPI_COMM_WORLD, ierr) 
+
+     CALL CREATE_AVERAGED_SNAPSHOT
+
+     CALL MPI_BARRIER(MPI_COMM_WORLD, ierr) 
 
 !###     CALL PERFORM_ELECTRON_EMISSION_HT_SETUP        ! either this or
                                                     ! PERFORM_ELECTRON_EMISSION_HT_SETUP_ZERO_GRAD_F (called above) works

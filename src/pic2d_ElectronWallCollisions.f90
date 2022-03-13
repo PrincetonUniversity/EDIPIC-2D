@@ -413,10 +413,12 @@ SUBROUTINE SAVE_BOUNDARY_PARTICLE_HITS_EMISSIONS
   USE ParallelOperationValues
   USE CurrentProblemValues
   USE SetupValues, ONLY : ht_use_e_emission_from_cathode, ht_use_e_emission_from_cathode_zerogradf, ht_emission_constant
-  USE IonParticles, ONLY : N_spec
+  USE IonParticles, ONLY : N_spec, Qs
+  USE ExternalCircuit
 
   IMPLICIT NONE
 
+  INTEGER nn, noi, s
   INTEGER k
                                     ! ----x----I----x--
   CHARACTER(17) historybo_filename  ! history_bo_NN.dat
@@ -432,6 +434,15 @@ SUBROUTINE SAVE_BOUNDARY_PARTICLE_HITS_EMISSIONS
   IF (Rank_of_process.NE.0) RETURN
 
   IF (ht_use_e_emission_from_cathode.OR.ht_use_e_emission_from_cathode_zerogradf.OR.ht_emission_constant) RETURN
+
+  DO nn = 1, N_of_object_potentials_to_solve
+     noi = object_charge_calculation(1)%noi
+     dQ_plasma_of_object(nn) = -whole_object(noi)%electron_hit_count + &
+                             &  whole_object(noi)%electron_emit_count                      ! include electron emission
+     DO s = 1, N_spec
+        dQ_plasma_of_object(nn) = dQ_plasma_of_object(nn) + Qs(s) * whole_object(noi)%ion_hit_count(s)
+     END DO
+  END DO
 
   DO k = 1, N_of_boundary_and_inner_objects
 

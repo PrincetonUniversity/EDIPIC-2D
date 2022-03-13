@@ -152,6 +152,12 @@ MODULE CurrentProblemValues
   INTEGER, PARAMETER :: PERIODICITY_X_PETSC = 10
   INTEGER, PARAMETER :: PERIODICITY_X_Y     = 2
 
+  INTEGER, PARAMETER :: END_FLAT = 0
+  INTEGER, PARAMETER :: END_CORNER_CONCAVE = 1
+  INTEGER, PARAMETER :: END_CORNER_CONVEX = 2
+  INTEGER, PARAMETER :: CONCAVE_CORNER = 3
+  INTEGER, PARAMETER :: CONVEX_CORNER = 4
+
   REAL(8), PARAMETER :: e_Cl     = 1.602189d-19      ! Charge of single electron [Cl]
   REAL(8), PARAMETER :: m_e_kg   = 9.109534d-31      ! Mass of single electron [kg]
   REAL(8), PARAMETER :: true_eps_0_Fm = 8.854188d-12      ! The dielectric constant [F/m]
@@ -210,6 +216,8 @@ MODULE CurrentProblemValues
   REAL(8) N_scale_part_m3
   REAL(8) current_factor_Am2
   REAL(8) energy_factor_eV
+  REAL(8) temperature_factor_eV
+  REAL(8) heat_flow_factor_Wm2
 
   INTEGER T_cntr
   INTEGER Start_T_cntr
@@ -222,6 +230,9 @@ MODULE CurrentProblemValues
      INTEGER iend
      INTEGER jend
 !     REAL(8), ALLOCATABLE :: surface_charge(:)
+
+     INTEGER start_type
+     INTEGER end_type
 
      LOGICAL, ALLOCATABLE :: cell_is_covered(:)
 
@@ -250,6 +261,8 @@ MODULE CurrentProblemValues
      INTEGER N_wf_points                    ! number of waveform data points, must be no less than 2
      REAL,    ALLOCATABLE :: wf_phi(:)      ! array of potential values of waveform data points
      INTEGER, ALLOCATABLE :: wf_T_cntr(:)   ! array of times (in units of timesteps) of waveform data points
+
+     LOGICAL potential_must_be_solved       ! .TRUE. for [metal] electrodes connected to external circuits, .FALSE. otherwise
 
      REAL    N_electron_constant_emit      ! constant number of electron macroparticles to be injected each time step (for example due to emission from a thermocathode)
      INTEGER model_constant_emit
@@ -729,9 +742,14 @@ MODULE Diagnostics
 ! diagnostic control
   INTEGER, PARAMETER :: Max_N_of_probes = 100
 
-  INTEGER Save_probes_data_step        ! WriteOut_step   ! Time interval (in steps) for writing into the file
-  INTEGER Save_probes_data_T_cntr      ! WriteStart_step ! Time (in steps) when writing starts
+  INTEGER Save_probes_e_data_step
+  INTEGER Save_probes_i_data_step
 
+  INTEGER Save_probes_e_data_T_cntr 
+  INTEGER Save_probes_i_data_T_cntr 
+
+!  INTEGER Save_probes_data_T_cntr
+  INTEGER Save_probes_data_step        ! WriteOut_step   ! Time interval (in steps) for writing into the file
   INTEGER Save_probes_data_T_cntr_rff  ! the value of Save_probes_data_T_cntr read from file (rff) init_probes.dat
                                        ! we need to save this value for consistent initialization of snapshots 
                                        ! when checkpoints are used to continue simulation
@@ -758,23 +776,43 @@ MODULE Diagnostics
 
   REAL, ALLOCATABLE :: probe_Ne_cluster(:)        ! these arrays keep diagnostics values obtained in different subroutines
 
-  REAL, ALLOCATABLE :: probe_JXe_cluster(:)       ! till they are saved in the main probe diagnostics routine
-  REAL, ALLOCATABLE :: probe_JYe_cluster(:)       !
-  REAL, ALLOCATABLE :: probe_JZe_cluster(:)       !
+  REAL, ALLOCATABLE :: probe_VXe_cluster(:)       ! till they are saved in the main probe diagnostics routine
+  REAL, ALLOCATABLE :: probe_VYe_cluster(:)       !
+  REAL, ALLOCATABLE :: probe_VZe_cluster(:)       !
+
+  REAL, ALLOCATABLE :: probe_VXVYe_cluster(:)     !
+  REAL, ALLOCATABLE :: probe_VXVZe_cluster(:)     !
+  REAL, ALLOCATABLE :: probe_VYVZe_cluster(:)     !
 
   REAL, ALLOCATABLE :: probe_WXe_cluster(:)       !
   REAL, ALLOCATABLE :: probe_WYe_cluster(:)       !
   REAL, ALLOCATABLE :: probe_WZe_cluster(:)       !
 
+  REAL, ALLOCATABLE :: probe_QXe_cluster(:)       !
+  REAL, ALLOCATABLE :: probe_QYe_cluster(:)       !
+  REAL, ALLOCATABLE :: probe_QZe_cluster(:)       !
+
   REAL, ALLOCATABLE :: probe_Ni_cluster(:,:)      !
 
-  REAL, ALLOCATABLE :: probe_JXi_cluster(:,:)     !
-  REAL, ALLOCATABLE :: probe_JYi_cluster(:,:)     !
-  REAL, ALLOCATABLE :: probe_JZi_cluster(:,:)     !
+  REAL, ALLOCATABLE :: probe_VXi_cluster(:,:)     !
+  REAL, ALLOCATABLE :: probe_VYi_cluster(:,:)     !
+  REAL, ALLOCATABLE :: probe_VZi_cluster(:,:)     !
+
+  REAL, ALLOCATABLE :: probe_VXVYi_cluster(:,:)   !
+  REAL, ALLOCATABLE :: probe_VXVZi_cluster(:,:)   !
+  REAL, ALLOCATABLE :: probe_VYVZi_cluster(:,:)   !
 
   REAL, ALLOCATABLE :: probe_WXi_cluster(:,:)     !
   REAL, ALLOCATABLE :: probe_WYi_cluster(:,:)     !
   REAL, ALLOCATABLE :: probe_WZi_cluster(:,:)     !
+
+  REAL, ALLOCATABLE :: probe_QXi_cluster(:,:)     !
+  REAL, ALLOCATABLE :: probe_QYi_cluster(:,:)     !
+  REAL, ALLOCATABLE :: probe_QZi_cluster(:,:)     !
+
+  REAL, ALLOCATABLE :: probe_JXsum(:)       !
+  REAL, ALLOCATABLE :: probe_JYsum(:)       !
+  REAL, ALLOCATABLE :: probe_JZsum(:)       !
 
   TYPE diagnostic_process
      INTEGER rank
@@ -809,31 +847,28 @@ MODULE Snapshots
 
 ! below, prefix cs stands for c-luster s-napshot
  
-  REAL, ALLOCATABLE :: cs_phi(:,:)
-  REAL, ALLOCATABLE :: cs_EX(:,:)
-  REAL, ALLOCATABLE :: cs_EY(:,:)
-
-  REAL, ALLOCATABLE :: cs_JXsum(:,:)
-  REAL, ALLOCATABLE :: cs_JYsum(:,:)
-  REAL, ALLOCATABLE :: cs_JZsum(:,:)
-
+! these arrays are made global to simplify synchronization of overlapping nodes
   REAL, ALLOCATABLE :: cs_N(:,:)
-  REAL, ALLOCATABLE :: cs_JX(:,:)
-  REAL, ALLOCATABLE :: cs_JY(:,:)
-  REAL, ALLOCATABLE :: cs_JZ(:,:)
+
   REAL, ALLOCATABLE :: cs_VX(:,:)
   REAL, ALLOCATABLE :: cs_VY(:,:)
   REAL, ALLOCATABLE :: cs_VZ(:,:)
+ 
   REAL, ALLOCATABLE :: cs_WX(:,:)
   REAL, ALLOCATABLE :: cs_WY(:,:)
   REAL, ALLOCATABLE :: cs_WZ(:,:)
-  REAL, ALLOCATABLE :: cs_TX(:,:)
-  REAL, ALLOCATABLE :: cs_TY(:,:)
-  REAL, ALLOCATABLE :: cs_TZ(:,:)
+
+  REAL, ALLOCATABLE :: cs_VXVY(:,:)  ! arrays required to calculate heat flow vector
+  REAL, ALLOCATABLE :: cs_VXVZ(:,:)
+  REAL, ALLOCATABLE :: cs_VYVZ(:,:)
+
+  REAL, ALLOCATABLE :: cs_QX(:,:)    ! arrays required to calculate heat flow vector
+  REAL, ALLOCATABLE :: cs_QY(:,:)
+  REAL, ALLOCATABLE :: cs_QZ(:,:)
 
 ! flags for turning output of various parameters on/off
 
-  LOGICAL save_data(1:32)
+  LOGICAL save_data(1:38)  ! 1+2+3+16+16
 
 ! variables for calculation of 1D and 2D velocity distribution functions
 
@@ -1061,3 +1096,143 @@ MODULE MCCollisions
   TYPE(binary_tree), POINTER :: Collided_particle
 
 END MODULE MCCollisions
+
+!--------------------------------
+!
+MODULE ExternalCircuit
+
+  INTEGER N_of_object_potentials_to_solve
+
+  REAL(8), ALLOCATABLE :: phi_due_object(:,:,:)   ! potential shape function
+                                                  ! for the potential created by object nn when it's potential is 1 while all other walls are grounded
+                                                  ! indices (i,j,nn) with i,j the spatial indices, nn the number of the object
+                                                  ! note: object numbering is different from the one of whole_object
+                                                  ! because it only accounts for objects connected to the circuit
+
+  REAL(8), ALLOCATABLE :: potential_of_object(:)  ! actual value of the potential of the object
+                                                  ! numbering only accounts for objects connected to the circuit
+                                                  ! need this to have potential values from preivious time step
+
+  REAL(8), ALLOCATABLE :: charge_of_object(:)     ! full charge of the object
+                                                  ! need this to have charge values from previous step
+
+  REAL(8), ALLOCATABLE :: object_charge_coeff(:,:)   ! dimension (0:N_of_object_potentials_to_solve, 1:N_of_object_potentials_to_solve)
+                                                     ! object_charge(nn) = object_charge_coeff(0,nn) +
+                                                     !                     object_charge_coeff(1,nn) * potential_of_object(1) + 
+                                                     !                     object_charge_coeff(2,nn) * potential_of_object(2) + etc
+                                                     ! object_charge_coeff(0,nn) depends on charge density and related potential profile,
+                                                     ! it must be updated each timestep
+                                                     ! object_charge_coeff(1:N_of_object_potentials_to_solve,nn) are precalculated
+
+  REAL(8), ALLOCATABLE :: dQ_plasma_of_object(:)  ! change of charge of object due to plasma electrons and ions collided with the object
+                                                  ! and emission of electrons only
+
+
+! for a point on the surface of an object we need a template to define which nodes to use
+! and which coefficients to use
+! in the structure below, there are arrays of size 3
+! element 1 is the node on the surface
+! elements 2 and 3 are additional nodes to be used
+! if only one additional node is used, element 3 is not used
+  TYPE node_control
+     INTEGER N_of_nodes_to_use     ! from 0 to 5
+     INTEGER, ALLOCATABLE :: use_i(:)              ! index i of node to use
+     INTEGER, ALLOCATABLE :: use_j(:)              ! index j of node to use
+     REAL(8) use_alpha_rho                         ! coefficient for charge density (the surface node only)
+     REAL(8), ALLOCATABLE :: use_alpha_phi(:)      ! coefficient for potential in the node
+  END TYPE node_control
+
+  TYPE calculation_control
+     INTEGER noi                           ! actual index of boundary object (index in whole_object array)
+     INTEGER N_of_points_to_process
+     TYPE(node_control), ALLOCATABLE :: control(:)
+  END TYPE calculation_control
+
+  TYPE(calculation_control), ALLOCATABLE :: object_charge_calculation(:)
+
+! circuit parameters (for the test case only, must be edited for different systems)
+  REAL(8) source_U
+  REAL(8) source_omega
+  REAL(8) source_phase
+  REAL(8) capacitor_C_F
+
+END MODULE ExternalCircuit
+
+!--------------------------
+!
+MODULE AvgSnapshots
+
+  INTEGER N_of_all_avgsnaps                        ! number of all snapshots
+
+  INTEGER current_avgsnap                          ! index of current snapshot (which must be created)
+
+  TYPE average_snapshot_timing 
+     INTEGER T_cntr_begin          ! time step when accumulation of average data for this snapshot begins
+     INTEGER T_cntr_end            ! time step when it ends and the data are saved
+  END TYPE average_snapshot_timing
+
+  TYPE(average_snapshot_timing), ALLOCATABLE :: avgsnapshot(:)
+
+!  INTEGER avg_data_collection_offset               ! offset relative to timestep following the ion move timestep
+                                                   ! 0 means that data will be collected at the timestep immediately after the timestep when ions moved
+                                                   ! N_subcycles-1 means that data will be collected at the timestep when the ions move
+                                                   ! [note that average data are collected after electric field is calculated but before particles are advanced]
+
+! arrays for accumulation of data
+
+  REAL, ALLOCATABLE :: cs_avg_phi(:,:)    !  1
+
+  REAL, ALLOCATABLE :: cs_avg_EX(:,:)     !  2
+  REAL, ALLOCATABLE :: cs_avg_EY(:,:)     !  3
+
+! total current is calculated immediately before writing to file, no need for the global array 
+
+  REAL, ALLOCATABLE :: cs_avg_Ne(:,:)     !  7
+
+  REAL, ALLOCATABLE :: cs_avg_JXe(:,:)    !  8
+  REAL, ALLOCATABLE :: cs_avg_JYe(:,:)    !  9
+  REAL, ALLOCATABLE :: cs_avg_JZe(:,:)    ! 10
+
+  REAL, ALLOCATABLE :: cs_avg_VXe(:,:)    ! 11
+  REAL, ALLOCATABLE :: cs_avg_VYe(:,:)    ! 12
+  REAL, ALLOCATABLE :: cs_avg_VZe(:,:)    ! 13
+ 
+  REAL, ALLOCATABLE :: cs_avg_WXe(:,:)    ! 14
+  REAL, ALLOCATABLE :: cs_avg_WYe(:,:)    ! 15
+  REAL, ALLOCATABLE :: cs_avg_WZe(:,:)    ! 16
+
+  REAL, ALLOCATABLE :: cs_avg_TXe(:,:)    ! 17
+  REAL, ALLOCATABLE :: cs_avg_TYe(:,:)    ! 18
+  REAL, ALLOCATABLE :: cs_avg_TZe(:,:)    ! 19
+
+  REAL, ALLOCATABLE :: cs_avg_QXe(:,:)    ! 20
+  REAL, ALLOCATABLE :: cs_avg_QYe(:,:)    ! 21
+  REAL, ALLOCATABLE :: cs_avg_QZe(:,:)    ! 22
+
+  REAL, ALLOCATABLE :: cs_avg_Ni(:,:,:)   ! 23
+
+  REAL, ALLOCATABLE :: cs_avg_JXi(:,:,:)  ! 24
+  REAL, ALLOCATABLE :: cs_avg_JYi(:,:,:)  ! 25
+  REAL, ALLOCATABLE :: cs_avg_JZi(:,:,:)  ! 26
+
+  REAL, ALLOCATABLE :: cs_avg_VXi(:,:,:)  ! 27
+  REAL, ALLOCATABLE :: cs_avg_VYi(:,:,:)  ! 28
+  REAL, ALLOCATABLE :: cs_avg_VZi(:,:,:)  ! 29
+ 
+  REAL, ALLOCATABLE :: cs_avg_WXi(:,:,:)  ! 30
+  REAL, ALLOCATABLE :: cs_avg_WYi(:,:,:)  ! 31
+  REAL, ALLOCATABLE :: cs_avg_WZi(:,:,:)  ! 32
+
+  REAL, ALLOCATABLE :: cs_avg_TXi(:,:,:)  ! 33
+  REAL, ALLOCATABLE :: cs_avg_TYi(:,:,:)  ! 34
+  REAL, ALLOCATABLE :: cs_avg_TZi(:,:,:)  ! 35
+
+  REAL, ALLOCATABLE :: cs_avg_QXi(:,:,:)  ! 36
+  REAL, ALLOCATABLE :: cs_avg_QYi(:,:,:)  ! 37
+  REAL, ALLOCATABLE :: cs_avg_QZi(:,:,:)  ! 38
+
+! flags for turning output of various parameters on/off (see above)
+
+  LOGICAL save_avg_data(1:38)  ! 1+2+3+16+16
+
+END MODULE AvgSnapshots

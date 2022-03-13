@@ -10,7 +10,7 @@ SUBROUTINE SOLVE_POTENTIAL_WITH_PETSC
   USE ParallelOperationValues
   USE CurrentProblemValues
   USE BlockAndItsBoundaries
-  USE Diagnostics, ONLY : Save_probes_data_T_cntr, N_of_probes_block, Probe_params_block_list, probe_F_block
+  USE Diagnostics, ONLY : Save_probes_e_data_T_cntr, N_of_probes_block, Probe_params_block_list, probe_F_block
 
   IMPLICIT NONE
 
@@ -182,6 +182,7 @@ SUBROUTINE SOLVE_POTENTIAL_WITH_PETSC
            IF (j.LT.whole_object(nobj)%jbottom) CYCLE
            IF (j.GT.whole_object(nobj)%jtop) CYCLE
            rhsvalue(nn) = whole_object(nobj)%phi
+!print *, i, j, rhsvalue(nn)
         END DO
      END DO
   END DO
@@ -339,7 +340,7 @@ SUBROUTINE SOLVE_POTENTIAL_WITH_PETSC
   IF (ALLOCATED(rbufer)) DEALLOCATE(rbufer, STAT=ALLOC_ERR)
 
 ! ################ diagnostics, electrostatic potential #################
-  IF (T_cntr.EQ.Save_probes_data_T_cntr) THEN
+  IF (T_cntr.EQ.Save_probes_e_data_T_cntr) THEN
      DO npb = 1, N_of_probes_block
         i = Probe_params_block_list(1,npb)
         j = Probe_params_block_list(2,npb)

@@ -7,13 +7,14 @@ SUBROUTINE SAVE_CHECKPOINT_MPIIO_2(n_sub)
   USE ParallelOperationValues
   USE CurrentProblemValues
   USE LoadBalancing, ONLY : T_cntr_global_load_balance, T_cntr_cluster_load_balance
-  USE Diagnostics, ONLY : Save_probes_data_T_cntr, N_of_saved_records
+  USE Diagnostics, ONLY : Save_probes_e_data_T_cntr, N_of_saved_records
   USE Snapshots, ONLY : current_snap
   USE ElectronParticles
   USE IonParticles
   USE Checkpoints
   USE ClusterAndItsBoundaries, ONLY : c_local_object_part, c_N_of_local_object_parts
   USE SetupValues, ONLY : total_cathode_N_e_to_inject
+  USE ExternalCircuit
 
   USE rng_wrapper
 
@@ -84,7 +85,7 @@ SUBROUTINE SAVE_CHECKPOINT_MPIIO_2(n_sub)
   ibufer(627) = T_cntr
   ibufer(628) = T_cntr_global_load_balance
   ibufer(629) = T_cntr_cluster_load_balance
-  ibufer(630) = Save_probes_data_T_cntr
+  ibufer(630) = Save_probes_e_data_T_cntr
   ibufer(631) = N_of_saved_records
   ibufer(632) = current_snap
   ibufer(633) = particle_master
@@ -134,6 +135,11 @@ SUBROUTINE SAVE_CHECKPOINT_MPIIO_2(n_sub)
      END IF
   END IF
 
+! include potentials and charges (full,plasma) of 
+  IF (Rank_of_process.EQ.0) THEN
+     len_surf_charge = len_surf_charge + 3 * N_of_object_potentials_to_solve
+  END IF
+
   ibufer(pos) = len_surf_charge
 
   ALLOCATE(rbufer(1:MAX(1,len_surf_charge)), STAT = ALLOC_ERR)
@@ -172,6 +178,18 @@ SUBROUTINE SAVE_CHECKPOINT_MPIIO_2(n_sub)
            END IF
         END DO
      END IF
+  END IF
+
+  IF ((Rank_of_process.EQ.0).AND.(N_of_object_potentials_to_solve.GT.0)) THEN
+     pos = pos2 + 1
+     pos2 = pos2 + N_of_object_potentials_to_solve
+     rbufer(pos:pos2) = potential_of_object(1:N_of_object_potentials_to_solve)
+     pos = pos2 + 1
+     pos2 = pos2 + N_of_object_potentials_to_solve
+     rbufer(pos:pos2) = charge_of_object(1:N_of_object_potentials_to_solve)
+     pos = pos2 + 1
+     pos2 = pos2 + N_of_object_potentials_to_solve
+     rbufer(pos:pos2) = dQ_plasma_of_object(1:N_of_object_potentials_to_solve)
   END IF
 
   CALL MPI_BARRIER(MPI_COMM_WORLD, ierr)
@@ -339,6 +357,7 @@ SUBROUTINE READ_CHECKPOINT_MPIIO_2
   USE Checkpoints
   USE ClusterAndItsBoundaries, ONLY : c_local_object_part, c_N_of_local_object_parts
   USE SetupValues, ONLY : total_cathode_N_e_to_inject
+  USE ExternalCircuit
 
   USE rng_wrapper
 
@@ -430,7 +449,7 @@ SUBROUTINE READ_CHECKPOINT_MPIIO_2
   Start_T_cntr                  = ibufer(627) != T_cntr
   T_cntr_global_load_balance    = ibufer(628) != T_cntr_global_load_balance
   T_cntr_cluster_load_balance   = ibufer(629) != T_cntr_cluster_load_balance
-  Save_probes_data_T_cntr_check = ibufer(630) != Save_probes_data_T_cntr
+  Save_probes_data_T_cntr_check = ibufer(630) != Save_probes_e_data_T_cntr
   N_of_saved_records_check      = ibufer(631) != N_of_saved_records
   current_snap_check            = ibufer(632) != current_snap
   particle_master               = ibufer(633) != particle_master
@@ -496,7 +515,19 @@ SUBROUTINE READ_CHECKPOINT_MPIIO_2
            END IF
         END DO
      END IF
- END IF
+  END IF
+
+  IF ((Rank_of_process.EQ.0).AND.(N_of_object_potentials_to_solve.GT.0)) THEN
+     pos = pos2 + 1
+     pos2 = pos2 + N_of_object_potentials_to_solve
+     potential_of_object(1:N_of_object_potentials_to_solve) = rbufer(pos:pos2)
+     pos = pos2 + 1
+     pos2 = pos2 + N_of_object_potentials_to_solve
+     charge_of_object(1:N_of_object_potentials_to_solve) = rbufer(pos:pos2)
+     pos = pos2 + 1
+     pos2 = pos2 + N_of_object_potentials_to_solve
+     dQ_plasma_of_object(1:N_of_object_potentials_to_solve) = rbufer(pos:pos2)
+  END IF
 
   bufsize = 5 * N_electrons
   ALLOCATE(dbufer(1:MAX(1,bufsize)), STAT = ALLOC_ERR)
@@ -673,13 +704,14 @@ SUBROUTINE SAVE_CHECKPOINT_POSIX(n_sub)
   USE ParallelOperationValues
   USE CurrentProblemValues
   USE LoadBalancing, ONLY : T_cntr_global_load_balance, T_cntr_cluster_load_balance
-  USE Diagnostics, ONLY : Save_probes_data_T_cntr, N_of_saved_records
+  USE Diagnostics, ONLY : Save_probes_e_data_T_cntr, N_of_saved_records
   USE Snapshots, ONLY : current_snap
   USE ElectronParticles
   USE IonParticles
   USE Checkpoints
   USE ClusterAndItsBoundaries, ONLY : c_local_object_part, c_N_of_local_object_parts
   USE SetupValues, ONLY : total_cathode_N_e_to_inject
+  USE ExternalCircuit
 
   USE rng_wrapper
 
@@ -735,7 +767,7 @@ SUBROUTINE SAVE_CHECKPOINT_POSIX(n_sub)
   ibufer(627) = T_cntr
   ibufer(628) = T_cntr_global_load_balance
   ibufer(629) = T_cntr_cluster_load_balance
-  ibufer(630) = Save_probes_data_T_cntr
+  ibufer(630) = Save_probes_e_data_T_cntr
   ibufer(631) = N_of_saved_records
   ibufer(632) = current_snap
   ibufer(633) = particle_master
@@ -783,6 +815,11 @@ SUBROUTINE SAVE_CHECKPOINT_POSIX(n_sub)
      END IF
   END IF
 
+! include potentials and charges (full,plasma) of 
+  IF (Rank_of_process.EQ.0) THEN
+     len_surf_charge = len_surf_charge + 3 * N_of_object_potentials_to_solve
+  END IF
+
   ibufer(pos) = len_surf_charge
 
   ALLOCATE(rbufer(1:MAX(1,len_surf_charge)), STAT = ALLOC_ERR)
@@ -821,6 +858,18 @@ SUBROUTINE SAVE_CHECKPOINT_POSIX(n_sub)
            END IF
         END DO
      END IF
+  END IF
+
+  IF ((Rank_of_process.EQ.0).AND.(N_of_object_potentials_to_solve.GT.0)) THEN
+     pos = pos2 + 1
+     pos2 = pos2 + N_of_object_potentials_to_solve
+     rbufer(pos:pos2) = potential_of_object(1:N_of_object_potentials_to_solve)
+     pos = pos2 + 1
+     pos2 = pos2 + N_of_object_potentials_to_solve
+     rbufer(pos:pos2) = charge_of_object(1:N_of_object_potentials_to_solve)
+     pos = pos2 + 1
+     pos2 = pos2 + N_of_object_potentials_to_solve
+     rbufer(pos:pos2) = dQ_plasma_of_object(1:N_of_object_potentials_to_solve)
   END IF
 
 ! each process saves everything into its own binary file 
@@ -886,6 +935,7 @@ SUBROUTINE READ_CHECKPOINT_POSIX
   USE Checkpoints
   USE ClusterAndItsBoundaries, ONLY : c_local_object_part, c_N_of_local_object_parts
   USE SetupValues, ONLY : total_cathode_N_e_to_inject
+  USE ExternalCircuit
 
   USE rng_wrapper
 
@@ -961,7 +1011,7 @@ SUBROUTINE READ_CHECKPOINT_POSIX
   Start_T_cntr                  = ibufer(627) != T_cntr
   T_cntr_global_load_balance    = ibufer(628) != T_cntr_global_load_balance
   T_cntr_cluster_load_balance   = ibufer(629) != T_cntr_cluster_load_balance
-  Save_probes_data_T_cntr_check = ibufer(630) != Save_probes_data_T_cntr
+  Save_probes_data_T_cntr_check = ibufer(630) != Save_probes_e_data_T_cntr
   N_of_saved_records_check      = ibufer(631) != N_of_saved_records
   current_snap_check            = ibufer(632) != current_snap
   particle_master               = ibufer(633) != particle_master
@@ -1021,6 +1071,18 @@ SUBROUTINE READ_CHECKPOINT_POSIX
            END IF
         END DO
      END IF
+  END IF
+
+  IF ((Rank_of_process.EQ.0).AND.(N_of_object_potentials_to_solve.GT.0)) THEN
+     pos = pos2 + 1
+     pos2 = pos2 + N_of_object_potentials_to_solve
+     potential_of_object(1:N_of_object_potentials_to_solve) = rbufer(pos:pos2)
+     pos = pos2 + 1
+     pos2 = pos2 + N_of_object_potentials_to_solve
+     charge_of_object(1:N_of_object_potentials_to_solve) = rbufer(pos:pos2)
+     pos = pos2 + 1
+     pos2 = pos2 + N_of_object_potentials_to_solve
+     dQ_plasma_of_object(1:N_of_object_potentials_to_solve) = rbufer(pos:pos2)
   END IF
 
   ALLOCATE(electron(1:max_N_electrons), STAT=ALLOC_ERR)

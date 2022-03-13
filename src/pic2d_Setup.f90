@@ -59,6 +59,8 @@ SUBROUTINE PREPARE_SETUP_VALUES
 
      whole_object(n)%use_waveform = .FALSE.
 
+     whole_object(n)%potential_must_be_solved = .FALSE.
+
      initbo_filename = 'init_bo_NN.dat'
      initbo_filename(9:10) = convert_int_to_txt_string(n, 2)
 
@@ -135,7 +137,9 @@ SUBROUTINE PREPARE_SETUP_VALUES
   END DO    !###   DO n = 1, N_of_boundary_and_inner_objects
 
   CALL PREPARE_WAVEFORMS
-  
+
+  CALL PREPARE_EXTERNAL_CIRCUIT
+
 END SUBROUTINE PREPARE_SETUP_VALUES
 
 !--------------------------------------------
@@ -260,6 +264,138 @@ SUBROUTINE PREPARE_WAVEFORMS
   END DO
 
 END SUBROUTINE PREPARE_WAVEFORMS
+
+!--------------------------------------------
+!
+SUBROUTINE PREPARE_EXTERNAL_CIRCUIT
+
+!???  USE ParallelOperationValues, ONLY : Rank_of_process
+  USE ExternalCircuit
+  USE CurrentProblemValues, ONLY : whole_object, N_of_boundary_and_inner_objects, METAL_WALL, delta_t_s, F_scale_V, pi
+  USE BlockAndItsBoundaries
+
+  IMPLICIT NONE
+
+  LOGICAL exists
+  CHARACTER(1) buf
+
+  INTEGER ALLOC_ERR
+
+  INTEGER nn, ntemp
+  
+  N_of_object_potentials_to_solve = 0
+
+  INQUIRE (FILE = 'init_ext_circuit.dat', EXIST = exists)
+  IF (.NOT.exists) RETURN
+
+  OPEN (11, FILE = 'init_ext_circuit.dat')
+
+  READ (11, '(A1)') buf   ! total number of electrodes whose potential must be solved (>0, if <=0 then no external circuit)
+  READ (11, *) N_of_object_potentials_to_solve
+
+  IF (N_of_object_potentials_to_solve.LE.0) THEN
+     N_of_object_potentials_to_solve = 0
+     RETURN
+  END IF
+     
+  ALLOCATE(phi_due_object(indx_x_min:indx_x_max, indx_y_min:indx_y_max, 1:N_of_object_potentials_to_solve), STAT=ALLOC_ERR)
+  ALLOCATE(potential_of_object(1:N_of_object_potentials_to_solve), STAT=ALLOC_ERR)
+  ALLOCATE(charge_of_object(1:N_of_object_potentials_to_solve), STAT=ALLOC_ERR)
+  ALLOCATE(dQ_plasma_of_object(1:N_of_object_potentials_to_solve), STAT=ALLOC_ERR)
+  ALLOCATE(object_charge_coeff(0:N_of_object_potentials_to_solve, 1:N_of_object_potentials_to_solve), STAT=ALLOC_ERR)
+  ALLOCATE(object_charge_calculation(1:N_of_object_potentials_to_solve), STAT=ALLOC_ERR)
+
+  READ (11, '(A1)') buf   ! below list in one column numbers of electrodes whose potential must be solved
+  DO nn = 1, N_of_object_potentials_to_solve
+     READ (11, *) ntemp
+     IF ((ntemp.LT.1).OR.(ntemp.GT.N_of_boundary_and_inner_objects)) THEN
+        PRINT '("error-1 while reading init_ext_circuit.dat, invalid object number ",i8)', ntemp
+        STOP
+     END IF
+     IF (whole_object(ntemp)%object_type.NE.METAL_WALL) THEN
+        PRINT '("error-2 while reading init_ext_circuit.dat, object ",i3," is not metal")', ntemp
+        STOP
+     END IF
+     whole_object(ntemp)%potential_must_be_solved = .TRUE.
+     object_charge_calculation(nn)%noi = ntemp
+  END DO
+
+  READ (11, '(A1)') buf   ! below is amplitude of potential oscillations in the driving rf voltage source [V]
+  READ (11, *) source_U
+  source_U = source_U / F_scale_V
+
+  READ (11, '(A1)') buf   ! below is frequency of potential oscillations in the driving rf voltage source [Hz]
+  READ (11, *) source_omega
+  source_omega = 2.0_8 * pi * source_omega * delta_t_s
+
+  READ (11, '(A1)') buf   ! below is phase of potential oscillations in the driving rf voltage source [deg]
+  READ (11, *) source_phase
+  source_phase = source_phase * pi / 180.0_8
+
+  READ (11, '(A1)') buf   ! below is capacity of capacitor [F]
+  READ (11, *) capacitor_C_F
+
+  CLOSE (11, STATUS = 'KEEP')
+
+!  OPEN  (21, FILE = 'history_ext_circuit.dat', STATUS = 'REPLACE')
+!  CLOSE (21, STATUS = 'KEEP')
+
+! default values
+  charge_of_object = 0.0_8
+  dQ_plasma_of_object = 0.0_8
+! the piece below works for this particular circuit only, with N_of_object_potentials_to_solve=1
+  DO nn = 1, N_of_object_potentials_to_solve
+     potential_of_object(nn) = source_U * SIN(source_phase)
+  END DO
+  RETURN
+
+END SUBROUTINE PREPARE_EXTERNAL_CIRCUIT
+
+!-------------------------------------------------------------------------------------------
+!
+SUBROUTINE INITIATE_EXT_CIRCUIT_DIAGNOSTICS
+
+  USE ParallelOperationValues
+  USE CurrentProblemValues, ONLY : N_of_boundary_and_inner_objects, Start_T_cntr
+  USE Checkpoints, ONLY : use_checkpoint
+!  USE Diagnostics, ONLY : N_of_saved_records
+  USE SetupValues, ONLY : ht_use_e_emission_from_cathode, ht_use_e_emission_from_cathode_zerogradf, ht_emission_constant
+  USE ExternalCircuit, ONLY : N_of_object_potentials_to_solve
+
+  IMPLICIT NONE
+
+  LOGICAL exists
+  INTEGER i
+  INTEGER i_dummy
+
+  IF (Rank_of_process.NE.0) RETURN
+
+  IF (ht_use_e_emission_from_cathode.OR.ht_use_e_emission_from_cathode_zerogradf.OR.ht_emission_constant) RETURN
+
+  IF (N_of_object_potentials_to_solve.LE.0) RETURN
+
+  IF (use_checkpoint.EQ.1) THEN
+! start from checkpoint, must trim the time dependences
+
+     INQUIRE (FILE = 'history_ext_circuit.dat', EXIST = exists)
+     IF (exists) THEN                                                       
+        OPEN (21, FILE = 'history_ext_circuit.dat', STATUS = 'OLD')          
+        DO i = 1, Start_T_cntr   !N_of_saved_records             ! these files are updated at every electron timestep
+           READ (21, '(2x,i9,8(2x,e14.7))') i_dummy
+        END DO
+        ENDFILE 21       
+        CLOSE (21, STATUS = 'KEEP')        
+     END IF
+
+  ELSE
+! fresh start, empty files, clean up whatever garbage there might be
+
+     OPEN  (21, FILE = 'history_ext_circuit.dat', STATUS = 'REPLACE')          
+     CLOSE (21, STATUS = 'KEEP')
+
+  END IF
+
+END SUBROUTINE INITIATE_EXT_CIRCUIT_DIAGNOSTICS
 
 !--------------------------------------------
 !

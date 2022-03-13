@@ -667,3 +667,173 @@ SUBROUTINE CALCULATE_BLOCK_OFFSET
 
 END SUBROUTINE CALCULATE_BLOCK_OFFSET
 
+!------------------------------------------------
+!
+SUBROUTINE ANALYZE_BOUNDARY_OBJECTS
+
+  USE CurrentProblemValues
+
+  IMPLICIT NONE
+
+  INCLUDE 'mpif.h'
+
+  INTEGER ierr
+
+  INTEGER nobj, nseg
+  LOGICAL connection_found
+  INTEGER n, m
+
+  INTEGER connected_object
+  INTEGER connected_segment
+
+  INTEGER iv1x, iv1y
+  INTEGER iv2x, iv2y
+
+  DO nobj = 1, N_of_boundary_objects
+     DO nseg = 1, whole_object(nobj)%number_of_segments
+
+! find where the ends of this segment are connected to
+
+! first process the start point ---------------------------------------------------------------------------------
+
+        connection_found = .FALSE.
+
+        DO n = 1, N_of_boundary_objects
+           DO m = 1, whole_object(n)%number_of_segments
+! do not compare segment to itself
+              IF ((n.EQ.nobj).AND.(m.EQ.nseg)) CYCLE
+! try start of the other segment
+              IF ( (whole_object(nobj)%segment(nseg)%istart.EQ.whole_object(n)%segment(m)%istart).AND. &
+                 & (whole_object(nobj)%segment(nseg)%jstart.EQ.whole_object(n)%segment(m)%jstart) ) THEN
+                 connection_found = .TRUE.
+                 connected_object = n
+                 connected_segment = m
+                 EXIT
+              END IF
+! try end of the other segment
+              IF ( (whole_object(nobj)%segment(nseg)%istart.EQ.whole_object(n)%segment(m)%iend).AND. &
+                 & (whole_object(nobj)%segment(nseg)%jstart.EQ.whole_object(n)%segment(m)%jend) ) THEN
+                 connection_found = .TRUE.
+                 connected_object = n
+                 connected_segment = m
+                 EXIT
+              END IF
+           END DO
+           IF (connection_found) EXIT
+        END DO
+
+        IF (.NOT.connection_found) THEN
+           PRINT '("ERROR :: cannot find connection for the start point of object ",i4," segment ",i4," with i/j= ",2(2x,i6))', &
+                & nobj, nseg, whole_object(nobj)%segment(nseg)%istart, whole_object(nobj)%segment(nseg)%jstart
+           CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
+        END IF
+
+        n = connected_object
+        m = connected_segment
+! vector of object/segment nobj/nseg
+        iv1x = whole_object(nobj)%segment(nseg)%iend - whole_object(nobj)%segment(nseg)%istart
+        iv1y = whole_object(nobj)%segment(nseg)%jend - whole_object(nobj)%segment(nseg)%jstart
+! vector of object/segment n/m
+        iv2x = whole_object(n)%segment(m)%iend - whole_object(n)%segment(m)%istart
+        iv2y = whole_object(n)%segment(m)%jend - whole_object(n)%segment(m)%jstart
+
+        IF (n.EQ.nobj) THEN
+! start end of the segment is connected to another segment of the same object
+           IF ((iv1x * iv2y - iv1y * iv2x).EQ.0) THEN
+! vectors iv1 and iv2 (i.e. the two segments) are parallel, this should not happen
+              PRINT '("ERROR :: boundary object ",i4," has segments ",i4," and ",i4," connected and parallel")', &
+                & nobj, nseg, m
+              CALL MPI_ABORT(MPI_COMM_WORLD, ierr)           
+           ELSE
+! vectors iv1 and iv2 (i.e. the two segments) are orthogonal
+!### presently, it is assumed that this is a CONCAVE_CORNER, which works in a RECTANGULAR DOMAIN ONLY
+!### must be fixed if the whole domain consists of multiple rectangles, so that CONVEX_CORNER 
+              whole_object(nobj)%segment(nseg)%start_type = CONCAVE_CORNER
+           END IF
+        ELSE  !### IF (n.EQ.nobj) THEN
+! start end of the segment is connected to a segment of a different object
+           IF ((iv1x * iv2y - iv1y * iv2x).EQ.0) THEN
+! vectors iv1 and iv2 (i.e. the two segments) are parallel
+              whole_object(nobj)%segment(nseg)%start_type = END_FLAT
+           ELSE
+! vectors iv1 and iv2 (i.e. the two segments) are orthogonal
+!### presently, it is assumed that this is an END_CORNER_CONCAVE, which works in a RECTANGULAR DOMAIN ONLY
+!### must be fixed if the whole domain consists of multiple rectangles, where END_CORNER_CONVEX is possible
+              whole_object(nobj)%segment(nseg)%start_type = END_CORNER_CONCAVE
+           END IF
+        END IF  !### IF (n.EQ.nobj) THEN
+
+! now process the end point ---------------------------------------------------------------------------------
+
+        connection_found = .FALSE.
+
+        DO n = 1, N_of_boundary_objects
+           DO m = 1, whole_object(n)%number_of_segments
+! do not compare segment to itself
+              IF ((n.EQ.nobj).AND.(m.EQ.nseg)) CYCLE
+! try start of the other segment
+              IF ( (whole_object(nobj)%segment(nseg)%iend.EQ.whole_object(n)%segment(m)%istart).AND. &
+                 & (whole_object(nobj)%segment(nseg)%jend.EQ.whole_object(n)%segment(m)%jstart) ) THEN
+                 connection_found = .TRUE.
+                 connected_object = n
+                 connected_segment = m
+                 EXIT
+              END IF
+! try end of the other segment
+              IF ( (whole_object(nobj)%segment(nseg)%iend.EQ.whole_object(n)%segment(m)%iend).AND. &
+                 & (whole_object(nobj)%segment(nseg)%jend.EQ.whole_object(n)%segment(m)%jend) ) THEN
+                 connection_found = .TRUE.
+                 connected_object = n
+                 connected_segment = m
+                 EXIT
+              END IF
+           END DO
+           IF (connection_found) EXIT
+        END DO
+
+        IF (.NOT.connection_found) THEN
+           PRINT '("ERROR :: cannot find connection for the end point of object ",i4," segment ",i4," with i/j= ",2(2x,i6))', &
+                & nobj, nseg, whole_object(nobj)%segment(nseg)%iend, whole_object(nobj)%segment(nseg)%jend
+           CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
+        END IF
+
+        n = connected_object
+        m = connected_segment
+! vector of object/segment nobj/nseg (already known)
+!        iv1x = whole_object(nobj)%segment(nseg)%iend - whole_object(nobj)%segment(nseg)%istart
+!        iv1y = whole_object(nobj)%segment(nseg)%jend - whole_object(nobj)%segment(nseg)%jstart
+! vector of object/segment n/m
+        iv2x = whole_object(n)%segment(m)%iend - whole_object(n)%segment(m)%istart
+        iv2y = whole_object(n)%segment(m)%jend - whole_object(n)%segment(m)%jstart
+
+        IF (n.EQ.nobj) THEN
+! end of the segment is connected to another segment of the same object
+           IF ((iv1x * iv2y - iv1y * iv2x).EQ.0) THEN
+! vectors iv1 and iv2 (i.e. the two segments) are parallel, this should not happen
+              PRINT '("ERROR :: boundary object ",i4," has segments ",i4," and ",i4," connected and parallel")', &
+                & nobj, nseg, m
+              CALL MPI_ABORT(MPI_COMM_WORLD, ierr)           
+           ELSE
+! vectors iv1 and iv2 (i.e. the two segments) are orthogonal
+!### presently, it is assumed that this is a CONCAVE_CORNER, which works in a RECTANGULAR DOMAIN ONLY
+!### must be fixed if the whole domain consists of multiple rectangles, so that CONVEX_CORNER 
+              whole_object(nobj)%segment(nseg)%end_type = CONCAVE_CORNER
+           END IF
+        ELSE  !### IF (n.EQ.nobj) THEN
+! end of the segment is connected to a segment of a different object
+           IF ((iv1x * iv2y - iv1y * iv2x).EQ.0) THEN
+! vectors iv1 and iv2 (i.e. the two segments) are parallel
+              whole_object(nobj)%segment(nseg)%end_type = END_FLAT
+           ELSE
+! vectors iv1 and iv2 (i.e. the two segments) are orthogonal
+!### presently, it is assumed that this is an END_CORNER_CONCAVE, which works in a RECTANGULAR DOMAIN ONLY
+!### must be fixed if the whole domain consists of multiple rectangles, where END_CORNER_CONVEX is possible
+              whole_object(nobj)%segment(nseg)%end_type = END_CORNER_CONCAVE
+           END IF
+        END IF  !### IF (n.EQ.nobj) THEN
+
+     END DO   !###  DO nseg = 1, whole_object(n)%number_of_segments
+  END DO   !###  DO nobj = 1, N_of_boundary_objects
+
+END SUBROUTINE ANALYZE_BOUNDARY_OBJECTS
+

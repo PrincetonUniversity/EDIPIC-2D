@@ -23,7 +23,7 @@ SUBROUTINE SET_PHYSICAL_CONSTANTS
  
   OPEN (9, FILE = 'init_physconstants.dat')
 
-  READ (9, '(A1)', IOSTAT=IOS) buf ! --+d.ddddddE+dd the vacuum permittivity constant is in the line below (the true value is 8.854188e-12 F/m)
+  READ (9, '(A1)', IOSTAT=IOS) buf ! the vacuum permittivity constant is in the line below (the true value is 8.854188e-12 F/m)
 
   IF (IOS.NE.0) THEN
      IF (Rank_of_process.EQ.0) PRINT '("###### Error while reading from file init_physconstants.dat, use default/true eps_0 = ",e15.8," F/m ######")', eps_0_Fm
@@ -239,6 +239,24 @@ SUBROUTINE INITIATE_PARAMETERS
                                             & whole_object(n)%segment(m)%jstart, &
                                             & whole_object(n)%segment(m)%iend, &
                                             & whole_object(n)%segment(m)%jend
+! sort endpoints so that start-end always goes either left-righ or bottom-top
+! also check that the segment is either vertical or horizontal
+        IF (whole_object(n)%segment(m)%istart.EQ.whole_object(n)%segment(m)%iend) THEN
+! vertical segment
+           itmp = MAX(whole_object(n)%segment(m)%jstart, whole_object(n)%segment(m)%jend)
+           whole_object(n)%segment(m)%jstart = MIN(whole_object(n)%segment(m)%jstart, whole_object(n)%segment(m)%jend)
+           whole_object(n)%segment(m)%jend   = itmp
+        ELSE IF (whole_object(n)%segment(m)%jstart.EQ.whole_object(n)%segment(m)%jend) THEN
+! horizontal segment
+           itmp = MAX(whole_object(n)%segment(m)%istart, whole_object(n)%segment(m)%iend)
+           whole_object(n)%segment(m)%istart = MIN(whole_object(n)%segment(m)%istart, whole_object(n)%segment(m)%iend)
+           whole_object(n)%segment(m)%iend   = itmp
+        ELSE
+! error
+           PRINT '("Process ",i4," ERROR in INITIATE_PARAMETERS : boundary object ",i4," has segment ",i4," with inconsistent start i/j ",2(2x,i6)," and end i/j ",2(2x,i6))', &
+                & Rank_of_process, n, m, whole_object(n)%segment(m)%istart, whole_object(n)%segment(m)%jstart, whole_object(n)%segment(m)%iend, whole_object(n)%segment(m)%jend
+           CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
+        END IF
      END DO
   END DO
 
@@ -850,7 +868,10 @@ SUBROUTINE INITIATE_PARAMETERS
 
   N_scale_part_m3 = N_plasma_m3 / N_of_particles_cell
   current_factor_Am2 = e_Cl * V_scale_ms * N_scale_part_m3
-  energy_factor_eV =  0.5_8 * m_e_kg * V_scale_ms**2 / e_Cl
+  energy_factor_eV = 0.5_8 * m_e_kg * V_scale_ms**2 / e_Cl
+
+  temperature_factor_eV = m_e_kg * V_scale_ms**2 / e_Cl
+  heat_flow_factor_Wm2 = 0.5_8 * m_e_kg * V_scale_ms**2 * N_scale_part_m3
 
   given_F_double_period_sys = given_F_double_period_sys / F_scale_V
 
@@ -995,6 +1016,8 @@ if (Rank_of_process.eq.0) print *, "SET_CLUSTER_STRUCTURE done"
   CALL MPI_BARRIER(MPI_COMM_WORLD, ierr)
 
   CALL PREPARE_SETUP_VALUES                   ! <<<<<<<< SETUP <<<<<<<<< additional processes are here <<<<<<<<<<<<
+                                              ! also calls PREPARE_WAVEFORMS
+                                              ! also calls PREPARE_EXTERNAL_CIRCUIT
 
   CALL PREPARE_WALL_MATERIALS                 ! the secondary electron emission is initialized here
   CALL MPI_BARRIER(MPI_COMM_WORLD, ierr)
