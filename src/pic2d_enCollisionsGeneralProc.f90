@@ -582,7 +582,7 @@ SUBROUTINE INITIATE_en_COLL_DIAGNOSTICS
   LOGICAL exists
   CHARACTER(1) buf
   INTEGER k, i
-  INTEGER i_dummy
+  INTEGER i_dummy, ios
 
   IF (Rank_of_process.NE.0) RETURN
 
@@ -600,6 +600,7 @@ SUBROUTINE INITIATE_en_COLL_DIAGNOSTICS
 
         INQUIRE (FILE = historycoll_filename, EXIST = exists)
         IF (exists) THEN                                                       
+
            OPEN (21, FILE = historycoll_filename, STATUS = 'OLD')          
 ! skip header
            READ (21, '(A1)') buf ! WRITE (21, '("# electron time step is ",e14.7," s")'), delta_t_s
@@ -611,11 +612,29 @@ SUBROUTINE INITIATE_en_COLL_DIAGNOSTICS
                                     ! &  k+2, collision_e_neutral(n)%colproc_info(k)%id_number, collision_e_neutral(n)%colproc_info(k)%type
            END DO
 
-           DO i = 1, Start_T_cntr / N_subcycles            ! these files are updated at every ion timestep
-              READ (21, '(2x,i8,10(2x,i8))') i_dummy
+           DO !i = 1, Start_T_cntr / N_subcycles            ! these files are updated at every ion timestep
+              READ (21, '(2x,i8,10(2x,i8))', iostat = ios) i_dummy
+              IF (ios.NE.0) EXIT
+              IF (i_dummy.GE.Start_T_cntr) EXIT
            END DO
+           BACKSPACE(21)
            ENDFILE 21       
-           CLOSE (21, STATUS = 'KEEP')        
+           CLOSE (21, STATUS = 'KEEP')  
+
+        ELSE
+
+           OPEN  (21, FILE = historycoll_filename, STATUS = 'REPLACE')
+! save header
+           WRITE (21, '("# electron time step is ",e14.7," s")') delta_t_s
+           WRITE (21, '("#      ion time step is ",e14.7," s")') delta_t_s * N_subcycles
+           WRITE (21, '("# column  1 is the electron step counter")')
+           WRITE (21, '("# column  2 is the total number of electron macroparticles in the whole system")')
+           DO k = 1, collision_e_neutral(n)%N_of_activated_colproc
+              WRITE (21, '("# column ",i2," is the number of collision events during past ion time step for collision process with id ",i2," type ",i2)') &
+                   &  k+2, collision_e_neutral(n)%colproc_info(k)%id_number, collision_e_neutral(n)%colproc_info(k)%type
+           END DO
+           CLOSE (21, STATUS = 'KEEP')
+
         END IF
 
      END DO

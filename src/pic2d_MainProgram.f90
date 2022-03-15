@@ -371,7 +371,7 @@ PROGRAM MainProg
 
      t20 = MPI_WTIME()
 
-     IF (Rank_of_process.EQ.0) PRINT '(2x,i7,2x,f8.3,2x,20(1x,f5.1))', &
+     IF (Rank_of_process.EQ.0) PRINT '(2x,i9,2x,f8.3,2x,20(1x,f5.1))', &
           & T_cntr, &
           & REAL(t20 - t0), &
           & 100.0 * REAL((t1  - t0 ) / (t20 - t0)), &

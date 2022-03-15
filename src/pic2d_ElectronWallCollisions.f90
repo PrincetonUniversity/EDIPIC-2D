@@ -353,7 +353,7 @@ SUBROUTINE INITIATE_WALL_DIAGNOSTICS
 
   LOGICAL exists
   INTEGER i, k
-  INTEGER i_dummy
+  INTEGER i_dummy, ios
 
   INTERFACE
      FUNCTION convert_int_to_txt_string(int_number, length_of_string)
@@ -380,9 +380,12 @@ SUBROUTINE INITIATE_WALL_DIAGNOSTICS
         INQUIRE (FILE = historybo_filename, EXIST = exists)
         IF (exists) THEN                                                       
            OPEN (21, FILE = historybo_filename, STATUS = 'OLD')          
-           DO i = 1, Start_T_cntr   !N_of_saved_records             ! these files are updated at every electron timestep
-              READ (21, '(2x,i8,10(2x,i8))') i_dummy
+           DO !i = 1, Start_T_cntr   !N_of_saved_records             ! these files are updated at every electron timestep
+              READ (21, '(2x,i8,10(2x,i8))', iostat = ios) i_dummy
+              IF (ios.NE.0) EXIT
+              IF (i_dummy.GE.Start_T_cntr) EXIT
            END DO
+           BACKSPACE(21)
            ENDFILE 21       
            CLOSE (21, STATUS = 'KEEP')        
         END IF
