@@ -60,9 +60,18 @@ SUBROUTINE INITIATE_PROBE_DIAGNOSTICS
   INQUIRE (FILE = 'init_probes.dat', EXIST = exists)
 
   IF (.NOT.exists) THEN
-     PRINT '(2x,"Process ",i5," :: INITIATE_PROBE_DIAGNOSTICS : ERROR-2 : init_probes.dat not found, program terminated.")', Rank_of_process
-     CALL MPI_FINALIZE(ierr)
-     STOP
+     IF (Rank_of_process.EQ.0) PRINT '(2x,"### init_probes.dat not found, time dependencies in probes will not be created ###")'
+     N_of_probes = 0
+     N_of_probes_cluster = 0
+     N_of_probes_block = 0
+     Save_probes_e_data_T_cntr = 0
+     Save_probes_i_data_T_cntr = N_subcycles-1
+     Save_probes_e_data_step = 1
+     Save_probes_i_data_step = N_subcycles
+     Save_probes_data_step = 1   ! have to keep this for INITIATE_SNAPSHOT
+     text_output_counter = 0  ! obsolete values, keep them to have something to use in checkpoints
+     N_of_saved_records = 0
+     RETURN
   END IF
 
   IF (Rank_of_process.EQ.0) THEN

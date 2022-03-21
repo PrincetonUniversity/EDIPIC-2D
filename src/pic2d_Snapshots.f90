@@ -52,18 +52,21 @@ SUBROUTINE INITIATE_SNAPSHOTS
 
   INTEGER p
 
+! default values
   N_of_all_snaps = 0
-  T2_old = -1
-  N2_old = 0
+  save_data = .FALSE.
+  current_snap = 1
 
 ! read / write the data file 
   INQUIRE (FILE = 'init_snapshots.dat', EXIST = exists)
 
   IF (.NOT.exists) THEN
-     PRINT '(2x,"Process ",i4," : ERROR : file init_snapshots.dat not found. Program terminated")', Rank_of_process
-     CALL MPI_FINALIZE(ierr)
-     STOP
+     IF (Rank_of_process.EQ.0) PRINT '(2x,"### file init_snapshots.dat not found. Snapshots will NOT be created ... ###")'
+     RETURN
   END IF
+
+  T2_old = -1
+  N2_old = 0
 
   ALLOCATE(                     timestep(1:9999), STAT = ALLOC_ERR)
   ALLOCATE(           evdf_flag_timestep(1:9999), STAT = ALLOC_ERR)
@@ -185,7 +188,7 @@ SUBROUTINE INITIATE_SNAPSHOTS
 
   CLOSE (9, STATUS = 'KEEP')
 
-  current_snap = 1   ! default value
+!  current_snap = 1   ! default value
 
 ! overrite if the system is initialized using a checkpoint
   IF (use_checkpoint.EQ.1) current_snap = current_snap_check
