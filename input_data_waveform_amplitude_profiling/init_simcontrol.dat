@@ -1,0 +1,14 @@
+---ddddddd.ddd----- simulation time [ns]
+        50.010    100000.000
+--------dd--------- number of electron sub-cycles per ion cycle (odd)
+        11
+------dddd--------- number of ion cycles between internal cluster load balancing events
+        10
+------dddd--------- number of internal cluster load balancing events between global load balancing events
+        10
+---ddddddd--------- number of ion cycles between checkpoints (no checkpoints if <=0)
+      1000  10000
+---------d--------- use checkpoint (2/1/0 = Yes, to start/Yes, to continue/No)
+         0
+--dddddddd--------- time step when the checkpoint to be used was saved (dim-less)
+         0   550  704 1100

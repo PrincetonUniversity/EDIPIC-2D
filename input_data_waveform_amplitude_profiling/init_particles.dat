@@ -1,0 +1,10 @@
+---dddd.ddd----- initial electron temperature [eV]
+      1.000
+---+d.dddE+dd--- initial electron density [m^-3]
+    1.000E+16
+------d--------- number of ion species
+      1
+---ddd.d---+d---dddd.ddd---ddd.dd-- ion mass [amu] / charge [e] / initial temperature [eV] / initial relative concentration [%]
+    40.0    1      0.030   100.00
+---ddddddddd------- seed for random number generator for process with rank zero
+   123456789

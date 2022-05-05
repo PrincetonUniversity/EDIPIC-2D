@@ -1,0 +1,55 @@
+---dddd.ddddddd----- scale electron temperature [eV]
+      3.0000000
+---+d.dddddddE+dd--- scale electron density [m^-3]
+    1.0000000E+16
+---ddd---------- number of cells per scale electron Debye length
+     1
+---ddd---------- maximal expected velocity [units of scale thermal electron velocity]
+     6
+---ddd---------- number of blocks (processes) along the X (horizontal) direction
+     4
+---ddd---------- number of blocks (processes) along the Y (vertical) direction
+     4
+---ddd---------- number of cells along the X-direction in a block
+    64
+---ddd---------- number of cells along the Y-direction in a block
+    70
+--dddd---------- number of macroparticles per cell for the scale density
+   100
+-----d---------- number of blocks in a cluster along the X-direction
+     2
+-----d---------- number of blocks in a cluster along the Y-direction
+     2
+---ddd---ddd---- number of objects along domain boundary // number of material inner objects (>=0), each inner objects is a rectangle
+     4     0
+===dd===dd=== object type, number of segments // horizontal metal wall in the bottom, #1
+    1    1
+---dddddd---dddddd---dddddd---dddddd--- segment start X/Y end X/Y [global node index]
+        0        0      257        0
+===dd===dd=== object type, number of segments // periodic boundary, left, #2
+    2    1
+---dddddd---dddddd---dddddd---dddddd--- segment start X/Y end X/Y [global node index]
+        0        0        0      281
+===dd===dd=== object type, number of segments // horizontal metal wall at the top, #3
+    1    1
+---dddddd---dddddd---dddddd---dddddd--- segment start X/Y end X/Y [global node index]
+        0      281      257      281
+===dd===dd=== object type, number of segments // periodic boundary, right, #4
+    2    1
+---dddddd---dddddd---dddddd---dddddd--- segment start X/Y end X/Y [global node index]
+      257        0      257      281
+===dd=== object type // inner metal object, #5 ### not used ###
+    0
+---dddddd---dddddd---dddddd---dddddd--- coordinates of left bottom X/Y corner and right top X/Y corners [global node index]
+      100      100      140      140
+---dddd---dddd--- for a system periodic along both X and Y directions, without objects with given potential, specify X/Y (global node index i/j) of a point with given potential
+    120    240
+---ddddd.d------- value of the potential at this point [V]
+       0.0
+
+  INTEGER, PARAMETER :: VACUUM_GAP = 0
+  INTEGER, PARAMETER :: METAL_WALL = 1
+  INTEGER, PARAMETER :: PERIODIC_PIPELINE_X = 2
+  INTEGER, PARAMETER :: PERIODIC_PIPELINE_Y = 3
+  INTEGER, PARAMETER :: DIELECTRIC = 4
+  INTEGER, PARAMETER :: SYMMETRY_PLANE = 5   !!! only at the left edge !!!
