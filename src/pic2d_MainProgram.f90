@@ -89,6 +89,8 @@ PROGRAM MainProg
   n_sub = 0
   ions_moved = .TRUE.
 
+  CALL ADJUST_HARMONIC_OSCILLATIONS_PHASE
+
   DO T_cntr = Start_T_cntr, Max_T_cntr
 
      if (Rank_of_process.eq.0) print *, T_cntr

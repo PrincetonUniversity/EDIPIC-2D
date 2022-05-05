@@ -255,12 +255,19 @@ MODULE CurrentProblemValues
      REAL(8) phi_var              ! time varying part of the electrostatic potential
      REAL(8) omega                ! frequency of time varying part
      REAL(8) phase                ! phase of time varying part
+     REAL(8) phase_adjusted       ! phase of time varying part adjusted to the beginning of the amplitude profile period
 
 ! waveform defines periodic non-harmonic variation of potential, the shape is defined by a user via data file
      LOGICAL use_waveform
      INTEGER N_wf_points                    ! number of waveform data points, must be no less than 2
      REAL,    ALLOCATABLE :: wf_phi(:)      ! array of potential values of waveform data points
      INTEGER, ALLOCATABLE :: wf_T_cntr(:)   ! array of times (in units of timesteps) of waveform data points
+
+! amplitude profile for the oscillatory potential (includes the harmonic potential and the waveform)
+     LOGICAL use_amplitude_profile
+     INTEGER N_ap_points                    ! number of oscillation amplitude profile data points, must be no less than 2
+     REAL,    ALLOCATABLE :: ap_factor(:)   ! array of factor values which will be multiplied by the oscillatory potential
+     INTEGER, ALLOCATABLE :: ap_T_cntr(:)   ! array of times (in units of timesteps) of amplitude profile data points
 
      LOGICAL potential_must_be_solved       ! .TRUE. for [metal] electrodes connected to external circuits, .FALSE. otherwise
 

@@ -402,16 +402,40 @@ SUBROUTINE INITIATE_PARAMETERS
   period_y_found = .FALSE.
   DO n = 1, N_of_boundary_objects
      IF (whole_object(n)%object_type.EQ.PERIODIC_PIPELINE_X) period_x_found = .TRUE.
+     IF (whole_object(n)%object_type.EQ.-PERIODIC_PIPELINE_X) THEN   !### if the flag is negative, use PETSc based solver
+        period_x_found = .TRUE.
+        periodicity_flag = PERIODICITY_X_PETSC
+        whole_object(n)%object_type = PERIODIC_PIPELINE_X            !### don't forget to fix the value
+     END IF
      IF (whole_object(n)%object_type.EQ.PERIODIC_PIPELINE_Y) period_y_found = .TRUE.
   END DO
-  IF (period_x_found)                    periodicity_flag = PERIODICITY_X
-  IF (period_x_found.AND.period_y_found) periodicity_flag = PERIODICITY_X_Y
+  IF (period_x_found) THEN
+     IF (periodicity_flag.EQ.PERIODICITY_NONE) periodicity_flag = PERIODICITY_X   ! if flag was set to PERIODICITY_X_PETSC above, this is skipped
+  END IF
+  IF (period_x_found.AND.period_y_found) periodicity_flag = PERIODICITY_X_Y       ! if flag was set to PERIODICITY_X_PETSC above, it is redefined here
   IF (period_y_found.AND.(.NOT.period_x_found)) THEN
 ! error, case with periodicity in y, no periodicity in x is not included
      PRINT '(2x,"Process ",i3," : ERROR : periodicity in Y requested without periodicity in X")', Rank_of_process
      CALL MPI_FINALIZE(ierr)
      STOP
   END IF
+
+!! identify whether periodicity was requested
+!  periodicity_flag = PERIODICITY_NONE
+!  period_x_found = .FALSE.
+!  period_y_found = .FALSE.
+!  DO n = 1, N_of_boundary_objects
+!     IF (whole_object(n)%object_type.EQ.PERIODIC_PIPELINE_X) period_x_found = .TRUE.
+!     IF (whole_object(n)%object_type.EQ.PERIODIC_PIPELINE_Y) period_y_found = .TRUE.
+!  END DO
+!  IF (period_x_found)                    periodicity_flag = PERIODICITY_X
+!  IF (period_x_found.AND.period_y_found) periodicity_flag = PERIODICITY_X_Y
+!  IF (period_y_found.AND.(.NOT.period_x_found)) THEN
+!! error, case with periodicity in y, no periodicity in x is not included
+!     PRINT '(2x,"Process ",i3," : ERROR : periodicity in Y requested without periodicity in X")', Rank_of_process
+!     CALL MPI_FINALIZE(ierr)
+!     STOP
+!  END IF
 
   IF (periodicity_flag.EQ.PERIODICITY_X_Y) THEN
 ! in a system periodic in both X and Y directions
@@ -439,6 +463,11 @@ SUBROUTINE INITIATE_PARAMETERS
         IF (Rank_of_process.EQ.0) PRINT '("### System periodic along the X-direction with ",i3," inner objects, FFT-based field solver is off, PETSc-based solver is used instead")', N_of_inner_objects
      END IF
   END IF
+
+!if ((periodicity_flag.EQ.PERIODICITY_X).and.(N_of_boundary_and_inner_objects.GT.4)) then
+!   periodicity_flag = PERIODICITY_X_PETSC
+!   IF (Rank_of_process.EQ.0) PRINT '("### System periodic along the X-direction with ",i3," boundary objects, FFT-based field solver is off, PETSc-based solver is used instead")', N_of_boundary_and_inner_objects
+!end if
 
 ! for periodic systems, check whether there are inner objects crossing periodic boundaries =============================================================================================================================
 ! if there are, identify matching objects (copies) at opposite periodic boundaries

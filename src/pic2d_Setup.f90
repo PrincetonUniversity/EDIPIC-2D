@@ -58,6 +58,7 @@ SUBROUTINE PREPARE_SETUP_VALUES
      e_colls_with_bo(n)%N_of_saved_parts = 0
 
      whole_object(n)%use_waveform = .FALSE.
+     whole_object(n)%use_amplitude_profile = .FALSE.
 
      whole_object(n)%potential_must_be_solved = .FALSE.
 
@@ -137,6 +138,8 @@ SUBROUTINE PREPARE_SETUP_VALUES
   END DO    !###   DO n = 1, N_of_boundary_and_inner_objects
 
   CALL PREPARE_WAVEFORMS
+
+  CALL PREPARE_OSCILLATIONS_AMPLITUDE_PROFILE
 
   CALL PREPARE_EXTERNAL_CIRCUIT
 
@@ -237,7 +240,7 @@ SUBROUTINE PREPARE_WAVEFORMS
 ! enforce the ends
      whole_object(n)%wf_T_cntr(1) = 0
      whole_object(n)%wf_T_cntr(whole_object(n)%N_wf_points) = wf_period
-     whole_object(n)%wf_phi(whole_object(n)%N_wf_points) = whole_object(n)%wf_phi(1)
+!     whole_object(n)%wf_phi(whole_object(n)%N_wf_points) = whole_object(n)%wf_phi(1)
 
 ! enforce increasing times
      DO i = 2, whole_object(n)%N_wf_points-1
@@ -264,6 +267,149 @@ SUBROUTINE PREPARE_WAVEFORMS
   END DO
 
 END SUBROUTINE PREPARE_WAVEFORMS
+
+!--------------------------------------------
+!
+SUBROUTINE PREPARE_OSCILLATIONS_AMPLITUDE_PROFILE
+
+  USE ParallelOperationValues, ONLY : Rank_of_process
+  USE CurrentProblemValues, ONLY : whole_object, N_of_boundary_and_inner_objects, METAL_WALL, delta_t_s
+
+  IMPLICIT NONE
+
+  INTEGER n
+
+  CHARACTER(32) initboap_filename   ! init_bo_NN_amplitude_profile.dat
+                                    ! ----x----I----x----I----x----I--
+  LOGICAL exists
+  CHARACTER(1) buf
+  INTEGER iostatus
+  REAL rdummy
+
+  INTEGER wf_period
+  INTEGER delta_T_cntr
+
+  INTEGER ALLOC_ERR
+  INTEGER i
+  
+  INTERFACE
+     FUNCTION convert_int_to_txt_string(int_number, length_of_string)
+       CHARACTER*(length_of_string) convert_int_to_txt_string
+       INTEGER int_number
+       INTEGER length_of_string
+     END FUNCTION convert_int_to_txt_string
+  END INTERFACE
+
+  DO n = 1, N_of_boundary_and_inner_objects
+
+     IF (whole_object(n)%object_type.NE.METAL_WALL) CYCLE 
+
+     initboap_filename = 'init_bo_NN_amplitude_profile.dat'
+     initboap_filename(9:10) = convert_int_to_txt_string(n, 2)
+
+     INQUIRE (FILE = initboap_filename, EXIST = exists)
+     IF (.NOT.exists) CYCLE
+
+     IF (Rank_of_process.EQ.0) PRINT '("### PREPARE_OSCILLATIONS_AMPLITUDE_PROFILE :: found file ",A32," for boundary object ",i2," analyzing...")', initboap_filename, n
+
+     OPEN (11, FILE = initboap_filename)
+     READ (11, '(A1)') buf   ! column 1 is time (ns), column 2 is amplitude factor (dimensionless)
+     whole_object(n)%N_ap_points = 0
+     DO 
+        READ (11, *, iostat = iostatus) rdummy, rdummy
+        IF (iostatus.NE.0) EXIT
+        whole_object(n)%N_ap_points = whole_object(n)%N_ap_points + 1
+     END DO
+     CLOSE (11, STATUS = 'KEEP')
+
+     IF (whole_object(n)%N_ap_points.LE.1) THEN
+        IF (Rank_of_process.EQ.0) PRINT '("### PREPARE_OSCILLATIONS_AMPLITUDE_PROFILE :: WARNING-1 :: not enough (",i4,") valid data points in file ",A32," , oscillations amplitude profile for boundary object ",i2," is off ###")', &
+             & whole_object(n)%N_ap_points, initboap_filename,  n
+        CYCLE
+     END IF
+
+     OPEN (11, FILE = initboap_filename)
+
+     ALLOCATE (whole_object(n)%ap_T_cntr(1:whole_object(n)%N_ap_points), STAT = ALLOC_ERR)
+     ALLOCATE (whole_object(n)%ap_factor(1:whole_object(n)%N_ap_points), STAT = ALLOC_ERR)
+
+     READ (11, '(A1)') buf   ! column 1 is time (ns), column 2 is amplitude factor (dimensionless)
+     DO i = 1, whole_object(n)%N_ap_points
+        READ (11, *) rdummy, whole_object(n)%ap_factor(i)
+        whole_object(n)%ap_T_cntr(i) = INT(rdummy * 1.0d-9 / delta_t_s)
+     END DO
+     CLOSE (11, STATUS = 'KEEP')
+
+! enforce the very first point
+     whole_object(n)%ap_T_cntr(1) = 0
+
+! enforce increasing times
+     DO i = 2, whole_object(n)%N_ap_points-1
+         whole_object(n)%ap_T_cntr(i) = MAX(whole_object(n)%ap_T_cntr(i), whole_object(n)%ap_T_cntr(i-1)+1)
+     END DO
+
+! if the object uses waveforms, adjust ends of non-zero-amplitude-factor intervals to an integer number of waveform periods
+!     IF ((whole_object(n)%use_waveform).AND.(flag_adjust_nonzero_interval.NE.0)) THEN
+     IF (whole_object(n)%use_waveform) THEN
+
+        wf_period = whole_object(n)%wf_T_cntr(whole_object(n)%N_wf_points)
+
+        DO i = 1, whole_object(n)%N_ap_points-1
+           IF ((whole_object(n)%ap_factor(i).EQ.0.0_8).AND.(whole_object(n)%ap_factor(i+1).NE.0.0_8)) THEN
+! the non-zero interval begins
+              delta_T_cntr = whole_object(n)%ap_T_cntr(i+1) - whole_object(n)%ap_T_cntr(i)
+              whole_object(n)%ap_T_cntr(i) = wf_period * INT(whole_object(n)%ap_T_cntr(i) / wf_period)
+              whole_object(n)%ap_T_cntr(i+1) = whole_object(n)%ap_T_cntr(i) + delta_T_cntr
+           END IF
+        END DO
+
+        DO i = 2, whole_object(n)%N_ap_points
+           IF ((whole_object(n)%ap_factor(i-1).NE.0.0_8).AND.(whole_object(n)%ap_factor(i).EQ.0.0_8)) THEN
+! the non-zero interval ends
+              delta_T_cntr = whole_object(n)%ap_T_cntr(i) - whole_object(n)%ap_T_cntr(i-1)
+              whole_object(n)%ap_T_cntr(i) = wf_period * INT(whole_object(n)%ap_T_cntr(i) / wf_period)
+              whole_object(n)%ap_T_cntr(i-1) = whole_object(n)%ap_T_cntr(i) - delta_T_cntr
+           END IF
+        END DO
+
+        i = whole_object(n)%N_ap_points
+        whole_object(n)%ap_T_cntr(i) = wf_period * INT(whole_object(n)%ap_T_cntr(i) / wf_period)
+
+     END IF
+
+! final check
+     whole_object(n)%use_amplitude_profile = .TRUE.
+     DO i = 1, whole_object(n)%N_ap_points-1
+        IF (whole_object(n)%ap_T_cntr(i+1).GT.whole_object(n)%ap_T_cntr(i)) CYCLE
+        whole_object(n)%use_amplitude_profile = .FALSE.
+        EXIT
+     END DO
+
+     IF (whole_object(n)%use_amplitude_profile) THEN
+! passed
+        IF (Rank_of_process.EQ.0) THEN
+           PRINT '("### PREPARE_OSCILLATIONS_AMPLITUDE_PROFILE :: oscillatory potential of boundary object ",i2," will be calculated with the variable amplitude ###")', n
+           DO i = 1, whole_object(n)%N_ap_points
+              PRINT '(2x,i3,2x,i4,2x,i10,2x,f8.3)', n, i, whole_object(n)%ap_T_cntr(i), whole_object(n)%ap_factor(i)
+           END DO
+        END IF
+     ELSE
+! did not pass
+        IF (Rank_of_process.EQ.0) THEN
+           PRINT '("### PREPARE_OSCILLATIONS_AMPLITUDE_PROFILE :: WARNING-4 :: inconsistent data in file ",A32," , oscillation amplitude profile for boundary object ",i2," is off ###")', &
+             & initboap_filename, n
+           DO i = 1, whole_object(n)%N_ap_points
+              PRINT '(12x,i3,2x,i4,2x,i10,2x,f8.3)', n, i, whole_object(n)%ap_T_cntr(i), whole_object(n)%ap_factor(i)
+           END DO
+        END IF
+! cleanup
+        IF (ALLOCATED(whole_object(n)%ap_T_cntr)) DEALLOCATE(whole_object(n)%ap_T_cntr, STAT = ALLOC_ERR)
+        IF (ALLOCATED(whole_object(n)%ap_factor)) DEALLOCATE(whole_object(n)%ap_factor, STAT = ALLOC_ERR)
+     END IF
+
+  END DO
+
+END SUBROUTINE PREPARE_OSCILLATIONS_AMPLITUDE_PROFILE
 
 !--------------------------------------------
 !
