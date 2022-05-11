@@ -348,6 +348,8 @@ SUBROUTINE PERFORM_ELECTRON_NEUTRAL_COLLISIONS
 
   INTEGER n, p
 
+  LOGICAL first_collision_not_done_yet
+
   REAL(8) R_collided, F_collided
   INTEGER I_collided
 
@@ -402,6 +404,8 @@ SUBROUTINE PERFORM_ELECTRON_NEUTRAL_COLLISIONS
         collision_e_neutral(n)%counter(p) = 0
      END DO
   END DO
+
+  first_collision_not_done_yet = .TRUE.
   
   DO n = 1, N_neutral_spec
 
@@ -422,11 +426,16 @@ SUBROUTINE PERFORM_ELECTRON_NEUTRAL_COLLISIONS
         random_r = well_random_number()
         random_n = well_random_number()
 
-        DO                        ! search will be repeated until a number will be successfully obtained
+        IF (first_collision_not_done_yet) THEN
            random_j = INT(well_random_number() * N_electrons)
            random_j = MIN(MAX(random_j, 1), N_electrons)
-           IF (.NOT.Find_in_stored_list(random_j)) EXIT    !#### needs some safety mechanism to avoid endless cycling
-        END DO
+        ELSE
+           DO                        ! search will be repeated until a number will be successfully obtained
+              random_j = INT(well_random_number() * N_electrons)
+              random_j = MIN(MAX(random_j, 1), N_electrons)
+              IF (.NOT.Find_in_stored_list(random_j)) EXIT    !#### needs some safety mechanism to avoid endless cycling
+           END DO
+        END IF
 
 ! account for reduced neutral density
         IF (random_n.GT.neutral_density_normalized(n, electron(random_j)%X, electron(random_j)%Y)) CYCLE      
@@ -469,7 +478,12 @@ SUBROUTINE PERFORM_ELECTRON_NEUTRAL_COLLISIONS
 
         IF (indx_coll.GT.collision_e_neutral(n)%N_of_activated_colproc) CYCLE   ! the null collision
 
-        CALL Add_to_stored_list(random_j, n, indx_coll)
+        IF (first_collision_not_done_yet) THEN
+           CALL Add_to_stored_list_first_time(random_j, n, indx_coll)
+           first_collision_not_done_yet = .FALSE.
+        ELSE
+           CALL Add_to_stored_list(random_j, n, indx_coll)
+        END IF
 
         SELECT CASE (collision_e_neutral(n)%colproc_info(indx_coll)%type)
         CASE (10)
@@ -538,7 +552,10 @@ SUBROUTINE PERFORM_ELECTRON_NEUTRAL_COLLISIONS
         rbufer = 0.0
         rbufer2 = 0.0
 
-        CALL Transfer_collisions_from_stored_list(Collided_particle, n, p, bufsize, n1, n2, n3, rbufer)
+! note, if first_collision_not_done_yet is .TRUE. then no collisions took place above and there is nothing to transfer
+        IF (.NOT.first_collision_not_done_yet) THEN
+           CALL Transfer_collisions_from_stored_list(Collided_particle, n, p, bufsize, n1, n2, n3, rbufer)
+        END IF
 
         CALL MPI_REDUCE(rbufer, rbufer2, bufsize, MPI_REAL, MPI_SUM, 0, COMM_CLUSTER, ierr)
 
@@ -810,6 +827,33 @@ LOGICAL FUNCTION Find_in_stored_list(number)
   END DO
 
 END FUNCTION Find_in_stored_list
+
+!-----------------------------------------------------------------
+! subroutine adds number to the binary tree
+! we assume that there are no nodes in the tree with the same value yet
+SUBROUTINE Add_to_stored_list_first_time(number, n_neutral, indx_coll)
+
+  USE MCCollisions
+
+  IMPLICIT NONE
+
+  INTEGER number
+  INTEGER n_neutral
+  INTEGER indx_coll
+
+!  TYPE (binary_tree), POINTER :: current
+!  INTEGER ALLOC_ERR
+
+!  current => Collided_particle                  ! start from the head node of the binary tree
+
+  Collided_particle%number    = number                       ! collided electron particle number
+  Collided_particle%neutral   = n_neutral                    ! neutral species number
+  Collided_particle%indx_coll = indx_coll                    ! index of activated collision [not collision id]
+
+!  NULLIFY(current%Larger) !### was done when Collided_particle was allocated
+!  NULLIFY(current%Smaller)
+
+END SUBROUTINE Add_to_stored_list_first_time
 
 !-----------------------------------------------------------------
 ! subroutine adds number to the binary tree
