@@ -195,8 +195,12 @@ SUBROUTINE INITIATE_AVERAGED_SNAPSHOTS
 
   IF (Rank_of_process.EQ.0) PRINT '("INITIATE_AVERAGED_SNAPSHOTS :: average snapshot timing passed consistency check 2")'
 
+! note, since we are here, N_of_all_avgsnaps is not zero
 ! overwrite default value of the first snapshot number if the system is initialized using a checkpoint
-  IF (use_checkpoint.EQ.1) THEN 
+
+  IF (use_checkpoint.EQ.1) THEN
+     current_avgsnap = N_of_all_avgsnaps + 1  ! default assumption is that all average snapshots are already created
+                                              ! this can change in the cycle below (also, see the comment after the cycle)
      DO n = 1, N_of_all_avgsnaps
         IF (avgsnapshot(n)%T_cntr_begin.GE.Start_T_cntr) THEN
            current_avgsnap = n
@@ -204,6 +208,12 @@ SUBROUTINE INITIATE_AVERAGED_SNAPSHOTS
            EXIT
         END IF
      END DO
+! note that when a simulation is restarted from a checkpoint, it is possible that 
+! Start_T_cntr > maximal avgsnapshot%T_cntr_begin
+! then the cycle above does not change current_avgsnap
+! if current_avgsnap equals to 1 before the cycle then the call of COLLECT_F_EX_EY_FOR_AVERAGED_SNAPSHOT
+! proceeds without allocating cs_avg_* arrays which results in memory error
+! this bug was found and fixed by Willca Villafana
   END IF
 
 END SUBROUTINE INITIATE_AVERAGED_SNAPSHOTS
