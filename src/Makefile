@@ -14,7 +14,7 @@ ifeq ($(BASE_FCOMP),ifort)
    CFLAGS := -O2
 else ifeq ($(BASE_FCOMP),gfortran)
    $(info "Using gcc/gfortran compilers" )
-   FFLAGS := -O2 -ffree-line-length-none -I${PETSC_DIR}/include
+   FFLAGS := -O2 -ffree-line-length-none -fallow-argument-mismatch -I${PETSC_DIR}/include -I${PETSC_DIR}/arch-linux-c-debug/include -I/usr/lib64/mpi/gcc/openmpi4/include/hypre -I/usr/lib64/mpi/gcc/openmpi4/include
    CFLAGS := -O2
 else
    FFLAGS := -O2 -I${PETSC_DIR}/include
@@ -31,7 +31,7 @@ endif
 #    export LD_LIBRARY_PATH=${PETSC_DIR}/lib:${LD_LIBRARY_PATH}    # for bash
 #    setenv LD_LIBRARY_PATH ${PETSC_DIR}/lib:${LD_LIBRARY_PATH}    # for csh
 
-LIBS := -L${PETSC_DIR}/lib -lpetsc -lHYPRE
+LIBS := -L${PETSC_DIR}/arch-linux-c-debug/lib  -L${PETSC_DIR}/lib  -lpetsc -lHYPRE
 
 OBJ := WELL19937a_new.o \
        pic2d_Modules.o \
