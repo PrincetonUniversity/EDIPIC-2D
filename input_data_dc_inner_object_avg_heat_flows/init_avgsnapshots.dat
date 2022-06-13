@@ -1,6 +1,6 @@
 --- save 2D maps of the following TIME-AVERAGED parameters? (1=yes, 0=no)
------F----EX----EY--JXsum--JYsum--JZsum   (type flag values below)
-     1    1     1   0      0      0
+-----F----EX----EY--JXsum--JYsum--JZsum--- e-n collision frequencies   (type flag values below)
+     1     1    1     0      0      0      1
 ----Ne----JXe---JYe---JZe---VXe---VYe---VZe---WXe---WYe---WZe---TXe---TYe---TZe---QXe---QYe---QZe  (type flag values below)
     1     1     1     0     1     1     0     1     1     0     1     1     0     1     1     0
 ----Ni----JXi---JYi---JZi---VXi---VYi---VZi---WXi---WYi---WZi---TXi---TYi---TZi---QXi---QYi---QZi  (type flag values below)
