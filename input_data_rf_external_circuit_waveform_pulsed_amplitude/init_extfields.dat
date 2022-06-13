@@ -1,0 +1,23 @@
+---ddddd.ddd--- X-magnetic field [Gauss]
+       0.000
+---ddddd.ddd--- Y-magnetic field [Gauss]
+       0.000  
+--------------- parameters of Z-magnetic field as used by Boeuf and Garrigues
+---ddddd.ddd--- Y-coordinate of the BZ maximum, y_Bmax [cm]
+       0.750
+---ddddd.ddd--- BZ at y=0 [Gauss]
+       0.000
+---ddddd.ddd--- BZ at y_Bmax [Gauss]  uniform Bz is assumed,  set the value of Bz here
+      50.000
+---ddddd.ddd--- BZ at y=Lsys [Gauss]
+       0.000
+---ddddd.ddd--- characteristic length of decay for y<y_Bmax [cm]
+       0.625  0.600
+---ddddd.ddd--- characteristic length of decay for y>y_Bmax [cm]
+       0.625  0.600
+---ddddd.ddd--- Z-electric field [V/cm]
+       0.000
+-------d------- ions sense magnetic field [1=Yes, 0=No]
+       1
+-------d------- ions sense Z-electric field [1=Yes, 0=No]
+       0

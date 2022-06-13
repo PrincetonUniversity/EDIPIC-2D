@@ -1,0 +1,40 @@
+--- save 2D maps of the following parameters? (1=yes, 0=no)
+-----F----EX----EY--JXsum--JYsum--JZsum
+----dd----dd----dd----dd----dd----dd
+     1     1     1     1     1     0      
+----Ne----JXe---JYe---JZe---VXe---VYe---VZe---WXe---WYe---WZe---TXe---TYe---TZe
+----dd----dd----dd----dd----dd----dd----dd----dd----dd----dd----dd----dd----dd
+     1     1     1     0     1     1     1     1     1     1     1     1     1
+----Ni----JXi---JYi---JZi---VXi---VYi---VZi---WXi---WYi---WZi---TXi---TYi---TZi
+----dd----dd----dd----dd----dd----dd----dd----dd----dd----dd----dd----dd----dd
+     1     1     1     0     1     1     1     1     1     1     1     1     1
+---dd--- Number of groups of snapshots ( >= 0 )
+    1
+---ddddddd.ddd---ddddddd.ddd---dddd---d---d---d---d--- group: start (ns) / finish (ns) / number of snapshots / Save requests: VDFs / phase planes / ionization rates / particles collided with walls
+         0.000       100.000     11   0   0   0   0
+-------- Parameters for calculation of velocity distribution functions
+--d-d--- Number of spatial boxes along the X / Y direction in a cluster (>=0)
+  4 4
+--ddd--- Electrons, maximal velocity [in units of v_Te_ms]
+   10
+--ddd--- Electrons, number of velocity bins per v_Te_ms
+   20
+--ddd--- Ions, maximal velocity [in units of v_Te_ms*sqrt(me/Ms)]
+    5
+--ddd--- Number of velocity bins per v_Te_ms*sqrt(me/Ms) for ions
+  100
+-------- Parameters for saving phase planes
+--dd---- Number of rectangular spatial boxes (>=0)
+   1 3
+--dddd--dddd----dddd--dddd--- left bottom corner X/Y (node index) / right top corner X/Y (node index)
+     0     0      10   481  
+    54     0      60   481
+     0   237     241   243
+
+
+### these are just explanations for the above ###
+save VDFs (0/1/2/3 = No/1d/2d/1d+2d)
+save phase planes (0/1/2/3 = No/e/i/e+i)
+save ionization rates (0/1 = No/Yes)
+save particles collided with walls (0/1/2/3 = No/e/i/e+i)
+

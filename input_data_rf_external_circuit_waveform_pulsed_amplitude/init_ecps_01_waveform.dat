@@ -1,0 +1,10 @@
+  100.0  potential amplitude
+  1.0e8   frequency Hz
+# very important comment
+# very important comment 2
+  0.0     0.0
+  0.0     0.5
+  0.5     1.0
+  0.5     0.0
+  0.5    -0.5
+  1.0    -1.0
