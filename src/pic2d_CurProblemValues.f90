@@ -1046,7 +1046,10 @@ if (Rank_of_process.eq.0) print *, "SET_CLUSTER_STRUCTURE done"
 
   CALL PREPARE_SETUP_VALUES                   ! <<<<<<<< SETUP <<<<<<<<< additional processes are here <<<<<<<<<<<<
                                               ! also calls PREPARE_WAVEFORMS
-                                              ! also calls PREPARE_EXTERNAL_CIRCUIT
+                                              !            PREPARE_OSCILLATIONS_AMPLITUDE_PROFILE
+                                              !            PREPARE_EXTERNAL_CIRCUIT which also calls 
+                                              !                                                PREPARE_ECPS_WAVEFORMS
+                                              !                                                PREPARE_ECPS_OSCILLATIONS_AMPLITUDE_PROFILE
 
   CALL PREPARE_WALL_MATERIALS                 ! the secondary electron emission is initialized here
   CALL MPI_BARRIER(MPI_COMM_WORLD, ierr)

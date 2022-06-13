@@ -427,9 +427,16 @@ SUBROUTINE PREPARE_EXTERNAL_CIRCUIT
 
   INTEGER ALLOC_ERR
 
-  INTEGER nn, ntemp
+  INTEGER nn, ntemp, n
+
+! function
+  REAL(8) ECPS_Voltage
   
   N_of_object_potentials_to_solve = 0
+  N_of_power_supplies = 0
+  N_of_resistors = 0
+  N_of_capacitors = 0
+  N_of_inductors = 0
 
   INQUIRE (FILE = 'init_ext_circuit.dat', EXIST = exists)
   IF (.NOT.exists) RETURN
@@ -466,32 +473,76 @@ SUBROUTINE PREPARE_EXTERNAL_CIRCUIT
      object_charge_calculation(nn)%noi = ntemp
   END DO
 
-  READ (11, '(A1)') buf   ! below is amplitude of potential oscillations in the driving rf voltage source [V]
-  READ (11, *) source_U
-  source_U = source_U / F_scale_V
+!--- power supplies
 
-  READ (11, '(A1)') buf   ! below is frequency of potential oscillations in the driving rf voltage source [Hz]
-  READ (11, *) source_omega
-  source_omega = 2.0_8 * pi * source_omega * delta_t_s
+  READ (11, '(A1)') buf   ! number of power supplies in the external circuit (0 if there is no power supply)
+  READ (11, *) N_of_power_supplies
+! just in case
+  N_of_power_supplies = MAX(0, N_of_power_supplies)
 
-  READ (11, '(A1)') buf   ! below is phase of potential oscillations in the driving rf voltage source [deg]
-  READ (11, *) source_phase
-  source_phase = source_phase * pi / 180.0_8
+  IF (N_of_power_supplies.GT.0) ALLOCATE(EC_power_supply(1:N_of_power_supplies), STAT = ALLOC_ERR)
 
-  READ (11, '(A1)') buf   ! below is capacity of capacitor [F]
-  READ (11, *) capacitor_C_F
+  READ (11, '(A1)') buf   ! below, for each power supply, provide constant voltage [V], amplitude [V], frequency [Hz], and phase [deg] of harmonic sin(omega*t+phase) voltage oscillations 
+
+  DO n = 1, N_of_power_supplies
+     READ (11, *) EC_power_supply(n)%phi_const, EC_power_supply(n)%phi_var, EC_power_supply(n)%omega, EC_power_supply(n)%phase
+     EC_power_supply(n)%phi_const = EC_power_supply(n)%phi_const / F_scale_V
+     EC_power_supply(n)%phi_var   = EC_power_supply(n)%phi_var / F_scale_V
+     EC_power_supply(n)%omega     = EC_power_supply(n)%omega * 2.0_8 * pi * delta_t_s
+     EC_power_supply(n)%phase     = EC_power_supply(n)%phase * pi / 180.0_8
+  END DO
+
+!--- resistors
+
+  READ (11, '(A1)') buf   ! number of resistors (0 if there are no resistors)
+  READ (11, *) N_of_resistors
+
+  IF (N_of_resistors.GT.0) ALLOCATE(resistor_R_Ohm(1:N_of_resistors), STAT = ALLOC_ERR)
+
+  READ (11, '(A1)') buf   ! below, for each resistor, provide its resistance [Ohm]
+  DO n = 1, N_of_resistors
+     READ (11, *) resistor_R_Ohm(n)
+  END DO
+
+!--- capacitors
+
+  READ (11, '(A1)') buf   ! number of capacitors (0 if there are no capacitors)
+  READ (11, *) N_of_capacitors
+
+  IF (N_of_capacitors.GT.0) ALLOCATE(capacitor_C_F(1:N_of_capacitors), STAT = ALLOC_ERR)
+
+  READ (11, '(A1)') buf   ! below, for each capacitor, provide its capacitance [Farade]
+  DO n = 1, N_of_capacitors
+     READ (11, *) capacitor_C_F(n)
+  END DO
+
+!--- inductors
+
+  READ (11, '(A1)') buf   ! number of inductors (0 if there are no inductors)
+  READ (11, *) N_of_inductors
+
+  IF (N_of_inductors.GT.0) ALLOCATE(inductor_L_H(1:N_of_inductors), STAT = ALLOC_ERR)
+
+  READ (11, '(A1)') buf   ! below, for each inductor, provide its inductance [Henry]
+  DO n = 1, N_of_inductors
+     READ (11, *) inductor_L_H(n)
+  END DO
 
   CLOSE (11, STATUS = 'KEEP')
 
 !  OPEN  (21, FILE = 'history_ext_circuit.dat', STATUS = 'REPLACE')
 !  CLOSE (21, STATUS = 'KEEP')
 
+  CALL PREPARE_ECPS_WAVEFORMS
+
+  CALL PREPARE_ECPS_OSCILLATIONS_AMPLITUDE_PROFILE
+
 ! default values
   charge_of_object = 0.0_8
   dQ_plasma_of_object = 0.0_8
 ! the piece below works for this particular circuit only, with N_of_object_potentials_to_solve=1
   DO nn = 1, N_of_object_potentials_to_solve
-     potential_of_object(nn) = source_U * SIN(source_phase)
+     potential_of_object(nn) = ECPS_Voltage(1, 0) !source_U * SIN(source_phase)
   END DO
   RETURN
 

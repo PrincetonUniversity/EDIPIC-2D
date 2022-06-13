@@ -929,7 +929,8 @@ MODULE Snapshots
   TYPE(index_limits), ALLOCATABLE :: pp_box(:)
 
   TYPE specific_coll_diag
-     REAL, ALLOCATABLE :: counter_local(:,:)
+     REAL, ALLOCATABLE :: ionization_rate_local(:,:)
+     REAL, ALLOCATABLE :: coll_freq_local(:,:)
   END TYPE specific_coll_diag
 
   TYPE coll_diag
@@ -1028,6 +1029,7 @@ MODULE MCCollisions
      LOGICAL activated
      INTEGER type
      INTEGER ion_species_produced
+     LOGICAL save_collfreq_2d
      REAL(8) threshold_energy_eV
      INTEGER N_crsect_points
      REAL(8), ALLOCATABLE :: energy_eV(:)
@@ -1059,6 +1061,7 @@ MODULE MCCollisions
      INTEGER ion_species_produced
      REAL(8) threshold_energy_eV
      REAL(8) ion_velocity_factor
+     LOGICAL save_collfreq_2d
   END TYPE brief_collision_type
 
   TYPE selected_collision_probability
@@ -1158,10 +1161,43 @@ MODULE ExternalCircuit
   TYPE(calculation_control), ALLOCATABLE :: object_charge_calculation(:)
 
 ! circuit parameters (for the test case only, must be edited for different systems)
-  REAL(8) source_U
-  REAL(8) source_omega
-  REAL(8) source_phase
-  REAL(8) capacitor_C_F
+!  REAL(8) source_U
+!  REAL(8) source_omega
+!  REAL(8) source_phase
+
+  INTEGER N_of_power_supplies   ! number of power supplies in the exernal circuit
+
+  TYPE PSU_type
+! similar to the corresponding section of the boundary_object type
+
+     REAL(8) phi_const            ! constant part of the electrostatic potential
+     REAL(8) phi_var              ! time varying part of the electrostatic potential
+     REAL(8) omega                ! frequency of time varying part
+     REAL(8) phase                ! phase of time varying part
+     REAL(8) phase_adjusted       ! phase of time varying part adjusted to the beginning of the amplitude profile period
+
+! waveform defines periodic non-harmonic variation of potential, the shape is defined by a user via data file
+     LOGICAL use_waveform
+     INTEGER N_wf_points                    ! number of waveform data points, must be no less than 2
+     REAL,    ALLOCATABLE :: wf_phi(:)      ! array of potential values of waveform data points
+     INTEGER, ALLOCATABLE :: wf_T_cntr(:)   ! array of times (in units of timesteps) of waveform data points
+
+! amplitude profile for the oscillatory potential (includes the harmonic potential and the waveform)
+     LOGICAL use_amplitude_profile
+     INTEGER N_ap_points                    ! number of oscillation amplitude profile data points, must be no less than 2
+     REAL,    ALLOCATABLE :: ap_factor(:)   ! array of factor values which will be multiplied by the oscillatory potential
+     INTEGER, ALLOCATABLE :: ap_T_cntr(:)   ! array of times (in units of timesteps) of amplitude profile data points
+  END TYPE PSU_type
+
+  TYPE(PSU_type), ALLOCATABLE :: EC_power_supply(:)
+  
+  INTEGER N_of_resistors    ! number of resistors
+  INTEGER N_of_capacitors   ! number of capacitors
+  INTEGER N_of_inductors    ! number of inductors
+
+  REAL(8), ALLOCATABLE :: resistor_R_Ohm(:)
+  REAL(8), ALLOCATABLE :: capacitor_C_F(:)
+  REAL(8), ALLOCATABLE :: inductor_L_H(:)
 
 END MODULE ExternalCircuit
 
@@ -1240,6 +1276,9 @@ MODULE AvgSnapshots
 
 ! flags for turning output of various parameters on/off (see above)
 
-  LOGICAL save_avg_data(1:38)  ! 1+2+3+16+16
+  LOGICAL save_avg_data(1:39)  ! 1+2+3+16+16+1
+
+  REAL, ALLOCATABLE :: cs_Npart_coll(:,:)    ! electron densities (in units of macroparticles) immediately before the e-neutral collisions are applied
+                                             ! is used to calculate e-neutral collision frequencies
 
 END MODULE AvgSnapshots

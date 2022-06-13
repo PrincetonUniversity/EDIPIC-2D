@@ -7,6 +7,7 @@ SUBROUTINE INITIATE_AVERAGED_SNAPSHOTS
   USE AvgSnapshots
   USE CurrentProblemValues, ONLY : delta_t_s, N_subcycles, Start_T_cntr
   USE Checkpoints, ONLY : use_checkpoint
+  USE MCCollisions, ONLY : N_neutral_spec, collision_e_neutral, en_collisions_turned_off
 
   IMPLICIT NONE
 
@@ -17,10 +18,11 @@ SUBROUTINE INITIATE_AVERAGED_SNAPSHOTS
   LOGICAL exists
   CHARACTER (1) buf
 
-  INTEGER saveflagi(1:38)           ! integer flags used to set values of logical flags controlling saving of data files
+  INTEGER ios
+  INTEGER saveflagi(1:39)           ! integer flags used to set values of logical flags controlling saving of data files
 
   INTEGER N_of_snap_groups          ! number of sets of snapshots, read from file
-  INTEGER i, n
+  INTEGER i, n, p, count
 
   REAL(8) Rqst_snap_start_ns        ! requested start of current set of snapshots [ns], read from file
   REAL(8) Rqst_snap_finish_ns       ! requested finish of current set of snapshots [ns], read from file 
@@ -50,34 +52,80 @@ SUBROUTINE INITIATE_AVERAGED_SNAPSHOTS
      RETURN
   END IF
 
-  IF (Rank_of_process.EQ.0) PRINT '("### File init_avgsnapshots is found. Reading the data file... ###")'
+  IF (Rank_of_process.EQ.0) PRINT '("### File init_avgsnapshots.dat is found. Reading the data file... ###")'
 
   OPEN (9, FILE = 'init_avgsnapshots.dat')
-     
-  READ(9, '(A1)') buf  !--- save 2D maps of the following TIME-AVERAGED parameters? (1=yes, 0=no)
-  READ(9, '(A1)') buf  !-----F----EX----EY--JXsum--JYsum--JZsum   (type flag values below)
-  READ(9, *) saveflagi(1:6) 
-  READ(9, '(A1)') buf  !----Ne----JXe---JYe---JZe---VXe---VYe---VZe---WXe---WYe---WZe---TXe---TYe---TZe---QXe---QYe---QZe  (type flag values below)
-  READ(9, *) saveflagi(7:22)
-  READ(9, '(A1)') buf  !----Ni----JXi---JYi---JZi---VXi---VYi---VZi---WXi---WYi---WZi---TXi---TYi---TZi---QXi---QYi---QZi  (type flag values below)
-  READ (9, *) saveflagi(23:38)
 
-  DO i = 1, 38
+  saveflagi = 0
+
+  READ(9, '(A1)') buf  !--- save 2D maps of the following TIME-AVERAGED parameters? (1=yes, 0=no)
+  READ(9, '(A1)') buf  !-----F----EX----EY--JXsum--JYsum--JZsum--e-n collision frequencies   (type flag values below)
+  READ(9, *, iostat = ios) saveflagi(1:6) , saveflagi(39)
+
+  IF (ios.NE.0) THEN
+     IF (Rank_of_process.EQ.0) PRINT '("### WARNING iostat ",i8," : in file init_avgsnapshots.dat first set of flags is probably incomplete, missing flag(s) set to zero ###")', ios
+     BACKSPACE(9)
+  END IF
+
+  READ(9, '(A1)') buf  !----Ne----JXe---JYe---JZe---VXe---VYe---VZe---WXe---WYe---WZe---TXe---TYe---TZe---QXe---QYe---QZe  (type flag values below)
+  READ(9, *, iostat = ios) saveflagi(7:22)
+
+  IF (ios.NE.0) THEN
+     IF (Rank_of_process.EQ.0) PRINT '("### WARNING iostat ",i8," : in file init_avgsnapshots.dat second set of flags is probably incomplete, missing flag(s) set to zero ###")', ios
+     BACKSPACE(9)
+  END IF
+
+  READ(9, '(A1)') buf  !----Ni----JXi---JYi---JZi---VXi---VYi---VZi---WXi---WYi---WZi---TXi---TYi---TZi---QXi---QYi---QZi  (type flag values below)
+  READ (9, *, iostat = ios) saveflagi(23:38)
+
+  IF (ios.NE.0) THEN
+     IF (Rank_of_process.EQ.0) PRINT '("### WARNING iostat ",i8," : in file init_avgsnapshots.dat third set of flags is probably incomplete, missing flag(s) set to zero ###")', ios
+     BACKSPACE(9)
+  END IF
+
+  IF (Rank_of_process.EQ.0) THEN
+     PRINT '("INITIATE_AVERAGED_SNAPSHOTS :: saveflagi(1:6,39)     = ",7(2x,i2))', saveflagi(1:6) , saveflagi(39)
+     PRINT '("INITIATE_AVERAGED_SNAPSHOTS :: saveflagi(7:22)       = ",16(2x,i2))', saveflagi(7:22)
+     PRINT '("INITIATE_AVERAGED_SNAPSHOTS :: saveflagi(23:38)      = ",16(2x,i2))', saveflagi(7:22)
+  END IF
+
+  DO i = 1, 39
      IF (saveflagi(i).GT.0) save_avg_data(i) = .TRUE.
   END DO
 
-!  READ (9, '(A1)') buf !--- offset of data collection timestep relative to timestep following the ion move timestep ( 0 <= offset <= N_subcycles-1 ), type below
-!  READ (9, *) avg_data_collection_offset
-!  avg_data_collection_offset = MAX(0, MIN(N_subcycles-1, avg_data_collection_offset))   ! offset relative to timestep following the ion move timestep
-                                                                       ! 0 means that data will be collected at the timestep immediately after the timestep when ions moved
-                                                                       ! N_subcycles-1 means that data will be collected at the timestep when the ions move
-                                                                       ! [note that average data are collected after electric field is calculated before particles are advanced]
+  IF (en_collisions_turned_off) save_avg_data(39) = .FALSE.
+
+! if electron-neutral collision frequencies are requested, check that at least one active collisional process has save_collfreq_2d == .TRUE.
+  IF (save_avg_data(39)) THEN
+     count = 0
+     DO n = 1, N_neutral_spec
+        DO p = 1, collision_e_neutral(n)%N_of_activated_colproc
+           IF (collision_e_neutral(n)%colproc_info(p)%save_collfreq_2d) count = count + 1
+        END DO
+     END DO
+     IF (count.EQ.0) THEN
+        save_avg_data(39) = .FALSE.
+        IF (Rank_of_process.EQ.0) PRINT '("### WARNING :: Saving e-n collision frequencies was requested in init_avgsnapshots.dat but not set in init_neutral_AAAAAA.dat so it is turned off ###")'
+     END IF
+  END IF
+
+  IF (Rank_of_process.EQ.0) THEN
+     PRINT '("INITIATE_AVERAGED_SNAPSHOTS :: save_avg_data(1:6,39) = ",7(3x,L1))', save_avg_data(1:6) , save_avg_data(39)
+     PRINT '("INITIATE_AVERAGED_SNAPSHOTS :: save_avg_data(7:22)   = ",16(3x,L1))', save_avg_data(7:22)
+     PRINT '("INITIATE_AVERAGED_SNAPSHOTS :: save_avg_data(23:38)  = ",16(3x,L1))', save_avg_data(7:22)
+  END IF
 
   READ (9, '(A1)') buf !--- number of groups of snapshots (>0, no averaged snapshots if <=0), type below
-  READ (9, *) N_of_snap_groups
+  READ (9, *, iostat=ios) N_of_snap_groups
+
+  IF (ios.NE.0) THEN
+     IF (Rank_of_process.EQ.0) PRINT '("### WARNING iostat ",i8," : in file init_avgsnapshots.dat cannot read the number of snapshot groups, set it to zero ###")', ios
+     N_of_snap_groups = 0
+  END IF
 
   IF (N_of_snap_groups.LE.0) THEN
      IF (Rank_of_process.EQ.0) PRINT '("### ### Time-averaged snapshots will not be created. ### ###")'
+     CLOSE (9, STATUS = 'KEEP')
      RETURN
   END IF
 
@@ -90,7 +138,12 @@ SUBROUTINE INITIATE_AVERAGED_SNAPSHOTS
      
   DO i = 1, N_of_snap_groups
 ! read the parameters of current set of snapshot from the data file
-     READ (9, *) Rqst_snap_start_ns, Rqst_snap_finish_ns, Rqst_n_of_snaps
+     READ (9, *, iostat = ios) Rqst_snap_start_ns, Rqst_snap_finish_ns, Rqst_n_of_snaps
+
+     IF (ios.NE.0) THEN
+        IF (Rank_of_process.EQ.0) PRINT '("### WARNING iostat ",i8," : in file init_avgsnapshots.dat while reading snapshot group ",i3,", skip ###")', ios, i
+        CYCLE
+     END IF
 
 ! try the next group of snapshots if the current group snapshot number is zero
      IF (Rqst_n_of_snaps.LT.1) CYCLE
@@ -228,6 +281,9 @@ SUBROUTINE COLLECT_F_EX_EY_FOR_AVERAGED_SNAPSHOT
   USE ClusterAndItsBoundaries
   USE BlockAndItsBoundaries
   USE IonParticles, ONLY : N_spec
+  USE MCCollisions, ONLY : N_neutral_spec, collision_e_neutral
+  USE Snapshots, ONLY : diagnostics_neutral
+
 
   IMPLICIT NONE
 
@@ -236,6 +292,8 @@ SUBROUTINE COLLECT_F_EX_EY_FOR_AVERAGED_SNAPSHOT
   INTEGER ierr
   INTEGER stattus(MPI_STATUS_SIZE)
   INTEGER request
+
+  INTEGER n, p
 
   INTEGER ALLOC_ERR
 
@@ -428,6 +486,16 @@ SUBROUTINE COLLECT_F_EX_EY_FOR_AVERAGED_SNAPSHOT
      IF (save_avg_data(38)) THEN
         ALLOCATE(cs_avg_QZi(c_indx_x_min:c_indx_x_max, c_indx_y_min:c_indx_y_max, 1:N_spec), STAT = ALLOC_ERR)
         cs_avg_QZi = 0.0
+     END IF
+
+     IF (save_avg_data(39)) THEN
+        DO n = 1, N_neutral_spec
+           DO p = 1, collision_e_neutral(n)%N_of_activated_colproc
+              IF (.NOT.collision_e_neutral(n)%colproc_info(p)%save_collfreq_2d) CYCLE
+              ALLOCATE(diagnostics_neutral(n)%activated_collision(p)%coll_freq_local(c_indx_x_min:c_indx_x_max, c_indx_y_min:c_indx_y_max), STAT = ALLOC_ERR)
+              diagnostics_neutral(n)%activated_collision(p)%coll_freq_local = 0.0
+           END DO
+        END DO
      END IF
 
   END IF   !### IF ((T_cntr.EQ.avgsnapshot(current_avgsnap)%T_cntr_begin).AND.(cluster_rank_key.EQ.0)) THEN
@@ -815,9 +883,11 @@ SUBROUTINE CREATE_AVERAGED_SNAPSHOT
   USE ParallelOperationValues
   USE AvgSnapshots
   USE CurrentProblemValues, ONLY : N_subcycles, F_scale_V, E_scale_Vm, current_factor_Am2, N_scale_part_m3, V_scale_ms, &
-                                 & energy_factor_eV, temperature_factor_eV, heat_flow_factor_Wm2, T_cntr
+                                 & energy_factor_eV, temperature_factor_eV, heat_flow_factor_Wm2, T_cntr, delta_t_s
   USE ClusterAndItsBoundaries
   USE IonParticles, ONLY : N_spec, Qs, Ms
+  USE MCCollisions, ONLY : N_neutral_spec, neutral, collision_e_neutral
+  USE Snapshots, ONLY : diagnostics_neutral
 
   IMPLICIT NONE
 
@@ -850,8 +920,10 @@ SUBROUTINE CREATE_AVERAGED_SNAPSHOT
   CHARACTER(25) filename_Wi       ! _NNNN_avg_WXi_s_eV_2D.bin
   CHARACTER(25) filename_Ti       ! _NNNN_avg_TXi_s_eV_2D.bin
   CHARACTER(26) filename_Qi       ! _NNNN_avg_QXi_s_Wm2_2D.bin
+!                                   ----x----I----x----I----x----I----x----I----x
+  CHARACTER(45) filename_encoll   ! _NNNN_avg_frequency_e_n_AAAAAA_coll_id_NN.bin
 
-  INTEGER s, i, j
+  INTEGER s, i, j, n, p
 
   INTERFACE
      FUNCTION convert_int_to_txt_string(int_number, length_of_string)
@@ -1457,6 +1529,27 @@ SUBROUTINE CREATE_AVERAGED_SNAPSHOT
      END DO
 ! cleanup
      DEALLOCATE(cs_avg_QZi, STAT = ALLOC_ERR)
+  END IF
+
+  IF (save_avg_data(39)) THEN
+     DO n = 1, N_neutral_spec
+        DO p = 1, collision_e_neutral(n)%N_of_activated_colproc
+           IF (.NOT.collision_e_neutral(n)%colproc_info(p)%save_collfreq_2d) CYCLE       
+           filename_encoll = '_NNNN_avg_frequency_e_n_AAAAAA_coll_id_NN.bin'
+           filename_encoll(2:5) = convert_int_to_txt_string(current_avgsnap, 4)
+           filename_encoll(25:30) = neutral(n)%name
+           filename_encoll(40:41) = convert_int_to_txt_string(collision_e_neutral(n)%colproc_info(p)%id_number, 2)
+           avg_factor = 1.0 / REAL(delta_t_s * N_averaged_timesteps)
+           DO j = c_indx_y_min, c_indx_y_max
+              DO i = c_indx_x_min, c_indx_x_max
+                 diagnostics_neutral(n)%activated_collision(p)%coll_freq_local(i,j) = diagnostics_neutral(n)%activated_collision(p)%coll_freq_local(i,j) * avg_factor
+              END DO
+           END DO
+           CALL SAVE_GLOBAL_2D_ARRAY(diagnostics_neutral(n)%activated_collision(p)%coll_freq_local, filename_encoll)
+           CALL MPI_BARRIER(COMM_HORIZONTAL, ierr)
+           DEALLOCATE(diagnostics_neutral(n)%activated_collision(p)%coll_freq_local, STAT = ALLOC_ERR)
+        END DO
+     END DO
   END IF
 
   IF (Rank_of_process.EQ.0) PRINT '(/2x,"### ^^^^^^^^^^^^^^^^^^^^ Averaged Snapshot ",i4," completed :) ^^^^^^^^^^^^^^^^^^^ ###")', current_avgsnap

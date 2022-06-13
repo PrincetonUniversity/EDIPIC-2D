@@ -25,7 +25,7 @@ SUBROUTINE INITIATE_ELECTRON_NEUTRAL_COLLISIONS
                                        ! ----x----I----x----I---
   INTEGER ALLOC_ERR
   INTEGER p, i, s
-  INTEGER colflag
+  INTEGER colflag, saveflag
 
   CHARACTER(49) initneutral_crsect_filename  ! init_neutral_AAAAAA_crsect_coll_id_NN_type_NN.dat
                                              ! ----x----I----x----I----x----I----x----I----x----
@@ -116,10 +116,14 @@ SUBROUTINE INITIATE_ELECTRON_NEUTRAL_COLLISIONS
 
      ALLOCATE(neutral(n)%en_colproc(1:neutral(n)%N_en_colproc), STAT=ALLOC_ERR)
      DO p = 1, neutral(n)%N_en_colproc
-        READ (9, '(A1)') buf !---dd--d--dd--- collision #NN :: type / activated (1/0 = Yes/No) / ion species produced (ionization collisions only) 
-        READ (9, '(3x,i2,2x,i1,2x,i2)') neutral(n)%en_colproc(p)%type, colflag, neutral(n)%en_colproc(p)%ion_species_produced
+        colflag = 0
+        saveflag = 0
+        READ (9, '(A1)') buf !---dd--d--dd--d- collision #NN :: type / activated (1/0 = Yes/No) / ion species produced (ionization collisions only) / save coll. frequency
+        READ (9, '(3x,i2,2x,i1,2x,i2,2x,i1)') neutral(n)%en_colproc(p)%type, colflag, neutral(n)%en_colproc(p)%ion_species_produced, saveflag
         neutral(n)%en_colproc(p)%activated = .FALSE.
         IF (colflag.NE.0) neutral(n)%en_colproc(p)%activated = .TRUE.
+        neutral(n)%en_colproc(p)%save_collfreq_2d = .FALSE.
+        IF (saveflag.NE.0) neutral(n)%en_colproc(p)%save_collfreq_2d = .TRUE.
      END DO
 
      READ (9, '(A1)') buf !--------dd--- number of energy segments for collision probabilities (>0)
@@ -214,6 +218,7 @@ SUBROUTINE INITIATE_ELECTRON_NEUTRAL_COLLISIONS
         collision_e_neutral(n)%colproc_info(count)%type = neutral(n)%en_colproc(p)%type
         collision_e_neutral(n)%colproc_info(count)%ion_species_produced = neutral(n)%en_colproc(p)%ion_species_produced
         collision_e_neutral(n)%colproc_info(count)%threshold_energy_eV = neutral(n)%en_colproc(p)%threshold_energy_eV 
+        collision_e_neutral(n)%colproc_info(count)%save_collfreq_2d = neutral(n)%en_colproc(p)%save_collfreq_2d
 
         s = neutral(n)%en_colproc(p)%ion_species_produced
         IF ((s.GE.1).AND.(s.LE.N_spec)) collision_e_neutral(n)%colproc_info(count)%ion_velocity_factor = SQRT(neutral(n)%T_K * kB_JK / (T_e_eV * e_Cl)) / (N_max_vel * SQRT(Ms(s)))
@@ -329,10 +334,11 @@ SUBROUTINE PERFORM_ELECTRON_NEUTRAL_COLLISIONS
   USE ParallelOperationValues
   USE MCCollisions
   USE ElectronParticles
-  USE CurrentProblemValues, ONLY : V_scale_ms, m_e_kg, e_Cl
+  USE CurrentProblemValues, ONLY : V_scale_ms, m_e_kg, e_Cl, T_cntr
   USE ClusterAndItsBoundaries
   USE rng_wrapper
   USE Snapshots
+  USE AvgSnapshots, ONLY : N_of_all_avgsnaps, current_avgsnap, avgsnapshot, save_avg_data, cs_Npart_coll
 
 !  USE ParallelOperationValues
 
@@ -507,8 +513,72 @@ SUBROUTINE PERFORM_ELECTRON_NEUTRAL_COLLISIONS
 
         END SELECT
 
-     END DO
-  END DO
+     END DO   !###   DO j = 0, I_collided
+  END DO   !###   DO n = 1, N_neutral_spec
+
+  IF (save_avg_data(39)) THEN
+     IF ((current_avgsnap.GT.0).AND.(current_avgsnap.LE.N_of_all_avgsnaps)) THEN
+        IF ( (T_cntr.GE.avgsnapshot(current_avgsnap)%T_cntr_begin).AND. &
+           & (T_cntr.LE.avgsnapshot(current_avgsnap)%T_cntr_end) ) THEN
+
+           ! accumulate ionization rates to be saved in ordinary snapshots
+
+           n1 = c_indx_y_max - c_indx_y_min + 1
+           n3 = c_indx_x_max - c_indx_x_min + 1
+           n2 = -c_indx_x_min + 1 - c_indx_y_min * n3
+           bufsize = n1 * n3
+           ALLOCATE(rbufer(1:bufsize), STAT=ALLOC_ERR)
+           IF (Rank_cluster.EQ.0) THEN
+              ALLOCATE(rbufer2(1:bufsize), STAT=ALLOC_ERR)
+           ELSE
+! MPI_REDUCE requires a separate receiver array for all processes, 
+! but in all processes except the one where the final result (e.g. sum) is assembled 
+! it is sufficient to have a valid array of minimal size. 
+! The same is done in CREATE_SNAPSHOT.
+              ALLOCATE(rbufer2(1), STAT=ALLOC_ERR)
+           END IF
+
+           DO n = 1, N_neutral_spec
+              DO p = 1, collision_e_neutral(n)%N_of_activated_colproc
+
+                 IF (.NOT.collision_e_neutral(n)%colproc_info(p)%save_collfreq_2d) CYCLE
+
+                 rbufer = 0.0
+                 rbufer2 = 0.0
+
+! note, if first_collision_not_done_yet is .TRUE. then no collisions took place above and there is nothing to transfer
+                 IF (.NOT.first_collision_not_done_yet) THEN
+                    CALL Transfer_collisions_from_stored_list(Collided_particle, n, p, bufsize, n1, n2, n3, rbufer)
+                 END IF
+                 CALL MPI_REDUCE(rbufer, rbufer2, bufsize, MPI_REAL, MPI_SUM, 0, COMM_CLUSTER, ierr)
+
+                 IF (cluster_rank_key.EQ.0) THEN
+! for collision frequencies we need to synchronize values in the overlapping points now
+                    CALL SYNCHRONIZE_REAL_ARRAY_IN_OVERLAP_NODES(rbufer2)
+                    pos=1
+                    DO j = c_indx_y_min, c_indx_y_max
+                       DO i = c_indx_x_min, c_indx_x_max
+                          IF (cs_Npart_coll(i,j).GT.0.0) THEN
+                             diagnostics_neutral(n)%activated_collision(p)%coll_freq_local(i,j) = &
+                                                & diagnostics_neutral(n)%activated_collision(p)%coll_freq_local(i,j) + rbufer2(pos) / cs_Npart_coll(i,j)
+                          END IF
+                          pos=pos+1
+                       END DO
+                    END DO
+                 END IF
+
+                 CALL MPI_BARRIER(COMM_CLUSTER, ierr) !??????????
+
+              END DO
+           END DO
+
+           IF (ALLOCATED(cs_Npart_coll)) DEALLOCATE(cs_Npart_coll, STAT = ALLOC_ERR)
+           IF (ALLOCATED(rbufer)) DEALLOCATE(rbufer, STAT = ALLOC_ERR)
+           IF (ALLOCATED(rbufer2)) DEALLOCATE(rbufer2, STAT = ALLOC_ERR)
+
+        END IF
+     END IF
+  END IF
 
 !### exit if there is no ionization collisions
   IF (no_ionization_collisions) THEN
@@ -516,7 +586,7 @@ SUBROUTINE PERFORM_ELECTRON_NEUTRAL_COLLISIONS
      RETURN
   END IF
 
-!### exit if the last snapshot has been saved alread, also works when no snapshots are requested (N_of_all_snaps=0)
+!### exit if the last snapshot has been saved already, also works when no snapshots are requested (N_of_all_snaps=0)
   IF (current_snap.GT.N_of_all_snaps) THEN
      CALL Node_Killer(Collided_particle)
      RETURN
@@ -528,7 +598,7 @@ SUBROUTINE PERFORM_ELECTRON_NEUTRAL_COLLISIONS
      RETURN
   END IF
 
-! account for collisions in diagnostics arrays
+! accumulate ionization rates to be saved in ordinary snapshots
 
   n1 = c_indx_y_max - c_indx_y_min + 1
   n3 = c_indx_x_max - c_indx_x_min + 1
@@ -547,6 +617,7 @@ SUBROUTINE PERFORM_ELECTRON_NEUTRAL_COLLISIONS
 
   DO n = 1, N_neutral_spec
      DO p = 1, collision_e_neutral(n)%N_of_activated_colproc
+
         IF (collision_e_neutral(n)%colproc_info(p)%type.LT.30) CYCLE  ! skip non-ionizing collisions
 
         rbufer = 0.0
@@ -563,7 +634,8 @@ SUBROUTINE PERFORM_ELECTRON_NEUTRAL_COLLISIONS
            pos=1
            DO j = c_indx_y_min, c_indx_y_max
               DO i = c_indx_x_min, c_indx_x_max
-                 diagnostics_neutral(n)%activated_collision(p)%counter_local(i,j) = diagnostics_neutral(n)%activated_collision(p)%counter_local(i,j) + rbufer2(pos)
+                 diagnostics_neutral(n)%activated_collision(p)%ionization_rate_local(i,j) = &
+                      & diagnostics_neutral(n)%activated_collision(p)%ionization_rate_local(i,j) + rbufer2(pos)
                  pos=pos+1
               END DO
            END DO
@@ -985,3 +1057,310 @@ RECURSIVE SUBROUTINE Node_Killer(node)
   RETURN
 
 END SUBROUTINE Node_Killer
+
+!--------------------------------------------------------
+!
+SUBROUTINE COLLECT_ELECTRON_DENSITY_FOR_COLL_FREQS
+
+  USE ParallelOperationValues
+  USE ElectronParticles
+  USE ClusterAndItsBoundaries
+  USE AvgSnapshots
+  USE CurrentProblemValues, ONLY : T_cntr
+
+  IMPLICIT NONE
+
+  INCLUDE 'mpif.h'
+
+  INTEGER ierr
+  INTEGER stattus(MPI_STATUS_SIZE)
+  INTEGER request
+
+  INTEGER n1  ! number of nodes in the y-direction
+  INTEGER n2  !
+  INTEGER n3  ! number of nodes in the x-direction
+
+  REAL, ALLOCATABLE :: rbufer_n(:)
+
+  INTEGER ALLOC_ERR
+  INTEGER bufsize
+
+  INTEGER i, j, k
+  INTEGER pos_i_j, pos_ip1_j, pos_i_jp1, pos_ip1_jp1
+  REAL ax_ip1, ax_i, ay_jp1, ay_j
+  REAL vij, vip1j, vijp1, vip1jp1
+
+  IF (.NOT.save_avg_data(39)) RETURN
+
+  IF (current_avgsnap.LE.0) RETURN
+
+  IF (current_avgsnap.GT.N_of_all_avgsnaps) RETURN
+
+  IF (T_cntr.LT.avgsnapshot(current_avgsnap)%T_cntr_begin) RETURN
+
+  IF (T_cntr.GT.avgsnapshot(current_avgsnap)%T_cntr_end) RETURN
+
+  ALLOCATE(cs_Npart_coll(c_indx_x_min:c_indx_x_max,c_indx_y_min:c_indx_y_max), STAT = ALLOC_ERR)
+
+  cs_Npart_coll = 0.0
+
+  n1 = c_indx_y_max - c_indx_y_min + 1
+  n3 = c_indx_x_max - c_indx_x_min + 1
+  n2 = -c_indx_x_min + 1 - c_indx_y_min * n3
+
+  bufsize = n1 * n3
+  ALLOCATE(rbufer_n(1:bufsize), STAT=ALLOC_ERR)
+
+  rbufer_n = 0.0
+
+  DO k = 1, N_electrons
+
+     i = INT(electron(k)%X)
+     j = INT(electron(k)%Y)
+     IF (electron(k)%X.EQ.c_X_area_max) i = c_indx_x_max-1
+     IF (electron(k)%Y.EQ.c_Y_area_max) j = c_indx_y_max-1
+
+     pos_i_j     = i + j * n3 + n2
+     pos_ip1_j   = pos_i_j + 1
+     pos_i_jp1   = pos_i_j + n3
+     pos_ip1_jp1 = pos_i_jp1 + 1
+
+     ax_ip1 = REAL(electron(k)%X - DBLE(i))
+     ax_i   = 1.0 - ax_ip1
+
+     ay_jp1 = REAL(electron(k)%Y - DBLE(j))
+     ay_j = 1.0 - ay_jp1
+
+     vij   = ax_i   * ay_j
+     vip1j = ax_ip1 * ay_j
+     vijp1 = ax_i   * ay_jp1
+     vip1jp1 = 1.0 - vij - vip1j - vijp1
+
+     rbufer_n(pos_i_j)     = rbufer_n(pos_i_j)     + vij     !ax_i   * ay_j
+     rbufer_n(pos_ip1_j)   = rbufer_n(pos_ip1_j)   + vip1j   !ax_ip1 * ay_j
+     rbufer_n(pos_i_jp1)   = rbufer_n(pos_i_jp1)   + vijp1   !ax_i   * ay_jp1
+     rbufer_n(pos_ip1_jp1) = rbufer_n(pos_ip1_jp1) + vip1jp1 !ax_ip1 * ay_jp1
+
+  END DO
+
+! collect moments from all processes in a cluster
+  CALL MPI_REDUCE(rbufer_n, cs_Npart_coll, bufsize, MPI_REAL, MPI_SUM, 0, COMM_CLUSTER, ierr)
+
+  CALL MPI_BARRIER(MPI_COMM_WORLD, ierr) 
+
+  DEALLOCATE(rbufer_n, STAT=ALLOC_ERR)
+
+! particle calculators which are not masters are done
+  IF (cluster_rank_key.NE.0) RETURN
+
+! now cluster masters exchange information about densities in overlapping nodes
+
+  CALL SYNCHRONIZE_REAL_ARRAY_IN_OVERLAP_NODES(cs_Npart_coll)
+
+END SUBROUTINE COLLECT_ELECTRON_DENSITY_FOR_COLL_FREQS
+
+!--------------------------------------------------------
+!
+SUBROUTINE SYNCHRONIZE_REAL_ARRAY_IN_OVERLAP_NODES(arr)
+
+  USE ParallelOperationValues
+  USE ClusterAndItsBoundaries
+
+  IMPLICIT NONE
+
+  INCLUDE 'mpif.h'
+
+  INTEGER ierr
+  INTEGER stattus(MPI_STATUS_SIZE)
+  INTEGER request
+
+  REAL arr(c_indx_x_min:c_indx_x_max,c_indx_y_min:c_indx_y_max)
+
+  INTEGER n1  ! number of nodes in the y-direction
+  INTEGER n3  ! number of nodes in the x-direction
+
+  INTEGER i, j
+
+  INTEGER pos1, pos2
+
+  INTEGER ALLOC_ERR
+  REAL, ALLOCATABLE :: rbufer(:)
+
+  n1 = c_indx_y_max - c_indx_y_min + 1
+  n3 = c_indx_x_max - c_indx_x_min + 1
+
+! include neighbor contributions in nodes which are one line away from the cluster boundary
+
+  IF (WHITE_CLUSTER) THEN  
+! "white processes"
+
+     IF (ALLOCATED(rbufer)) DEALLOCATE(rbufer, STAT=ALLOC_ERR)
+     ALLOCATE(rbufer(1:n1), STAT=ALLOC_ERR)
+
+     IF (Rank_horizontal_right.GE.0) THEN
+! ## 1 ## send right moments in the right edge
+        pos1=1
+        pos2=n1
+        rbufer(pos1:pos2) = arr(c_indx_x_max, c_indx_y_min:c_indx_y_max)
+
+        CALL MPI_SEND(rbufer, n1, MPI_REAL, Rank_horizontal_right, Rank_horizontal, COMM_HORIZONTAL, request, ierr) 
+     END IF
+
+     IF (Rank_horizontal_left.GE.0) THEN
+! ## 2 ## send left moments in the left edge
+        pos1=1
+        pos2=n1
+        rbufer(pos1:pos2) = arr(c_indx_x_min, c_indx_y_min:c_indx_y_max)
+
+        CALL MPI_SEND(rbufer, n1, MPI_REAL, Rank_horizontal_left, Rank_horizontal, COMM_HORIZONTAL, request, ierr) 
+     END IF
+
+     IF (Rank_horizontal_left.GE.0) THEN
+! ## 3 ## receive from left moments in the vertical line next to the left edge
+        CALL MPI_RECV(rbufer, n1, MPI_REAL, Rank_horizontal_left, Rank_horizontal_left, COMM_HORIZONTAL, stattus, ierr)
+
+        pos1 = -c_indx_y_min
+        DO j = c_indx_y_min, c_indx_y_max
+           arr(c_indx_x_min+1, j) = arr(c_indx_x_min+1, j) + rbufer(j+pos1+1)
+        END DO
+     END IF
+
+     IF (Rank_horizontal_right.GE.0) THEN
+! ## 4 ## receive from right moments in the vertical line next to the right edge
+        CALL MPI_RECV(rbufer, n1, MPI_REAL, Rank_horizontal_right, Rank_horizontal_right, COMM_HORIZONTAL, stattus, ierr)
+
+        pos1 = -c_indx_y_min
+        DO j = c_indx_y_min, c_indx_y_max
+           arr(c_indx_x_max-1, j) = arr(c_indx_x_max-1, j) + rbufer(j+pos1+1)
+        END DO
+     END IF
+
+     IF (ALLOCATED(rbufer)) DEALLOCATE(rbufer, STAT=ALLOC_ERR)
+     ALLOCATE(rbufer(1:n3), STAT=ALLOC_ERR)
+
+     IF (Rank_horizontal_above.GE.0) THEN
+! ## 5 ## send up moments in the top edge
+        pos1=1
+        pos2=n3
+        rbufer(pos1:pos2) = arr(c_indx_x_min:c_indx_x_max, c_indx_y_max)
+
+        CALL MPI_SEND(rbufer, n3, MPI_REAL, Rank_horizontal_above, Rank_horizontal, COMM_HORIZONTAL, request, ierr) 
+     END IF
+
+     IF (Rank_horizontal_below.GE.0) THEN
+! ## 6 ## send down moments in the bottom edge
+        pos1=1
+        pos2=n3
+        rbufer(pos1:pos2) = arr(c_indx_x_min:c_indx_x_max, c_indx_y_min)
+
+        CALL MPI_SEND(rbufer, n3, MPI_REAL, Rank_horizontal_below, Rank_horizontal, COMM_HORIZONTAL, request, ierr) 
+     END IF
+
+     IF (Rank_horizontal_below.GE.0) THEN
+! ## 7 ## receive from below moments in the vertical line above the bottom line
+        CALL MPI_RECV(rbufer, n3, MPI_REAL, Rank_horizontal_below, Rank_horizontal_below, COMM_HORIZONTAL, stattus, ierr)
+
+        pos1 = -c_indx_x_min
+        DO i = c_indx_x_min, c_indx_x_max
+           arr(i, c_indx_y_min+1) = arr(i, c_indx_y_min+1) + rbufer(i+pos1+1)
+        END DO
+     END IF
+
+     IF (Rank_horizontal_above.GE.0) THEN
+! ## 8 ## receive from above moments in the vertical line under the top line
+        CALL MPI_RECV(rbufer, n3, MPI_REAL, Rank_horizontal_above, Rank_horizontal_above, COMM_HORIZONTAL, stattus, ierr)
+
+        pos1 = -c_indx_x_min
+        DO i = c_indx_x_min, c_indx_x_max
+           arr(i, c_indx_y_max-1) = arr(i, c_indx_y_max-1) + rbufer(i+pos1+1)
+        END DO
+     END IF
+
+  ELSE
+! "black" processes
+
+     IF (ALLOCATED(rbufer)) DEALLOCATE(rbufer, STAT=ALLOC_ERR)
+     ALLOCATE(rbufer(1:n1), STAT=ALLOC_ERR)
+
+     IF (Rank_horizontal_left.GE.0) THEN
+! ## 1 ## receive from left moments in the vertical line next to the left edge
+        CALL MPI_RECV(rbufer, n1, MPI_REAL, Rank_horizontal_left, Rank_horizontal_left, COMM_HORIZONTAL, stattus, ierr)
+
+        pos1 = -c_indx_y_min
+        DO j = c_indx_y_min, c_indx_y_max
+           arr(c_indx_x_min+1, j) = arr(c_indx_x_min+1, j) + rbufer(j+pos1+1)
+        END DO
+     END IF
+
+     IF (Rank_horizontal_right.GE.0) THEN
+! ## 2 ## receive from right moments in the vertical line next to the right edge
+        CALL MPI_RECV(rbufer, n1, MPI_REAL, Rank_horizontal_right, Rank_horizontal_right, COMM_HORIZONTAL, stattus, ierr)
+
+        pos1 = -c_indx_y_min
+        DO j = c_indx_y_min, c_indx_y_max
+           arr(c_indx_x_max-1, j) = arr(c_indx_x_max-1, j) + rbufer(j+pos1+1)
+        END DO
+     END IF
+
+     IF (Rank_horizontal_right.GE.0) THEN
+! ## 3 ## send right moments in the right edge
+        pos1=1
+        pos2=n1
+        rbufer(pos1:pos2) = arr(c_indx_x_max, c_indx_y_min:c_indx_y_max)
+
+        CALL MPI_SEND(rbufer, n1, MPI_REAL, Rank_horizontal_right, Rank_horizontal, COMM_HORIZONTAL, request, ierr) 
+     END IF
+
+     IF (Rank_horizontal_left.GE.0) THEN
+! ## 4 ## send left moments in the left edge
+        pos1=1
+        pos2=n1
+        rbufer(pos1:pos2) = arr(c_indx_x_min, c_indx_y_min:c_indx_y_max)
+
+        CALL MPI_SEND(rbufer, n1, MPI_REAL, Rank_horizontal_left, Rank_horizontal, COMM_HORIZONTAL, request, ierr) 
+     END IF
+
+     IF (ALLOCATED(rbufer)) DEALLOCATE(rbufer, STAT=ALLOC_ERR)
+     ALLOCATE(rbufer(1:n3), STAT=ALLOC_ERR)
+
+     IF (Rank_horizontal_below.GE.0) THEN
+! ## 5 ## receive from below moments in the vertical line above the bottom line
+        CALL MPI_RECV(rbufer, n3, MPI_REAL, Rank_horizontal_below, Rank_horizontal_below, COMM_HORIZONTAL, stattus, ierr)
+        pos1 = -c_indx_x_min
+        DO i = c_indx_x_min, c_indx_x_max
+           arr(i, c_indx_y_min+1) = arr(i, c_indx_y_min+1) + rbufer(i+pos1+1)
+        END DO
+     END IF
+
+     IF (Rank_horizontal_above.GE.0) THEN
+! ## 6 ## receive from above moments in the vertical line under the top line
+        CALL MPI_RECV(rbufer, n3, MPI_REAL, Rank_horizontal_above, Rank_horizontal_above, COMM_HORIZONTAL, stattus, ierr)
+        pos1 = -c_indx_x_min
+        DO i = c_indx_x_min, c_indx_x_max
+           arr(i, c_indx_y_max-1) = arr(i, c_indx_y_max-1) + rbufer(i+pos1+1)
+        END DO
+     END IF
+
+     IF (Rank_horizontal_above.GE.0) THEN
+! ## 7 ## send up moments in the top edge
+        pos1=1
+        pos2=n3
+        rbufer(pos1:pos2) = arr(c_indx_x_min:c_indx_x_max, c_indx_y_max)
+
+        CALL MPI_SEND(rbufer, n3, MPI_REAL, Rank_horizontal_above, Rank_horizontal, COMM_HORIZONTAL, request, ierr) 
+     END IF
+
+     IF (Rank_horizontal_below.GE.0) THEN
+! ## 8 ## send down moments in the bottom edge
+        pos1=1
+        pos2=n3
+        rbufer(pos1:pos2) = arr(c_indx_x_min:c_indx_x_max, c_indx_y_min)
+
+        CALL MPI_SEND(rbufer, n3, MPI_REAL, Rank_horizontal_below, Rank_horizontal, COMM_HORIZONTAL, request, ierr) 
+     END IF
+
+  END IF   !###   IF (WHITE_CLUSTER) THEN
+
+  IF (ALLOCATED(rbufer)) DEALLOCATE(rbufer,  STAT=ALLOC_ERR)
+
+END SUBROUTINE SYNCHRONIZE_REAL_ARRAY_IN_OVERLAP_NODES

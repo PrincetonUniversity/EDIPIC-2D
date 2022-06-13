@@ -71,7 +71,8 @@ OBJ := WELL19937a_new.o \
        pic2d_CurProblemValues.o \
        pic2d_SEEmission.o \
        pic2d_IonEmissions.o \
-       pic2d_ExternalCircuits.o
+       pic2d_ExternalCircuits.o \
+       pic2d_ExternalCircuit_PS_Voltages.o
 
 edipic2d : $(OBJ)
 	$(FC) $(FFLAGS) -o $@ $(OBJ) $(LIBS)

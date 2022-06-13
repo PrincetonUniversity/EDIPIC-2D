@@ -1685,6 +1685,9 @@ SUBROUTINE SOLVE_EXTERNAL_CONTOUR
   INTEGER m
   INTEGER npb
 
+! function
+  REAL(8) ECPS_Voltage
+
   IF (N_of_object_potentials_to_solve.EQ.0) RETURN
 
 ! create coefficients of the linear system
@@ -1769,12 +1772,13 @@ SUBROUTINE SOLVE_EXTERNAL_CONTOUR
 ! one rf electrode connected in series to rf voltage source, capacitor, ground
 ! one electrode grounded
 
-           factor_C = eps_0_Fm / (capacitor_C_F * DBLE(N_of_particles_cell))
+           factor_C = eps_0_Fm / (capacitor_C_F(1) * DBLE(N_of_particles_cell))
 
            a(1,1) = 1.0_8 + factor_C * object_charge_coeff(1,1)
 
-           dU_source = source_U * ( SIN(source_omega * T_cntr + source_phase) - &     ! source voltage at t^n
-                                  & SIN(source_omega * (T_cntr-1) + source_phase) )   ! source voltage at t^{n-1}
+!           dU_source = source_U * ( SIN(source_omega * T_cntr + source_phase) - &     ! source voltage at t^n
+!                                  & SIN(source_omega * (T_cntr-1) + source_phase) )   ! source voltage at t^{n-1}
+           dU_source = ECPS_Voltage(1, T_cntr) - ECPS_Voltage(1, T_cntr-1)
 
 !     noi = object_charge_calculation(1)%noi
 
@@ -1860,7 +1864,8 @@ SUBROUTINE SOLVE_EXTERNAL_CONTOUR
      WRITE (21, '(2x,i9,8(2x,e14.7))') &
           & T_cntr, &                                                             ! 1
           & T_cntr * delta_t_s * 1.0d9, &                                         ! 2
-          & source_U * SIN(source_omega * T_cntr + source_phase) * F_scale_V, &        ! 3
+!          & source_U * SIN(source_omega * T_cntr + source_phase) * F_scale_V, &        ! 3
+          & ECPS_Voltage(1, T_cntr) * F_scale_V, &        ! 3
           & potential_of_object(1) * F_scale_V, &                                      ! 4
           & charge_of_object(1), &                      ! 5
           & dQ_full(1), &                               ! 6

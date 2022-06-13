@@ -275,20 +275,24 @@ SUBROUTINE INITIATE_SNAPSHOTS
   END IF
 
   IF (en_collisions_turned_off) RETURN
-  IF (no_ionization_collisions) RETURN
   IF (cluster_rank_key.NE.0) RETURN
-  IF (.NOT.save_ionization_rates_2d(current_snap))RETURN
 
-! create ionization rates diagnostics arrays, to be stored between snapshots by cluster masters only
+! create structure for collision diagnostics arrays, to be stored between snapshots by cluster masters only
   ALLOCATE(diagnostics_neutral(1:N_neutral_spec), STAT = ALLOC_ERR)
   DO n = 1, N_neutral_spec
      IF (collision_e_neutral(n)%N_of_activated_colproc.LE.0) CYCLE
      ALLOCATE(diagnostics_neutral(n)%activated_collision(1:collision_e_neutral(n)%N_of_activated_colproc), STAT = ALLOC_ERR)
+  END DO 
+
+  IF (no_ionization_collisions) RETURN
+  IF (.NOT.save_ionization_rates_2d(current_snap))RETURN
+
+! create ionization rates diagnostics arrays, to be stored between snapshots by cluster masters only
+  DO n = 1, N_neutral_spec
      DO p = 1, collision_e_neutral(n)%N_of_activated_colproc
-! presently do ionization collisions only
         IF (collision_e_neutral(n)%colproc_info(p)%type.LT.30) CYCLE
-        ALLOCATE(diagnostics_neutral(n)%activated_collision(p)%counter_local(c_indx_x_min:c_indx_x_max, c_indx_y_min:c_indx_y_max), STAT=ALLOC_ERR)
-        diagnostics_neutral(n)%activated_collision(p)%counter_local = 0.0
+        ALLOCATE(diagnostics_neutral(n)%activated_collision(p)%ionization_rate_local(c_indx_x_min:c_indx_x_max, c_indx_y_min:c_indx_y_max), STAT=ALLOC_ERR)
+        diagnostics_neutral(n)%activated_collision(p)%ionization_rate_local = 0.0
      END DO
   END DO
   
@@ -1166,12 +1170,12 @@ SUBROUTINE CREATE_SNAPSHOT
      DO n = 1, N_neutral_spec
         IF (ALLOCATED(diagnostics_neutral(n)%activated_collision)) THEN
            DO p = 1, collision_e_neutral(n)%N_of_activated_colproc
-              IF (ALLOCATED(diagnostics_neutral(n)%activated_collision(p)%counter_local)) DEALLOCATE(diagnostics_neutral(n)%activated_collision(p)%counter_local, STAT=ALLOC_ERR)
+              IF (ALLOCATED(diagnostics_neutral(n)%activated_collision(p)%ionization_rate_local)) DEALLOCATE(diagnostics_neutral(n)%activated_collision(p)%ionization_rate_local, STAT=ALLOC_ERR)
            END DO
-           DEALLOCATE(diagnostics_neutral(n)%activated_collision, STAT=ALLOC_ERR)
+!           DEALLOCATE(diagnostics_neutral(n)%activated_collision, STAT=ALLOC_ERR)
         END IF
      END DO
-     DEALLOCATE(diagnostics_neutral, STAT=ALLOC_ERR)
+!     DEALLOCATE(diagnostics_neutral, STAT=ALLOC_ERR)
   END IF
 
   IF (current_snap.GT.N_of_all_snaps) RETURN
@@ -1183,15 +1187,15 @@ SUBROUTINE CREATE_SNAPSHOT
 ! (c) if the next snapshot saves the ionization rate
 ! (d) if the ionization collisions are on
 
-  ALLOCATE(diagnostics_neutral(1:N_neutral_spec), STAT = ALLOC_ERR)
+!  ALLOCATE(diagnostics_neutral(1:N_neutral_spec), STAT = ALLOC_ERR)
   DO n = 1, N_neutral_spec
      IF (collision_e_neutral(n)%N_of_activated_colproc.LE.0) CYCLE
-     ALLOCATE(diagnostics_neutral(n)%activated_collision(1:collision_e_neutral(n)%N_of_activated_colproc), STAT = ALLOC_ERR)
+!     ALLOCATE(diagnostics_neutral(n)%activated_collision(1:collision_e_neutral(n)%N_of_activated_colproc), STAT = ALLOC_ERR)
      DO p = 1, collision_e_neutral(n)%N_of_activated_colproc
 ! presently do ionization collisions only
         IF (collision_e_neutral(n)%colproc_info(p)%type.LT.30) CYCLE
-        ALLOCATE(diagnostics_neutral(n)%activated_collision(p)%counter_local(c_indx_x_min:c_indx_x_max, c_indx_y_min:c_indx_y_max), STAT=ALLOC_ERR)
-        diagnostics_neutral(n)%activated_collision(p)%counter_local = 0.0
+        ALLOCATE(diagnostics_neutral(n)%activated_collision(p)%ionization_rate_local(c_indx_x_min:c_indx_x_max, c_indx_y_min:c_indx_y_max), STAT=ALLOC_ERR)
+        diagnostics_neutral(n)%activated_collision(p)%ionization_rate_local = 0.0
      END DO
   END DO
 
@@ -2065,13 +2069,13 @@ SUBROUTINE SAVE_en_COLLISIONS_2D
 
            IF (Rank_horizontal_right.GE.0) THEN
 ! ## 1 ## send right densities in the right edge
-              rbufer(1:n1) = diagnostics_neutral(n)%activated_collision(p)%counter_local(c_indx_x_max, c_indx_y_min:c_indx_y_max)
+              rbufer(1:n1) = diagnostics_neutral(n)%activated_collision(p)%ionization_rate_local(c_indx_x_max, c_indx_y_min:c_indx_y_max)
               CALL MPI_SEND(rbufer, n1, MPI_REAL, Rank_horizontal_right, Rank_horizontal, COMM_HORIZONTAL, request, ierr) 
            END IF
 
            IF (Rank_horizontal_left.GE.0) THEN
 ! ## 2 ## send left densities in the left edge
-              rbufer(1:n1) = diagnostics_neutral(n)%activated_collision(p)%counter_local(c_indx_x_min, c_indx_y_min:c_indx_y_max)
+              rbufer(1:n1) = diagnostics_neutral(n)%activated_collision(p)%ionization_rate_local(c_indx_x_min, c_indx_y_min:c_indx_y_max)
               CALL MPI_SEND(rbufer, n1, MPI_REAL, Rank_horizontal_left, Rank_horizontal, COMM_HORIZONTAL, request, ierr) 
            END IF
 
@@ -2079,7 +2083,7 @@ SUBROUTINE SAVE_en_COLLISIONS_2D
 ! ## 3 ## receive from left densities in the vertical line next to the left edge
               CALL MPI_RECV(rbufer, n1, MPI_REAL, Rank_horizontal_left, Rank_horizontal_left, COMM_HORIZONTAL, stattus, ierr)
               DO j = c_indx_y_min, c_indx_y_max
-                 diagnostics_neutral(n)%activated_collision(p)%counter_local(c_indx_x_min+1, j) = diagnostics_neutral(n)%activated_collision(p)%counter_local(c_indx_x_min+1, j) + rbufer(j-c_indx_y_min+1)
+                 diagnostics_neutral(n)%activated_collision(p)%ionization_rate_local(c_indx_x_min+1, j) = diagnostics_neutral(n)%activated_collision(p)%ionization_rate_local(c_indx_x_min+1, j) + rbufer(j-c_indx_y_min+1)
               END DO
            END IF
 
@@ -2087,7 +2091,7 @@ SUBROUTINE SAVE_en_COLLISIONS_2D
 ! ## 4 ## receive from right densities in the vertical line next to the right edge
               CALL MPI_RECV(rbufer, n1, MPI_REAL, Rank_horizontal_right, Rank_horizontal_right, COMM_HORIZONTAL, stattus, ierr)
               DO j = c_indx_y_min, c_indx_y_max
-                 diagnostics_neutral(n)%activated_collision(p)%counter_local(c_indx_x_max-1, j) = diagnostics_neutral(n)%activated_collision(p)%counter_local(c_indx_x_max-1, j) + rbufer(j-c_indx_y_min+1)
+                 diagnostics_neutral(n)%activated_collision(p)%ionization_rate_local(c_indx_x_max-1, j) = diagnostics_neutral(n)%activated_collision(p)%ionization_rate_local(c_indx_x_max-1, j) + rbufer(j-c_indx_y_min+1)
               END DO
            END IF
 
@@ -2096,13 +2100,13 @@ SUBROUTINE SAVE_en_COLLISIONS_2D
 
            IF (Rank_horizontal_above.GE.0) THEN
 ! ## 5 ## send up densities in the top edge
-              rbufer(1:n3) = diagnostics_neutral(n)%activated_collision(p)%counter_local(c_indx_x_min:c_indx_x_max, c_indx_y_max)
+              rbufer(1:n3) = diagnostics_neutral(n)%activated_collision(p)%ionization_rate_local(c_indx_x_min:c_indx_x_max, c_indx_y_max)
               CALL MPI_SEND(rbufer, n3, MPI_REAL, Rank_horizontal_above, Rank_horizontal, COMM_HORIZONTAL, request, ierr) 
            END IF
 
            IF (Rank_horizontal_below.GE.0) THEN
 ! ## 6 ## send down densities in the bottom edge
-              rbufer(1:n3) = diagnostics_neutral(n)%activated_collision(p)%counter_local(c_indx_x_min:c_indx_x_max, c_indx_y_min)
+              rbufer(1:n3) = diagnostics_neutral(n)%activated_collision(p)%ionization_rate_local(c_indx_x_min:c_indx_x_max, c_indx_y_min)
               CALL MPI_SEND(rbufer, n3, MPI_REAL, Rank_horizontal_below, Rank_horizontal, COMM_HORIZONTAL, request, ierr) 
            END IF
 
@@ -2110,7 +2114,7 @@ SUBROUTINE SAVE_en_COLLISIONS_2D
 ! ## 7 ## receive from below densities in the vertical line above the bottom line
               CALL MPI_RECV(rbufer, n3, MPI_REAL, Rank_horizontal_below, Rank_horizontal_below, COMM_HORIZONTAL, stattus, ierr)
               DO i = c_indx_x_min, c_indx_x_max
-                 diagnostics_neutral(n)%activated_collision(p)%counter_local(i, c_indx_y_min+1) = diagnostics_neutral(n)%activated_collision(p)%counter_local(i, c_indx_y_min+1) + rbufer(i-c_indx_x_min+1)
+                 diagnostics_neutral(n)%activated_collision(p)%ionization_rate_local(i, c_indx_y_min+1) = diagnostics_neutral(n)%activated_collision(p)%ionization_rate_local(i, c_indx_y_min+1) + rbufer(i-c_indx_x_min+1)
               END DO
            END IF
 
@@ -2118,7 +2122,7 @@ SUBROUTINE SAVE_en_COLLISIONS_2D
 ! ## 8 ## receive from above densities in the vertical line under the top line
               CALL MPI_RECV(rbufer, n3, MPI_REAL, Rank_horizontal_above, Rank_horizontal_above, COMM_HORIZONTAL, stattus, ierr)
               DO i = c_indx_x_min, c_indx_x_max
-                 diagnostics_neutral(n)%activated_collision(p)%counter_local(i, c_indx_y_max-1) = diagnostics_neutral(n)%activated_collision(p)%counter_local(i, c_indx_y_max-1) + rbufer(i-c_indx_x_min+1)
+                 diagnostics_neutral(n)%activated_collision(p)%ionization_rate_local(i, c_indx_y_max-1) = diagnostics_neutral(n)%activated_collision(p)%ionization_rate_local(i, c_indx_y_max-1) + rbufer(i-c_indx_x_min+1)
               END DO
            END IF
 
@@ -2132,7 +2136,7 @@ SUBROUTINE SAVE_en_COLLISIONS_2D
 ! ## 1 ## receive from left densities in the vertical line next to the left edge
               CALL MPI_RECV(rbufer, n1, MPI_REAL, Rank_horizontal_left, Rank_horizontal_left, COMM_HORIZONTAL, stattus, ierr)
               DO j = c_indx_y_min, c_indx_y_max
-                 diagnostics_neutral(n)%activated_collision(p)%counter_local(c_indx_x_min+1, j) = diagnostics_neutral(n)%activated_collision(p)%counter_local(c_indx_x_min+1, j) + rbufer(j-c_indx_y_min+1)
+                 diagnostics_neutral(n)%activated_collision(p)%ionization_rate_local(c_indx_x_min+1, j) = diagnostics_neutral(n)%activated_collision(p)%ionization_rate_local(c_indx_x_min+1, j) + rbufer(j-c_indx_y_min+1)
               END DO
            END IF
 
@@ -2140,19 +2144,19 @@ SUBROUTINE SAVE_en_COLLISIONS_2D
 ! ## 2 ## receive from right densities in the vertical line next to the right edge
               CALL MPI_RECV(rbufer, n1, MPI_REAL, Rank_horizontal_right, Rank_horizontal_right, COMM_HORIZONTAL, stattus, ierr)
               DO j = c_indx_y_min, c_indx_y_max
-                 diagnostics_neutral(n)%activated_collision(p)%counter_local(c_indx_x_max-1, j) = diagnostics_neutral(n)%activated_collision(p)%counter_local(c_indx_x_max-1, j) + rbufer(j-c_indx_y_min+1)
+                 diagnostics_neutral(n)%activated_collision(p)%ionization_rate_local(c_indx_x_max-1, j) = diagnostics_neutral(n)%activated_collision(p)%ionization_rate_local(c_indx_x_max-1, j) + rbufer(j-c_indx_y_min+1)
               END DO
            END IF
 
            IF (Rank_horizontal_right.GE.0) THEN
 ! ## 3 ## send right densities in the right edge
-              rbufer(1:n1) = diagnostics_neutral(n)%activated_collision(p)%counter_local(c_indx_x_max, c_indx_y_min:c_indx_y_max)
+              rbufer(1:n1) = diagnostics_neutral(n)%activated_collision(p)%ionization_rate_local(c_indx_x_max, c_indx_y_min:c_indx_y_max)
               CALL MPI_SEND(rbufer, n1, MPI_REAL, Rank_horizontal_right, Rank_horizontal, COMM_HORIZONTAL, request, ierr) 
            END IF
 
            IF (Rank_horizontal_left.GE.0) THEN
 ! ## 4 ## send left densities in the left edge
-              rbufer(1:n1) = diagnostics_neutral(n)%activated_collision(p)%counter_local(c_indx_x_min, c_indx_y_min:c_indx_y_max)
+              rbufer(1:n1) = diagnostics_neutral(n)%activated_collision(p)%ionization_rate_local(c_indx_x_min, c_indx_y_min:c_indx_y_max)
               CALL MPI_SEND(rbufer, n1, MPI_REAL, Rank_horizontal_left, Rank_horizontal, COMM_HORIZONTAL, request, ierr) 
            END IF
 
@@ -2163,7 +2167,7 @@ SUBROUTINE SAVE_en_COLLISIONS_2D
 ! ## 5 ## receive from below densities in the vertical line above the bottom line
               CALL MPI_RECV(rbufer, n3, MPI_REAL, Rank_horizontal_below, Rank_horizontal_below, COMM_HORIZONTAL, stattus, ierr)
               DO i = c_indx_x_min, c_indx_x_max
-                 diagnostics_neutral(n)%activated_collision(p)%counter_local(i, c_indx_y_min+1) = diagnostics_neutral(n)%activated_collision(p)%counter_local(i, c_indx_y_min+1) + rbufer(i-c_indx_x_min+1)
+                 diagnostics_neutral(n)%activated_collision(p)%ionization_rate_local(i, c_indx_y_min+1) = diagnostics_neutral(n)%activated_collision(p)%ionization_rate_local(i, c_indx_y_min+1) + rbufer(i-c_indx_x_min+1)
               END DO
            END IF
 
@@ -2171,19 +2175,19 @@ SUBROUTINE SAVE_en_COLLISIONS_2D
 ! ## 6 ## receive from above densities in the vertical line under the top line
               CALL MPI_RECV(rbufer, n3, MPI_REAL, Rank_horizontal_above, Rank_horizontal_above, COMM_HORIZONTAL, stattus, ierr)
               DO i = c_indx_x_min, c_indx_x_max
-                 diagnostics_neutral(n)%activated_collision(p)%counter_local(i, c_indx_y_max-1) = diagnostics_neutral(n)%activated_collision(p)%counter_local(i, c_indx_y_max-1) + rbufer(i-c_indx_x_min+1)
+                 diagnostics_neutral(n)%activated_collision(p)%ionization_rate_local(i, c_indx_y_max-1) = diagnostics_neutral(n)%activated_collision(p)%ionization_rate_local(i, c_indx_y_max-1) + rbufer(i-c_indx_x_min+1)
               END DO
            END IF
 
            IF (Rank_horizontal_above.GE.0) THEN
 ! ## 7 ## send up densities in the top edge
-              rbufer(1:n3) = diagnostics_neutral(n)%activated_collision(p)%counter_local(c_indx_x_min:c_indx_x_max, c_indx_y_max)
+              rbufer(1:n3) = diagnostics_neutral(n)%activated_collision(p)%ionization_rate_local(c_indx_x_min:c_indx_x_max, c_indx_y_max)
               CALL MPI_SEND(rbufer, n3, MPI_REAL, Rank_horizontal_above, Rank_horizontal, COMM_HORIZONTAL, request, ierr) 
            END IF
 
            IF (Rank_horizontal_below.GE.0) THEN
 ! ## 8 ## send down densities in the bottom edge
-              rbufer(1:n3) = diagnostics_neutral(n)%activated_collision(p)%counter_local(c_indx_x_min:c_indx_x_max, c_indx_y_min)
+              rbufer(1:n3) = diagnostics_neutral(n)%activated_collision(p)%ionization_rate_local(c_indx_x_min:c_indx_x_max, c_indx_y_min)
               CALL MPI_SEND(rbufer, n3, MPI_REAL, Rank_horizontal_below, Rank_horizontal, COMM_HORIZONTAL, request, ierr) 
            END IF
 
@@ -2193,62 +2197,62 @@ SUBROUTINE SAVE_en_COLLISIONS_2D
 
         IF (Rank_of_master_left.LT.0) THEN
            DO j = c_indx_y_min+1, c_indx_y_max-1
-              diagnostics_neutral(n)%activated_collision(p)%counter_local(c_indx_x_min, j) = 2.0 * diagnostics_neutral(n)%activated_collision(p)%counter_local(c_indx_x_min, j)
+              diagnostics_neutral(n)%activated_collision(p)%ionization_rate_local(c_indx_x_min, j) = 2.0 * diagnostics_neutral(n)%activated_collision(p)%ionization_rate_local(c_indx_x_min, j)
            END DO
         END IF
 
         IF (Rank_of_master_right.LT.0) THEN
            DO j = c_indx_y_min+1, c_indx_y_max-1
-              diagnostics_neutral(n)%activated_collision(p)%counter_local(c_indx_x_max, j) = 2.0 * diagnostics_neutral(n)%activated_collision(p)%counter_local(c_indx_x_max, j)
+              diagnostics_neutral(n)%activated_collision(p)%ionization_rate_local(c_indx_x_max, j) = 2.0 * diagnostics_neutral(n)%activated_collision(p)%ionization_rate_local(c_indx_x_max, j)
            END DO
         END IF
   
         IF (Rank_of_master_above.LT.0) THEN
            DO i = c_indx_x_min+1, c_indx_x_max-1
-              diagnostics_neutral(n)%activated_collision(p)%counter_local(i, c_indx_y_max) = 2.0 * diagnostics_neutral(n)%activated_collision(p)%counter_local(i, c_indx_y_max)
+              diagnostics_neutral(n)%activated_collision(p)%ionization_rate_local(i, c_indx_y_max) = 2.0 * diagnostics_neutral(n)%activated_collision(p)%ionization_rate_local(i, c_indx_y_max)
            END DO
         END IF
   
         IF (Rank_of_master_below.LT.0) THEN
            DO i = c_indx_x_min+1, c_indx_x_max-1
-              diagnostics_neutral(n)%activated_collision(p)%counter_local(i, c_indx_y_min) = 2.0 * diagnostics_neutral(n)%activated_collision(p)%counter_local(i, c_indx_y_min)
+              diagnostics_neutral(n)%activated_collision(p)%ionization_rate_local(i, c_indx_y_min) = 2.0 * diagnostics_neutral(n)%activated_collision(p)%ionization_rate_local(i, c_indx_y_min)
            END DO
         END IF
 
         SELECT CASE (c_left_bottom_corner_type)
            CASE (SURROUNDED_BY_WALL)
-              diagnostics_neutral(n)%activated_collision(p)%counter_local(c_indx_x_min, c_indx_y_min) = 4.0 * diagnostics_neutral(n)%activated_collision(p)%counter_local(c_indx_x_min, c_indx_y_min) 
+              diagnostics_neutral(n)%activated_collision(p)%ionization_rate_local(c_indx_x_min, c_indx_y_min) = 4.0 * diagnostics_neutral(n)%activated_collision(p)%ionization_rate_local(c_indx_x_min, c_indx_y_min) 
            CASE (EMPTY_CORNER_WALL_LEFT)
-              diagnostics_neutral(n)%activated_collision(p)%counter_local(c_indx_x_min, c_indx_y_min+1) = 0.66666666666666 * diagnostics_neutral(n)%activated_collision(p)%counter_local(c_indx_x_min, c_indx_y_min+1)    ! 2*2/3=4/3=1/(3/4)
+              diagnostics_neutral(n)%activated_collision(p)%ionization_rate_local(c_indx_x_min, c_indx_y_min+1) = 0.66666666666666 * diagnostics_neutral(n)%activated_collision(p)%ionization_rate_local(c_indx_x_min, c_indx_y_min+1)    ! 2*2/3=4/3=1/(3/4)
            CASE (EMPTY_CORNER_WALL_BELOW)
-              diagnostics_neutral(n)%activated_collision(p)%counter_local(c_indx_x_min+1, c_indx_y_min) = 0.66666666666666 * diagnostics_neutral(n)%activated_collision(p)%counter_local(c_indx_x_min+1, c_indx_y_min)    ! 2*2/3=4/3=1/(3/4)
+              diagnostics_neutral(n)%activated_collision(p)%ionization_rate_local(c_indx_x_min+1, c_indx_y_min) = 0.66666666666666 * diagnostics_neutral(n)%activated_collision(p)%ionization_rate_local(c_indx_x_min+1, c_indx_y_min)    ! 2*2/3=4/3=1/(3/4)
         END SELECT
      
         SELECT CASE (c_left_top_corner_type)
            CASE (SURROUNDED_BY_WALL)
-              diagnostics_neutral(n)%activated_collision(p)%counter_local(c_indx_x_min, c_indx_y_max) = 4.0 * diagnostics_neutral(n)%activated_collision(p)%counter_local(c_indx_x_min, c_indx_y_max) 
+              diagnostics_neutral(n)%activated_collision(p)%ionization_rate_local(c_indx_x_min, c_indx_y_max) = 4.0 * diagnostics_neutral(n)%activated_collision(p)%ionization_rate_local(c_indx_x_min, c_indx_y_max) 
            CASE (EMPTY_CORNER_WALL_LEFT)
-              diagnostics_neutral(n)%activated_collision(p)%counter_local(c_indx_x_min, c_indx_y_max-1) = 0.66666666666666 * diagnostics_neutral(n)%activated_collision(p)%counter_local(c_indx_x_min, c_indx_y_max-1)    ! 2*2/3=4/3=1/(3/4)
+              diagnostics_neutral(n)%activated_collision(p)%ionization_rate_local(c_indx_x_min, c_indx_y_max-1) = 0.66666666666666 * diagnostics_neutral(n)%activated_collision(p)%ionization_rate_local(c_indx_x_min, c_indx_y_max-1)    ! 2*2/3=4/3=1/(3/4)
            CASE (EMPTY_CORNER_WALL_ABOVE)
-              diagnostics_neutral(n)%activated_collision(p)%counter_local(c_indx_x_min+1, c_indx_y_max) = 0.66666666666666 * diagnostics_neutral(n)%activated_collision(p)%counter_local(c_indx_x_min+1, c_indx_y_max)    ! 2*2/3=4/3=1/(3/4)
+              diagnostics_neutral(n)%activated_collision(p)%ionization_rate_local(c_indx_x_min+1, c_indx_y_max) = 0.66666666666666 * diagnostics_neutral(n)%activated_collision(p)%ionization_rate_local(c_indx_x_min+1, c_indx_y_max)    ! 2*2/3=4/3=1/(3/4)
         END SELECT
 
         SELECT CASE (c_right_bottom_corner_type)
            CASE (SURROUNDED_BY_WALL)
-              diagnostics_neutral(n)%activated_collision(p)%counter_local(c_indx_x_max, c_indx_y_min) = 4.0 * diagnostics_neutral(n)%activated_collision(p)%counter_local(c_indx_x_max, c_indx_y_min) 
+              diagnostics_neutral(n)%activated_collision(p)%ionization_rate_local(c_indx_x_max, c_indx_y_min) = 4.0 * diagnostics_neutral(n)%activated_collision(p)%ionization_rate_local(c_indx_x_max, c_indx_y_min) 
            CASE (EMPTY_CORNER_WALL_RIGHT)
-              diagnostics_neutral(n)%activated_collision(p)%counter_local(c_indx_x_max, c_indx_y_min+1) = 0.66666666666666 * diagnostics_neutral(n)%activated_collision(p)%counter_local(c_indx_x_max, c_indx_y_min+1)    ! 2*2/3=4/3=1/(3/4)
+              diagnostics_neutral(n)%activated_collision(p)%ionization_rate_local(c_indx_x_max, c_indx_y_min+1) = 0.66666666666666 * diagnostics_neutral(n)%activated_collision(p)%ionization_rate_local(c_indx_x_max, c_indx_y_min+1)    ! 2*2/3=4/3=1/(3/4)
            CASE (EMPTY_CORNER_WALL_BELOW)
-              diagnostics_neutral(n)%activated_collision(p)%counter_local(c_indx_x_max-1, c_indx_y_min) = 0.66666666666666 * diagnostics_neutral(n)%activated_collision(p)%counter_local(c_indx_x_max-1, c_indx_y_min)    ! 2*2/3=4/3=1/(3/4)
+              diagnostics_neutral(n)%activated_collision(p)%ionization_rate_local(c_indx_x_max-1, c_indx_y_min) = 0.66666666666666 * diagnostics_neutral(n)%activated_collision(p)%ionization_rate_local(c_indx_x_max-1, c_indx_y_min)    ! 2*2/3=4/3=1/(3/4)
         END SELECT
      
         SELECT CASE (c_right_top_corner_type)
            CASE (SURROUNDED_BY_WALL)
-              diagnostics_neutral(n)%activated_collision(p)%counter_local(c_indx_x_max, c_indx_y_max) = 4.0 * diagnostics_neutral(n)%activated_collision(p)%counter_local(c_indx_x_max, c_indx_y_max) 
+              diagnostics_neutral(n)%activated_collision(p)%ionization_rate_local(c_indx_x_max, c_indx_y_max) = 4.0 * diagnostics_neutral(n)%activated_collision(p)%ionization_rate_local(c_indx_x_max, c_indx_y_max) 
            CASE (EMPTY_CORNER_WALL_RIGHT)
-              diagnostics_neutral(n)%activated_collision(p)%counter_local(c_indx_x_max, c_indx_y_max-1) = 0.66666666666666 * diagnostics_neutral(n)%activated_collision(p)%counter_local(c_indx_x_max, c_indx_y_max-1)    ! 2*2/3=4/3=1/(3/4)
+              diagnostics_neutral(n)%activated_collision(p)%ionization_rate_local(c_indx_x_max, c_indx_y_max-1) = 0.66666666666666 * diagnostics_neutral(n)%activated_collision(p)%ionization_rate_local(c_indx_x_max, c_indx_y_max-1)    ! 2*2/3=4/3=1/(3/4)
            CASE (EMPTY_CORNER_WALL_ABOVE)
-              diagnostics_neutral(n)%activated_collision(p)%counter_local(c_indx_x_max-1, c_indx_y_max) = 0.66666666666666 * diagnostics_neutral(n)%activated_collision(p)%counter_local(c_indx_x_max-1, c_indx_y_max)    ! 2*2/3=4/3=1/(3/4)
+              diagnostics_neutral(n)%activated_collision(p)%ionization_rate_local(c_indx_x_max-1, c_indx_y_max) = 0.66666666666666 * diagnostics_neutral(n)%activated_collision(p)%ionization_rate_local(c_indx_x_max-1, c_indx_y_max)    ! 2*2/3=4/3=1/(3/4)
         END SELECT
 
         filename = '_NNNN_neutral_AAAAAA_coll_id_NN_i_NN.bin'
@@ -2259,14 +2263,14 @@ SUBROUTINE SAVE_en_COLLISIONS_2D
 
         DO j = c_indx_y_min, c_indx_y_max
            DO i = c_indx_x_min, c_indx_x_max
-              diagnostics_neutral(n)%activated_collision(p)%counter_local(i,j) = diagnostics_neutral(n)%activated_collision(p)%counter_local(i,j) * conversion_factor_m3s
+              diagnostics_neutral(n)%activated_collision(p)%ionization_rate_local(i,j) = diagnostics_neutral(n)%activated_collision(p)%ionization_rate_local(i,j) * conversion_factor_m3s
            END DO
         END DO
 
-        CALL SAVE_GLOBAL_2D_ARRAY(diagnostics_neutral(n)%activated_collision(p)%counter_local, filename)
+        CALL SAVE_GLOBAL_2D_ARRAY(diagnostics_neutral(n)%activated_collision(p)%ionization_rate_local, filename)
 
 ! complete cleanup (deallocate + zeroing) is performed in the end of CREATE_SNAPSHOT
-!        diagnostics_neutral(n)%activated_collision(p)%counter_local = 0.0
+!        diagnostics_neutral(n)%activated_collision(p)%ionization_rate_local = 0.0
 
         IF (Rank_of_process.EQ.0) PRINT '("created file ",A40)', filename
 
