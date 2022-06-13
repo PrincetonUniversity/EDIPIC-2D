@@ -2,12 +2,12 @@
      4.000
 --------dd--- number of all possible collisional processes
          3
----dd--d--dd--- collision #1 :: type / activated (1/0 = Yes/No) / ion species produced (ionization collisions only)
-   11  1   0
----dd--d--dd--- collision #2 :: type / activated (1/0 = Yes/No) / ion species produced (ionization collisions only)
-   20  1   0
----dd--d--dd--- collision #3 :: type / activated (1/0 = Yes/No) / ion species produced (ionization collisions only)
-   30  1   1
+---dd--d--dd--d- collision #1 :: type / activated (1/0 = Yes/No) / ion species produced (ionization collisions only)
+   11  1   0  0
+---dd--d--dd--d- collision #2 :: type / activated (1/0 = Yes/No) / ion species produced (ionization collisions only)
+   20  1   0  0
+---dd--d--dd--d- collision #3 :: type / activated (1/0 = Yes/No) / ion species produced (ionization collisions only)
+   30  1   1  0
 --------dd--- number of energy segments for collision probabilities (>0)
         10
 --ddddd.ddd------------- minimal energy [eV]
