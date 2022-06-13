@@ -2,11 +2,17 @@ total number of electrodes whose potential must be solved (>0, if <=0 then no ex
    1
 below list in one column numbers of electrodes whose potential must be solved
    1
-below is amplitude of potential oscillations in the driving rf voltage source [V]
-   100.0
-below is frequency of potential oscillations in the driving rf voltage source [Hz]
-   2.5E+07
-below is phase of potential oscillations in the driving rf voltage source [deg]
-   0.0
-below is capacitance of capacitor [F]
-   1.0E-09
+number of power supplies in the external circuit (0 if there is no power supply)
+   1
+below, for each power supply, provide in one line constant voltage [V], amplitude [V], frequency [Hz], and phase [deg] of harmonic sin(omega*t+phase) voltage oscillations 
+   0.0    100.0     2.5e7     0.0
+number of resistors (0 if there are no resistors)
+   0
+below, for each resistor, provide its resistance [Ohm]
+number of capacitors (0 if there are no capacitors)
+   1
+below, for each capacitor, provide its capacitance [Farade]
+   1.0e-9
+number of inductors (0 if there are no inductors)
+   0
+below, for each inductor, provide its inductance [Henry]
