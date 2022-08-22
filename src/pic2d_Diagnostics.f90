@@ -238,6 +238,83 @@ subroutine save_E(suf)
 
 end subroutine save_E
 
+!-------------------------------------------------------------------------------------------
+!
+SUBROUTINE INITIATE_GENERAL_DIAGNOSTICS
+
+  USE ParallelOperationValues
+  USE CurrentProblemValues, ONLY : Start_T_cntr
+  USE Checkpoints, ONLY : use_checkpoint
+  USE IonParticles, ONLY : N_spec, N_ions
+
+  IMPLICIT NONE
+
+                                    ! ----x----I----x
+  CHARACTER(15) history_i_filename  ! history_i_S.dat
+
+  LOGICAL exists
+  INTEGER i, s
+  INTEGER i_dummy
+
+  INTERFACE
+     FUNCTION convert_int_to_txt_string(int_number, length_of_string)
+       CHARACTER*(length_of_string) convert_int_to_txt_string
+       INTEGER int_number
+       INTEGER length_of_string
+     END FUNCTION convert_int_to_txt_string
+  END INTERFACE
+
+  IF (Rank_of_process.NE.0) RETURN
+
+  IF (use_checkpoint.EQ.1) THEN
+! start from checkpoint, must trim the time dependences
+
+        INQUIRE (FILE = 'history_e.dat', EXIST = exists)
+        IF (exists) THEN                                                       
+           OPEN (21, FILE = 'history_e.dat', STATUS = 'OLD')          
+           DO i = 1, Start_T_cntr   !N_of_saved_records             ! these files are updated at every electron timestep
+              READ (21, '(2x,i8,2x,f12.5,2x,i8,2x,4(2x,e14.7))') i_dummy
+           END DO
+           ENDFILE 21       
+           CLOSE (21, STATUS = 'KEEP')        
+        END IF
+
+     DO s = 1, N_spec
+
+        history_i_filename = 'history_i_S.dat'
+        history_i_filename(11:11) = convert_int_to_txt_string(s, 1)
+
+        INQUIRE (FILE = history_i_filename, EXIST = exists)
+        IF (exists) THEN                                                       
+           OPEN (21, FILE = history_i_filename, STATUS = 'OLD')          
+           DO i = 1, Start_T_cntr   !N_of_saved_records             ! these files are updated at every electron timestep
+              READ (21, '(2x,i8,2x,f12.5,2x,i8,2x,4(2x,e14.7))') i_dummy
+           END DO
+           ENDFILE 21       
+           CLOSE (21, STATUS = 'KEEP')        
+        END IF
+
+     END DO
+
+  ELSE
+! fresh start, empty files, clean up whatever garbage there might be
+
+     OPEN  (21, FILE = 'history_e.dat', STATUS = 'REPLACE')          
+     CLOSE (21, STATUS = 'KEEP')
+
+     DO s = 1, N_spec
+
+        history_i_filename = 'history_i_S.dat'
+        history_i_filename(11:11) = convert_int_to_txt_string(s, 1)
+
+        OPEN  (21, FILE = history_i_filename, STATUS = 'REPLACE')          
+        CLOSE (21, STATUS = 'KEEP')
+
+     END DO
+
+  END IF
+
+END SUBROUTINE INITIATE_GENERAL_DIAGNOSTICS
 
 !------------------------------
 !
@@ -246,7 +323,7 @@ subroutine report_total_number_of_particles
   USE ParallelOperationValues
   USE CurrentProblemValues
   USE ElectronParticles, ONLY : N_electrons, electron
-  USE IonParticles, ONLY : N_spec, N_ions, ion
+  USE IonParticles, ONLY : N_spec, N_ions, ion, Ms
 
   IMPLICIT NONE
 
@@ -266,6 +343,17 @@ subroutine report_total_number_of_particles
 
   INTEGER n
   real(8) surf_char
+
+                                    ! ----x----I----x
+  CHARACTER(15) history_i_filename  ! history_i_S.dat
+
+  INTERFACE
+     FUNCTION convert_int_to_txt_string(int_number, length_of_string)
+       CHARACTER*(length_of_string) convert_int_to_txt_string
+       INTEGER int_number
+       INTEGER length_of_string
+     END FUNCTION convert_int_to_txt_string
+  END INTERFACE
 
   ALLOCATE(    rbufer(1:4*(N_spec+1)), STAT = ALLOC_ERR)
   ALLOCATE(   pwbufer(1:4*(N_spec+1)), STAT = ALLOC_ERR)
@@ -318,10 +406,37 @@ subroutine report_total_number_of_particles
 
      IF (Rank_horizontal.EQ.0) THEN 
         PRINT '("Total : number of electron particles = ",i10," momentum X/Y/Z = ",3(2x,e16.9)," energy = ",e16.9)', N_particles_total(0), totpwbufer(1:4)
+
+        open (21, file = 'history_e.dat', position = 'append')
+        write (21, '(2x,i8,2x,f12.5,2x,i8,2x,4(2x,e14.7))') &
+             & T_cntr, &                       ! 1
+             & T_cntr * delta_t_s * 1.0d9, &   ! 2
+             & N_particles_total(0), &                                                  ! 3
+             & REAL(V_scale_ms * totpwbufer(1) / MAX(1, N_particles_total(0))), &             ! 4
+             & REAL(V_scale_ms * totpwbufer(2) / MAX(1, N_particles_total(0))), &             ! 5
+             & REAL(V_scale_ms * totpwbufer(3) / MAX(1, N_particles_total(0))), &             ! 6
+             & REAL(energy_factor_eV * totpwbufer(4) / MAX(1, N_particles_total(0)))    ! 7
+        close (21, status = 'keep')
+
         pos1=5
         pos2=8
         DO s = 1, N_Spec
            PRINT '("Total : number of ion  ",i2,"  particles = ",i10," momentum X/Y/Z = ",3(2x,e16.9)," energy = ",e16.9)', s, N_particles_total(s), totpwbufer(pos1:pos2)
+
+           history_i_filename = 'history_i_S.dat'
+           history_i_filename(11:11) = convert_int_to_txt_string(s, 1)
+
+           open (21, file = history_i_filename, position = 'append')
+           write (21, '(2x,i8,2x,f12.5,2x,i8,2x,4(2x,e14.7))') &
+             & T_cntr, &                                                                   ! 1
+             & T_cntr * delta_t_s * 1.0d9, &                                               ! 2
+             & N_particles_total(s), &                                                             ! 3
+             & REAL(V_scale_ms * totpwbufer(pos1)   / MAX(1, N_particles_total(s))), &                 ! 4
+             & REAL(V_scale_ms * totpwbufer(pos1+1) / MAX(1, N_particles_total(s))), &                 ! 5
+             & REAL(V_scale_ms * totpwbufer(pos1+2) / MAX(1, N_particles_total(s))), &                 ! 6
+             & REAL(Ms(s) * energy_factor_eV * totpwbufer(pos1+3) / MAX(1, N_particles_total(s)))  ! 7
+           close (21, status = 'keep')
+
            pos1=pos2+1
            pos2=pos2+4
         END DO

@@ -1368,6 +1368,458 @@ SUBROUTINE SYNCHRONIZE_MOMENTS_IN_OVERLAP_NODES
 
   END IF   !###   IF (WHITE_CLUSTER) THEN
 
+  IF (periodic_boundary_X_left) THEN
+     
+     IF (ALLOCATED(rbufer)) DEALLOCATE(rbufer, STAT=ALLOC_ERR)
+     ALLOCATE(rbufer(1:(13*n1)), STAT=ALLOC_ERR)
+
+! ## 1 ## send left moments in the left edge PLUS ONE
+     pos1=1
+     pos2=n1
+     rbufer(pos1:pos2) = cs_N(c_indx_x_min+1, c_indx_y_min:c_indx_y_max)
+
+     pos1=pos2+1
+     pos2=pos2+n1
+     rbufer(pos1:pos2) = cs_VX(c_indx_x_min+1, c_indx_y_min:c_indx_y_max)
+     pos1=pos2+1
+     pos2=pos2+n1
+     rbufer(pos1:pos2) = cs_VY(c_indx_x_min+1, c_indx_y_min:c_indx_y_max)
+     pos1=pos2+1
+     pos2=pos2+n1
+     rbufer(pos1:pos2) = cs_VZ(c_indx_x_min+1, c_indx_y_min:c_indx_y_max)
+
+     pos1=pos2+1
+     pos2=pos2+n1
+     rbufer(pos1:pos2) = cs_WX(c_indx_x_min+1, c_indx_y_min:c_indx_y_max)
+     pos1=pos2+1
+     pos2=pos2+n1
+     rbufer(pos1:pos2) = cs_WY(c_indx_x_min+1, c_indx_y_min:c_indx_y_max)
+     pos1=pos2+1
+     pos2=pos2+n1
+     rbufer(pos1:pos2) = cs_WZ(c_indx_x_min+1, c_indx_y_min:c_indx_y_max)
+
+     pos1=pos2+1
+     pos2=pos2+n1
+     rbufer(pos1:pos2) = cs_VXVY(c_indx_x_min+1, c_indx_y_min:c_indx_y_max)
+     pos1=pos2+1
+     pos2=pos2+n1
+     rbufer(pos1:pos2) = cs_VXVZ(c_indx_x_min+1, c_indx_y_min:c_indx_y_max)
+     pos1=pos2+1
+     pos2=pos2+n1
+     rbufer(pos1:pos2) = cs_VYVZ(c_indx_x_min+1, c_indx_y_min:c_indx_y_max)
+
+     pos1=pos2+1
+     pos2=pos2+n1
+     rbufer(pos1:pos2) = cs_QX(c_indx_x_min+1, c_indx_y_min:c_indx_y_max)
+     pos1=pos2+1
+     pos2=pos2+n1
+     rbufer(pos1:pos2) = cs_QY(c_indx_x_min+1, c_indx_y_min:c_indx_y_max)
+     pos1=pos2+1
+     pos2=pos2+n1
+     rbufer(pos1:pos2) = cs_QZ(c_indx_x_min+1, c_indx_y_min:c_indx_y_max)
+
+     CALL MPI_SEND(rbufer, 13*n1, MPI_REAL, Rank_horizontal_left, Rank_horizontal, COMM_HORIZONTAL, request, ierr) 
+
+! ## 2 ## receive from left moments in the vertical line AT the left edge
+     CALL MPI_RECV(rbufer, 13*n1, MPI_REAL, Rank_horizontal_left, Rank_horizontal_left, COMM_HORIZONTAL, stattus, ierr)
+
+     pos1 = -c_indx_y_min
+     DO j = c_indx_y_min, c_indx_y_max
+        cs_N(c_indx_x_min, j) = rbufer(j+pos1+1)
+     END DO
+
+     pos1 = pos1+n1
+     DO j = c_indx_y_min, c_indx_y_max
+        cs_VX(c_indx_x_min, j) = rbufer(j+pos1+1)
+     END DO
+     pos1 = pos1+n1
+     DO j = c_indx_y_min, c_indx_y_max
+        cs_VY(c_indx_x_min, j) = rbufer(j+pos1+1)
+     END DO
+     pos1 = pos1+n1
+     DO j = c_indx_y_min, c_indx_y_max
+        cs_VZ(c_indx_x_min, j) = rbufer(j+pos1+1)
+     END DO
+
+     pos1 = pos1+n1
+     DO j = c_indx_y_min, c_indx_y_max
+        cs_WX(c_indx_x_min, j) = rbufer(j+pos1+1)
+     END DO
+     pos1 = pos1+n1
+     DO j = c_indx_y_min, c_indx_y_max
+        cs_WY(c_indx_x_min, j) = rbufer(j+pos1+1)
+     END DO
+     pos1 = pos1+n1
+     DO j = c_indx_y_min, c_indx_y_max
+        cs_WZ(c_indx_x_min, j) = rbufer(j+pos1+1)
+     END DO
+
+     pos1 = pos1+n1
+     DO j = c_indx_y_min, c_indx_y_max
+        cs_VXVY(c_indx_x_min, j) = rbufer(j+pos1+1)
+     END DO
+     pos1 = pos1+n1
+     DO j = c_indx_y_min, c_indx_y_max
+        cs_VXVZ(c_indx_x_min, j) = rbufer(j+pos1+1)
+     END DO
+     pos1 = pos1+n1
+     DO j = c_indx_y_min, c_indx_y_max
+        cs_VYVZ(c_indx_x_min, j) = rbufer(j+pos1+1)
+     END DO
+
+     pos1 = pos1+n1
+     DO j = c_indx_y_min, c_indx_y_max
+        cs_QX(c_indx_x_min, j) = rbufer(j+pos1+1)
+     END DO
+     pos1 = pos1+n1
+     DO j = c_indx_y_min, c_indx_y_max
+        cs_QY(c_indx_x_min, j) = rbufer(j+pos1+1)
+     END DO
+     pos1 = pos1+n1
+     DO j = c_indx_y_min, c_indx_y_max
+        cs_QZ(c_indx_x_min, j) = rbufer(j+pos1+1)
+     END DO
+
+  ELSE IF (periodic_boundary_X_right) THEN   !###   IF (periodic_boundary_X_left) THEN
+
+     IF (ALLOCATED(rbufer)) DEALLOCATE(rbufer, STAT=ALLOC_ERR)
+     ALLOCATE(rbufer(1:(13*n1)), STAT=ALLOC_ERR)
+
+! ## 1 ## receive from right moments in the vertical line AT the right edge
+     CALL MPI_RECV(rbufer, 13*n1, MPI_REAL, Rank_horizontal_right, Rank_horizontal_right, COMM_HORIZONTAL, stattus, ierr)
+
+     pos1 = -c_indx_y_min
+     DO j = c_indx_y_min, c_indx_y_max
+        cs_N(c_indx_x_max, j) = rbufer(j+pos1+1)
+     END DO
+
+     pos1 = pos1+n1
+     DO j = c_indx_y_min, c_indx_y_max
+        cs_VX(c_indx_x_max, j) = rbufer(j+pos1+1)
+     END DO
+     pos1 = pos1+n1
+     DO j = c_indx_y_min, c_indx_y_max
+        cs_VY(c_indx_x_max, j) = rbufer(j+pos1+1)
+     END DO
+     pos1 = pos1+n1
+     DO j = c_indx_y_min, c_indx_y_max
+        cs_VZ(c_indx_x_max, j) = rbufer(j+pos1+1)
+     END DO
+
+     pos1 = pos1+n1
+     DO j = c_indx_y_min, c_indx_y_max
+        cs_WX(c_indx_x_max, j) = rbufer(j+pos1+1)
+     END DO
+     pos1 = pos1+n1
+     DO j = c_indx_y_min, c_indx_y_max
+        cs_WY(c_indx_x_max, j) = rbufer(j+pos1+1)
+     END DO
+     pos1 = pos1+n1
+     DO j = c_indx_y_min, c_indx_y_max
+        cs_WZ(c_indx_x_max, j) = rbufer(j+pos1+1)
+     END DO
+     
+     pos1 = pos1+n1
+     DO j = c_indx_y_min, c_indx_y_max
+        cs_VXVY(c_indx_x_max, j) = rbufer(j+pos1+1)
+     END DO
+     pos1 = pos1+n1
+     DO j = c_indx_y_min, c_indx_y_max
+        cs_VXVZ(c_indx_x_max, j) = rbufer(j+pos1+1)
+     END DO
+     pos1 = pos1+n1
+     DO j = c_indx_y_min, c_indx_y_max
+        cs_VYVZ(c_indx_x_max, j) = rbufer(j+pos1+1)
+     END DO
+
+     pos1 = pos1+n1
+     DO j = c_indx_y_min, c_indx_y_max
+        cs_QX(c_indx_x_max, j) = rbufer(j+pos1+1)
+     END DO
+     pos1 = pos1+n1
+     DO j = c_indx_y_min, c_indx_y_max
+        cs_QY(c_indx_x_max, j) = rbufer(j+pos1+1)
+     END DO
+     pos1 = pos1+n1
+     DO j = c_indx_y_min, c_indx_y_max
+        cs_QZ(c_indx_x_max, j) = rbufer(j+pos1+1)
+     END DO
+     
+! ## 2 ## send right moments in the right edge MINUS ONE
+     pos1=1
+     pos2=n1
+     rbufer(pos1:pos2) = cs_N(c_indx_x_max-1, c_indx_y_min:c_indx_y_max)
+
+     pos1=pos2+1
+     pos2=pos2+n1
+     rbufer(pos1:pos2) = cs_VX(c_indx_x_max-1, c_indx_y_min:c_indx_y_max)
+     pos1=pos2+1
+     pos2=pos2+n1
+     rbufer(pos1:pos2) = cs_VY(c_indx_x_max-1, c_indx_y_min:c_indx_y_max)
+     pos1=pos2+1
+     pos2=pos2+n1
+     rbufer(pos1:pos2) = cs_VZ(c_indx_x_max-1, c_indx_y_min:c_indx_y_max)
+
+     pos1=pos2+1
+     pos2=pos2+n1
+     rbufer(pos1:pos2) = cs_WX(c_indx_x_max-1, c_indx_y_min:c_indx_y_max)
+     pos1=pos2+1
+     pos2=pos2+n1
+     rbufer(pos1:pos2) = cs_WY(c_indx_x_max-1, c_indx_y_min:c_indx_y_max)
+     pos1=pos2+1
+     pos2=pos2+n1
+     rbufer(pos1:pos2) = cs_WZ(c_indx_x_max-1, c_indx_y_min:c_indx_y_max)
+
+     pos1=pos2+1
+     pos2=pos2+n1
+     rbufer(pos1:pos2) = cs_VXVY(c_indx_x_max-1, c_indx_y_min:c_indx_y_max)
+     pos1=pos2+1
+     pos2=pos2+n1
+     rbufer(pos1:pos2) = cs_VXVZ(c_indx_x_max-1, c_indx_y_min:c_indx_y_max)
+     pos1=pos2+1
+     pos2=pos2+n1
+     rbufer(pos1:pos2) = cs_VYVZ(c_indx_x_max-1, c_indx_y_min:c_indx_y_max)
+
+     pos1=pos2+1
+     pos2=pos2+n1
+     rbufer(pos1:pos2) = cs_QX(c_indx_x_max-1, c_indx_y_min:c_indx_y_max)
+     pos1=pos2+1
+     pos2=pos2+n1
+     rbufer(pos1:pos2) = cs_QY(c_indx_x_max-1, c_indx_y_min:c_indx_y_max)
+     pos1=pos2+1
+     pos2=pos2+n1
+     rbufer(pos1:pos2) = cs_QZ(c_indx_x_max-1, c_indx_y_min:c_indx_y_max)
+
+     CALL MPI_SEND(rbufer, 13*n1, MPI_REAL, Rank_horizontal_right, Rank_horizontal, COMM_HORIZONTAL, request, ierr) 
+
+  END IF   !###   IF (periodic_boundary_X_left) THEN
+
+  IF (periodic_boundary_Y_below) THEN
+
+     IF (ALLOCATED(rbufer)) DEALLOCATE(rbufer, STAT=ALLOC_ERR)
+     ALLOCATE(rbufer(1:13*n3), STAT=ALLOC_ERR)
+
+! ## 1 ## send down moments in the bottom edge PLUS ONE
+     pos1=1
+     pos2=n3
+     rbufer(pos1:pos2) = cs_N(c_indx_x_min:c_indx_x_max, c_indx_y_min+1)
+
+     pos1=pos2+1
+     pos2=pos2+n3
+     rbufer(pos1:pos2) = cs_VX(c_indx_x_min:c_indx_x_max, c_indx_y_min+1)
+     pos1=pos2+1
+     pos2=pos2+n3
+     rbufer(pos1:pos2) = cs_VY(c_indx_x_min:c_indx_x_max, c_indx_y_min+1)
+     pos1=pos2+1
+     pos2=pos2+n3
+     rbufer(pos1:pos2) = cs_VZ(c_indx_x_min:c_indx_x_max, c_indx_y_min+1)
+
+     pos1=pos2+1
+     pos2=pos2+n3
+     rbufer(pos1:pos2) = cs_WX(c_indx_x_min:c_indx_x_max, c_indx_y_min+1)
+     pos1=pos2+1
+     pos2=pos2+n3
+     rbufer(pos1:pos2) = cs_WY(c_indx_x_min:c_indx_x_max, c_indx_y_min+1)
+     pos1=pos2+1
+     pos2=pos2+n3
+     rbufer(pos1:pos2) = cs_WZ(c_indx_x_min:c_indx_x_max, c_indx_y_min+1)
+
+     pos1=pos2+1
+     pos2=pos2+n3
+     rbufer(pos1:pos2) = cs_VXVY(c_indx_x_min:c_indx_x_max, c_indx_y_min+1)
+     pos1=pos2+1
+     pos2=pos2+n3
+     rbufer(pos1:pos2) = cs_VXVZ(c_indx_x_min:c_indx_x_max, c_indx_y_min+1)
+     pos1=pos2+1
+     pos2=pos2+n3
+     rbufer(pos1:pos2) = cs_VYVZ(c_indx_x_min:c_indx_x_max, c_indx_y_min+1)
+
+     pos1=pos2+1
+     pos2=pos2+n3
+     rbufer(pos1:pos2) = cs_QX(c_indx_x_min:c_indx_x_max, c_indx_y_min+1)
+     pos1=pos2+1
+     pos2=pos2+n3
+     rbufer(pos1:pos2) = cs_QY(c_indx_x_min:c_indx_x_max, c_indx_y_min+1)
+     pos1=pos2+1
+     pos2=pos2+n3
+     rbufer(pos1:pos2) = cs_QZ(c_indx_x_min:c_indx_x_max, c_indx_y_min+1)
+
+     CALL MPI_SEND(rbufer, 13*n3, MPI_REAL, Rank_horizontal_below, Rank_horizontal, COMM_HORIZONTAL, request, ierr) 
+ 
+! ## 2 ## receive from below moments in the bottom line
+     CALL MPI_RECV(rbufer, 13*n3, MPI_REAL, Rank_horizontal_below, Rank_horizontal_below, COMM_HORIZONTAL, stattus, ierr)
+
+     pos1 = -c_indx_x_min
+     DO i = c_indx_x_min, c_indx_x_max
+        cs_N(i, c_indx_y_min) = rbufer(i+pos1+1)
+     END DO
+
+     pos1 = pos1+n3
+     DO i = c_indx_x_min, c_indx_x_max
+        cs_VX(i, c_indx_y_min) = rbufer(i+pos1+1)
+     END DO
+     pos1 = pos1+n3
+     DO i = c_indx_x_min, c_indx_x_max
+        cs_VY(i, c_indx_y_min) = rbufer(i+pos1+1)
+     END DO
+     pos1 = pos1+n3
+     DO i = c_indx_x_min, c_indx_x_max
+        cs_VZ(i, c_indx_y_min) = rbufer(i+pos1+1)
+     END DO
+
+     pos1 = pos1+n3
+     DO i = c_indx_x_min, c_indx_x_max
+        cs_WX(i, c_indx_y_min) = rbufer(i+pos1+1)
+     END DO
+     pos1 = pos1+n3
+     DO i = c_indx_x_min, c_indx_x_max
+        cs_WY(i, c_indx_y_min) = rbufer(i+pos1+1)
+     END DO
+     pos1 = pos1+n3
+     DO i = c_indx_x_min, c_indx_x_max
+        cs_WZ(i, c_indx_y_min) = rbufer(i+pos1+1)
+     END DO
+
+     pos1 = pos1+n3
+     DO i = c_indx_x_min, c_indx_x_max
+        cs_VXVY(i, c_indx_y_min) = rbufer(i+pos1+1)
+     END DO
+     pos1 = pos1+n3
+     DO i = c_indx_x_min, c_indx_x_max
+        cs_VXVZ(i, c_indx_y_min) = rbufer(i+pos1+1)
+     END DO
+     pos1 = pos1+n3
+     DO i = c_indx_x_min, c_indx_x_max
+        cs_VYVZ(i, c_indx_y_min) = rbufer(i+pos1+1)
+     END DO
+
+     pos1 = pos1+n3
+     DO i = c_indx_x_min, c_indx_x_max
+        cs_QX(i, c_indx_y_min) = rbufer(i+pos1+1)
+     END DO
+     pos1 = pos1+n3
+     DO i = c_indx_x_min, c_indx_x_max
+        cs_QY(i, c_indx_y_min) = rbufer(i+pos1+1)
+     END DO
+     pos1 = pos1+n3
+     DO i = c_indx_x_min, c_indx_x_max
+        cs_QZ(i, c_indx_y_min) = rbufer(i+pos1+1)
+     END DO
+
+  ELSE IF (periodic_boundary_Y_above) THEN   !###   IF (periodic_boundary_Y_below) THEN
+
+     IF (ALLOCATED(rbufer)) DEALLOCATE(rbufer, STAT=ALLOC_ERR)
+     ALLOCATE(rbufer(1:13*n3), STAT=ALLOC_ERR)
+
+! ## 1 ## receive from above moments in the top line
+     CALL MPI_RECV(rbufer, 13*n3, MPI_REAL, Rank_horizontal_above, Rank_horizontal_above, COMM_HORIZONTAL, stattus, ierr)
+
+     pos1 = -c_indx_x_min
+     DO i = c_indx_x_min, c_indx_x_max
+        cs_N(i, c_indx_y_max) = rbufer(i+pos1+1)
+     END DO
+
+     pos1 = pos1+n3
+     DO i = c_indx_x_min, c_indx_x_max
+        cs_VX(i, c_indx_y_max) = rbufer(i+pos1+1)
+     END DO
+     pos1 = pos1+n3
+     DO i = c_indx_x_min, c_indx_x_max
+        cs_VY(i, c_indx_y_max) = rbufer(i+pos1+1)
+     END DO
+     pos1 = pos1+n3
+     DO i = c_indx_x_min, c_indx_x_max
+        cs_VZ(i, c_indx_y_max) = rbufer(i+pos1+1)
+     END DO
+
+     pos1 = pos1+n3
+     DO i = c_indx_x_min, c_indx_x_max
+        cs_WX(i, c_indx_y_max) = rbufer(i+pos1+1)
+     END DO
+     pos1 = pos1+n3
+     DO i = c_indx_x_min, c_indx_x_max
+        cs_WY(i, c_indx_y_max) = rbufer(i+pos1+1)
+     END DO
+     pos1 = pos1+n3
+     DO i = c_indx_x_min, c_indx_x_max
+        cs_WZ(i, c_indx_y_max) = rbufer(i+pos1+1)
+     END DO
+
+     pos1 = pos1+n3
+     DO i = c_indx_x_min, c_indx_x_max
+        cs_VXVY(i, c_indx_y_max) = rbufer(i+pos1+1)
+     END DO
+     pos1 = pos1+n3
+     DO i = c_indx_x_min, c_indx_x_max
+        cs_VXVZ(i, c_indx_y_max) = rbufer(i+pos1+1)
+     END DO
+     pos1 = pos1+n3
+     DO i = c_indx_x_min, c_indx_x_max
+        cs_VYVZ(i, c_indx_y_max) = rbufer(i+pos1+1)
+     END DO
+
+     pos1 = pos1+n3
+     DO i = c_indx_x_min, c_indx_x_max
+        cs_QX(i, c_indx_y_max) = rbufer(i+pos1+1)
+     END DO
+     pos1 = pos1+n3
+     DO i = c_indx_x_min, c_indx_x_max
+        cs_QY(i, c_indx_y_max) = rbufer(i+pos1+1)
+     END DO
+     pos1 = pos1+n3
+     DO i = c_indx_x_min, c_indx_x_max
+        cs_QZ(i, c_indx_y_max) = rbufer(i+pos1+1)
+     END DO
+
+! ## 2 ## send up moments in the top edge MINUS ONE
+     pos1=1
+     pos2=n3
+     rbufer(pos1:pos2) = cs_N(c_indx_x_min:c_indx_x_max, c_indx_y_max-1)
+
+     pos1=pos2+1
+     pos2=pos2+n3
+     rbufer(pos1:pos2) = cs_VX(c_indx_x_min:c_indx_x_max, c_indx_y_max-1)
+     pos1=pos2+1
+     pos2=pos2+n3
+     rbufer(pos1:pos2) = cs_VY(c_indx_x_min:c_indx_x_max, c_indx_y_max-1)
+     pos1=pos2+1
+     pos2=pos2+n3
+     rbufer(pos1:pos2) = cs_VZ(c_indx_x_min:c_indx_x_max, c_indx_y_max-1)
+
+     pos1=pos2+1
+     pos2=pos2+n3
+     rbufer(pos1:pos2) = cs_WX(c_indx_x_min:c_indx_x_max, c_indx_y_max-1)
+     pos1=pos2+1
+     pos2=pos2+n3
+     rbufer(pos1:pos2) = cs_WY(c_indx_x_min:c_indx_x_max, c_indx_y_max-1)
+     pos1=pos2+1
+     pos2=pos2+n3
+     rbufer(pos1:pos2) = cs_WZ(c_indx_x_min:c_indx_x_max, c_indx_y_max-1)
+
+     pos1=pos2+1
+     pos2=pos2+n3
+     rbufer(pos1:pos2) = cs_VXVY(c_indx_x_min:c_indx_x_max, c_indx_y_max-1)
+     pos1=pos2+1
+     pos2=pos2+n3
+     rbufer(pos1:pos2) = cs_VXVZ(c_indx_x_min:c_indx_x_max, c_indx_y_max-1)
+     pos1=pos2+1
+     pos2=pos2+n3
+     rbufer(pos1:pos2) = cs_VYVZ(c_indx_x_min:c_indx_x_max, c_indx_y_max-1)
+
+     pos1=pos2+1
+     pos2=pos2+n3
+     rbufer(pos1:pos2) = cs_QX(c_indx_x_min:c_indx_x_max, c_indx_y_max-1)
+     pos1=pos2+1
+     pos2=pos2+n3
+     rbufer(pos1:pos2) = cs_QY(c_indx_x_min:c_indx_x_max, c_indx_y_max-1)
+     pos1=pos2+1
+     pos2=pos2+n3
+     rbufer(pos1:pos2) = cs_QZ(c_indx_x_min:c_indx_x_max, c_indx_y_max-1)
+
+     CALL MPI_SEND(rbufer, 13*n3, MPI_REAL, Rank_horizontal_above, Rank_horizontal, COMM_HORIZONTAL, request, ierr) 
+ 
+  END IF   !###   IF (periodic_boundary_Y_below) THEN
+
   IF (ALLOCATED(rbufer)) DEALLOCATE(rbufer,  STAT=ALLOC_ERR)
 
 END SUBROUTINE SYNCHRONIZE_MOMENTS_IN_OVERLAP_NODES
