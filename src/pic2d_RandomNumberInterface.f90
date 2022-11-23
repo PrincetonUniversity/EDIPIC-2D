@@ -44,12 +44,12 @@ contains
     integer*8           :: tmp
 
 !     init_state(1)=iand(seed,4294967295)   ! AND 0xFFFFFFFF
-    init_state(1)=iand(seed,X'FFFFFFFF')   ! AND 0xFFFFFFFF
+    init_state(1)=iand(seed,Z'FFFFFFFF')   ! AND 0xFFFFFFFF
     do j=2,624
        tmp=(1812433253_8*(ieor(init_state(j-1),ishft(init_state(j-1),30)))+j-1)
-!       tmp=(X'1812433253'*(ieor(init_state(j-1),ishft(init_state(j-1),30)))+j-1)  
+!       tmp=(Z'1812433253'*(ieor(init_state(j-1),ishft(init_state(j-1),30)))+j-1)  
 ! See Knuth TAOCP Vol2. 3rd Ed. P.106 for multiplier.
-       init_state(j)=int(iand(tmp,X'FFFFFFFF'),kind(i4)) ! AND 0xFFFFFFFF
+       init_state(j)=int(iand(tmp,Z'FFFFFFFF'),kind(i4)) ! AND 0xFFFFFFFF
     end do
     j=0; k=1; 
     call set_rng_state(init_state,j,k)
