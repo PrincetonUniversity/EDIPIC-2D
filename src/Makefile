@@ -1,7 +1,9 @@
 FC := mpif90
 CC := mpicc
 # Get the actual Fortran compiler invoked by mpif90. Need to use double $$ in awk.
-BASE_FCOMP := $(shell mpif90 -show | awk '{print $$1}' | awk -F/ '{print $$NF}')
+BASE_FCOMP := $(shell mpif90 -show | awk '{print $$1}' | awk -F/ '{print $$NF}' | awk -F- '{print $$1}')
+
+$(info ${BASE_FCOMP} )
 
 # Make sure that the PETSC_DIR environment variable is set. Otherwise exit with error message.
 ifeq ($(strip $(PETSC_DIR)),)
