@@ -11,7 +11,7 @@ The example directories are:
 
 A description of the input parameters can be found in the **Doc** directory:
 
-  - [EDIPIC2D_input_data_description](../Doc/EDIPIC2D_input_data_description_0.pdf)
+  - [EDIPIC2D_input_data_description](../Doc/EDIPIC2D_input_data_description_1.pdf)
 
 Most high performance computing (HPC) clusters are equipped with a fast parallel filesystem
 where simulations are to be carried out. It is recommended that you copy the example directory
