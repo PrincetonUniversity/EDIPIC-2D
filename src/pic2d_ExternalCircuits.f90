@@ -641,7 +641,7 @@ print *, Rank_of_process, noi
               CALL ADD_MORE_CONTROL_POINTS(nn, MAX(0, iend-istart+1))
 
               IF (whole_object(noi)%segment(nseg)%jstart.EQ.indx_y_min) THEN  !-------------------------------------------
-! wall on the bottom
+! horizontal wall on the bottom
 
                  j = indx_y_min
 
@@ -860,8 +860,9 @@ print *, Rank_of_process, noi
 
                  END DO   !### DO i = istart, iend
 
-              ELSE IF (whole_object(noi)%segment(nseg)%istart.EQ.indx_x_max) THEN  !-------------------------------------------
-! wall above
+!###          IF (whole_object(noi)%segment(nseg)%jstart.EQ.indx_y_min) THEN
+              ELSE IF (whole_object(noi)%segment(nseg)%jstart.EQ.indx_y_max) THEN  !-------------------------------------------!### was "ELSE IF (whole_object(noi)%segment(nseg)%istart.EQ.indx_x_max) THEN" which is a bug
+! horizontal wall above 
 
                  j = indx_y_max
 
@@ -1080,6 +1081,8 @@ print *, Rank_of_process, noi
 
                  END DO   !### DO j = jstart, jend
 
+!###          IF (whole_object(noi)%segment(nseg)%jstart.EQ.indx_y_min) THEN
+!###          ELSE IF (whole_object(noi)%segment(nseg)%jstart.EQ.indx_y_max) THEN
               ELSE    ! IF (whole_object(noi)%segment(nseg)%jstart.EQ.indx_y_min) THEN
 ! error
                  PRINT '("CALCULATE_OBJECT_POTENTIAL_CHARGE_COEFFS :: improbable ERROR-2")'
