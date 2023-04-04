@@ -11,7 +11,7 @@ PROGRAM MainProg
 
   INCLUDE 'mpif.h'
 
-  INTEGER ierr
+  INTEGER errcode,ierr
   REAL(8) start, finish
   INTEGER n_sub
   LOGICAL ions_moved
@@ -56,7 +56,8 @@ PROGRAM MainProg
 
 !print *, "did INITIATE_ELECTRON_NEUTRAL_COLLISIONS"
 !CALL MPI_BARRIER(MPI_COMM_WORLD, ierr) 
-!CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
+!errcode=10
+!CALL MPI_ABORT(MPI_COMM_WORLD,errcode,ierr)
 
   CALL INITIATE_PROBE_DIAGNOSTICS
 
@@ -128,7 +129,8 @@ PROGRAM MainProg
      IF (T_cntr.EQ.T_cntr_global_load_balance) THEN
         IF (n_sub.NE.0) THEN
            PRINT '("Process ",i5," :: ERROR-1 in MainProg :: GLOBAL_LOAD_BALANCE is about to be called at wrong time :: T_cntr = ",i8," n_sub = ",i8)', Rank_of_process, T_cntr, n_sub
-           CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
+           errcode=60
+           CALL MPI_ABORT(MPI_COMM_WORLD,errcode,ierr)
         END IF
         CALL GLOBAL_LOAD_BALANCE  ! includes calls to SET_COMMUNICATIONS 
                                   !                   DISTRIBUTE_CLUSTER_PARAMETERS
