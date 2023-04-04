@@ -19,7 +19,7 @@ SUBROUTINE GLOBAL_LOAD_BALANCE
   integer, allocatable :: clusterranks(:), worldranks(:)
   integer clustergroup_size
 
-  INTEGER ierr
+  INTEGER errcode,ierr
   INTEGER stattus(MPI_STATUS_SIZE)
   INTEGER request
 
@@ -201,7 +201,8 @@ SUBROUTINE GLOBAL_LOAD_BALANCE
                  print '("Process ",i4," : Error-1 in GLOBAL_LOAD_BALANCE : particle out of bounds xmin/xmax/ymin/ymax : ",4(2x,e14.7))', Rank_of_process, c_X_area_min, c_X_area_max, c_Y_area_min, c_Y_area_max
                  print '("Process ",i4," : k/N_electrons : ",i8,2x,i8)', Rank_of_process, k, N_electrons
                  print '("Process ",i4," : x/y/vx/vy/vz/tag : ",5(2x,e14.7),2x,i4)', Rank_of_process, electron(k)%X, electron(k)%Y, electron(k)%VX, electron(k)%VY, electron(k)%VZ, electron(k)%tag
-                 CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
+                 errcode=330
+                 CALL MPI_ABORT(MPI_COMM_WORLD,errcode,ierr)
               end if
 
            END DO
@@ -224,7 +225,8 @@ SUBROUTINE GLOBAL_LOAD_BALANCE
                     print '("Process ",i4," : Error-2 in GLOBAL_LOAD_BALANCE : particle out of bounds xmin/xmax/ymin/ymax : ",4(2x,e14.7))', Rank_of_process, c_X_area_min, c_X_area_max, c_Y_area_min, c_Y_area_max
                     print '("Process ",i4," : s/k/N_ions : ",i8,2x,i8,2x,i8)', Rank_of_process, s, k, N_ions(s)
                     print '("Process ",i4," : x/y/vx/vy/vz/tag : ",5(2x,e14.7),2x,i4)', Rank_of_process, ion(s)%part(k)%X, ion(s)%part(k)%Y, ion(s)%part(k)%VX, ion(s)%part(k)%VY, ion(s)%part(k)%VZ, ion(s)%part(k)%tag
-                    CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
+                    errcode=331
+                    CALL MPI_ABORT(MPI_COMM_WORLD,errcode,ierr)
                  end if
 
               END DO
@@ -350,7 +352,7 @@ SUBROUTINE CALCULATE_N_PROCESSES_BALANCED(N_of_all_free_processes)
 
   INCLUDE 'mpif.h'
 
-  INTEGER ierr
+  INTEGER errcode,ierr
 
   INTEGER N_of_all_free_processes
 
@@ -522,7 +524,8 @@ SUBROUTINE CALCULATE_N_PROCESSES_BALANCED(N_of_all_free_processes)
      CLOSE (40, STATUS = 'KEEP')
      PRINT '("### Check file Error_in_CALCULATE_N_PROCESSES_BALANCED.dat")'
      PRINT '("### Terminating the program...")'
-     CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
+     errcode=332
+     CALL MPI_ABORT(MPI_COMM_WORLD,errcode,ierr)
   END IF
 
 ! find new maximal process load
@@ -557,7 +560,7 @@ SUBROUTINE BALANCE_LOAD_WITHIN_CLUSTER
 
   INCLUDE 'mpif.h'
 
-  INTEGER ierr
+  INTEGER errcode,ierr
   INTEGER stattus(MPI_STATUS_SIZE)
 
   INTEGER initial_N_particles(0:N_spec)        ! used for diagnostics only
@@ -684,7 +687,8 @@ SUBROUTINE BALANCE_LOAD_WITHIN_CLUSTER
            IF (message_size.NE.probed_message_size) THEN
               PRINT '("Proc ",i4," :: Error-1 in BALANCE_LOAD_WITHIN_CLUSTER :: ",2x,i4,2x,i8,2x,i8,2x,i2)', &
                    & Rank_of_process, m, message_size, probed_message_size, s
-              CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
+              errcode=333
+              CALL MPI_ABORT(MPI_COMM_WORLD,errcode,ierr)
            END IF
 
            CALL MPI_RECV(rbufer(pos1:pos2), message_size, MPI_DOUBLE_PRECISION, m, m+SHIFT1+s, COMM_CLUSTER, stattus, ierr)
@@ -826,7 +830,8 @@ SUBROUTINE BALANCE_LOAD_WITHIN_CLUSTER
         IF (message_size.NE.probed_message_size) THEN
            PRINT '("Proc ",i4," :: Error-2 in BALANCE_LOAD_WITHIN_CLUSTER :: ",2x,i4,2x,i8,2x,i8)', &
                 & Rank_of_process, m, message_size, probed_message_size
-           CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
+           errcode=334
+           CALL MPI_ABORT(MPI_COMM_WORLD,errcode,ierr)
         END IF
 
         ALLOCATE(rbufer(1:message_size), STAT = ALLOC_ERR)
@@ -860,7 +865,8 @@ SUBROUTINE BALANCE_LOAD_WITHIN_CLUSTER
            IF (message_size.NE.probed_message_size) THEN
               PRINT '("Proc ",i4," :: Error-3 in BALANCE_LOAD_WITHIN_CLUSTER :: ",2x,i4,2x,i8,2x,i8,2x,i2)', &
                    & Rank_of_process, m, message_size, probed_message_size, s
-              CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
+              errcode=335
+              CALL MPI_ABORT(MPI_COMM_WORLD,errcode,ierr)
            END IF
 
            ALLOCATE(rbufer(1:message_size), STAT = ALLOC_ERR)

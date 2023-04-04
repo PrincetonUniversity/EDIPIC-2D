@@ -1220,7 +1220,7 @@ SUBROUTINE SAVE_GLOBAL_2D_ARRAY(arr, filename)
 
   CHARACTER*(*) filename
 
-  INTEGER ierr
+  INTEGER errcode,ierr
   INTEGER stattus(MPI_STATUS_SIZE)
   INTEGER request
 
@@ -1247,7 +1247,8 @@ SUBROUTINE SAVE_GLOBAL_2D_ARRAY(arr, filename)
   IF (cluster_rank_key.NE.0) THEN
 ! just in case 
      PRINT '("Proc ",i4," Error in SAVE_GLOBAL_2D_ARRAY :: this process is not a cluster master, cluster_rank_key = ",i2," it should not call this subroutine")', Rank_of_process, cluster_rank_key
-     CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
+     errcode=400
+     CALL MPI_ABORT(MPI_COMM_WORLD,errcode,ierr)
   END IF
 
   DO col = 1, N_clusters_x

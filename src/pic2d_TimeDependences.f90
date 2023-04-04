@@ -14,7 +14,7 @@ SUBROUTINE INITIATE_PROBE_DIAGNOSTICS
 
   INCLUDE 'mpif.h'
 
-  INTEGER ierr
+  INTEGER errcode,ierr
   INTEGER stattus(MPI_STATUS_SIZE)
   INTEGER request
 
@@ -101,7 +101,8 @@ SUBROUTINE INITIATE_PROBE_DIAGNOSTICS
      READ (9, *, IOSTAT=IOS) temp_pos(1,n), temp_pos(2,n)
      IF (IOS.NE.0) THEN
         PRINT '(2x,"Process ",i5," :: INITIATE_PROBE_DIAGNOSTICS : ERROR-1 : while reading file init_probes.dat : wrong coordinates of probe ",i4," program terminated.")', Rank_of_process, n
-        CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
+        errcode=420
+        CALL MPI_ABORT(MPI_COMM_WORLD,errcode,ierr)
      END IF
   END DO
 

@@ -13,7 +13,7 @@ SUBROUTINE PREPARE_FFT_X
 
   INCLUDE 'mpif.h'
 
-  INTEGER ierr
+  INTEGER errcode,ierr
 
   TYPE pair_of_comm_proc
      INTEGER proc1            ! rank of one process
@@ -200,7 +200,8 @@ SUBROUTINE PREPARE_FFT_X
         IF (k.EQ.max_comm_steps) THEN
 ! error, too many communication steps, something is wrong
            PRINT '("Process ",i4," :: Error in PREPARE_FFT_X, too many communication steps for transfer of density X-bands : k = ", i4)', Rank_of_process, k
-           CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
+           errcode=360
+           CALL MPI_ABORT(MPI_COMM_WORLD,errcode,ierr)
         END IF
      END IF
   END DO
@@ -337,7 +338,7 @@ SUBROUTINE PREPARE_SYS_Y
 
   INCLUDE 'mpif.h'
 
-  INTEGER ierr
+  INTEGER errcode,ierr
   INTEGER stattus(MPI_STATUS_SIZE)
   INTEGER request
 
@@ -503,7 +504,8 @@ SUBROUTINE PREPARE_SYS_Y
            IF (k.EQ.max_comm_steps) THEN
 ! error, too many communication steps, something is wrong
               PRINT '("Process ",i4," :: Error in PREPARE_SYS_Y, too many communication steps for transfer of density X-bands : k = ", i4)', Rank_of_process, k
-              CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
+              errcode=361
+              CALL MPI_ABORT(MPI_COMM_WORLD,errcode,ierr)
            END IF
         END IF
      END DO

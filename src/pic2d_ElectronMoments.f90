@@ -12,7 +12,7 @@ SUBROUTINE COLLECT_ELECTRON_MOMENTS
 
   INCLUDE 'mpif.h'
 
-  INTEGER ierr
+  INTEGER errcode,ierr
   INTEGER stattus(MPI_STATUS_SIZE)
   INTEGER request
 
@@ -135,7 +135,8 @@ SUBROUTINE COLLECT_ELECTRON_MOMENTS
         print '("Process ",i4," : k/N_electrons : ",i8,2x,i8)', Rank_of_process, k, N_electrons
         print '("Process ",i4," : x/y/vx/vy/vz/tag : ",5(2x,e14.7),2x,i4)', Rank_of_process, electron(k)%X, electron(k)%Y, electron(k)%VX, electron(k)%VY, electron(k)%VZ, electron(k)%tag
         print '("Process ",i4," : minx/maxx/miny/maxy : ",4(2x,e14.7))', Rank_of_process, c_X_area_min, c_X_area_max, c_Y_area_min, c_Y_area_max
-        CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
+        errcode=230
+        CALL MPI_ABORT(MPI_COMM_WORLD,errcode,ierr)
      end if
 
 !     pos = i - c_indx_x_min + 1 + (j - c_indx_y_min) * (c_indx_x_max - c_indx_x_min + 1)

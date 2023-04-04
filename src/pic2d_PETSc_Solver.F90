@@ -1649,7 +1649,7 @@ REAL(8) FUNCTION Get_Surface_Charge_Inner_Object(i,j,position_flag, myobject)
 
   INCLUDE 'mpif.h'
 
-  INTEGER ierr
+  INTEGER errcode,ierr
  
   INTEGER i, j            ! x,y indices of the point of interest
   INTEGER position_flag   ! 9 for a metal object
@@ -1714,7 +1714,8 @@ REAL(8) FUNCTION Get_Surface_Charge_Inner_Object(i,j,position_flag, myobject)
      RETURN
   ELSE
      print '("Error in Get_Surface_Charge_Inner_Object")'
-     CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
+     errcode=350
+     CALL MPI_ABORT(MPI_COMM_WORLD,errcode,ierr)
   END IF
 
 END FUNCTION Get_Surface_Charge_Inner_Object
@@ -1729,7 +1730,7 @@ SUBROUTINE SET_EPS_ISHIFTED(i, j, eps)  ! here point {i,j} is between nodes {i-1
 
   INCLUDE 'mpif.h'
 
-  INTEGER ierr
+  INTEGER errcode,ierr
  
   INTEGER, INTENT(IN) :: i, j
   REAL(8), INTENT(OUT) :: eps
@@ -1876,7 +1877,8 @@ SUBROUTINE SET_EPS_ISHIFTED(i, j, eps)  ! here point {i,j} is between nodes {i-1
      RETURN
   ELSE
      PRINT '("Error-3 in SET_EPS_ISHIFTED for i/j ",2x,i4,2x,i4)', i, j
-     CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
+     errcode=351
+     CALL MPI_ABORT(MPI_COMM_WORLD,errcode,ierr)
   END IF
 
 END SUBROUTINE SET_EPS_ISHIFTED
@@ -1892,7 +1894,7 @@ SUBROUTINE SET_EPS_JSHIFTED(i, j, eps)  ! here point {i,j} is between nodes {i,j
 
   INCLUDE 'mpif.h'
 
-  INTEGER ierr
+  INTEGER errcode,ierr
  
   INTEGER, INTENT(IN) :: i, j
   REAL(8), INTENT(OUT) :: eps
@@ -2039,7 +2041,8 @@ SUBROUTINE SET_EPS_JSHIFTED(i, j, eps)  ! here point {i,j} is between nodes {i,j
      RETURN
   ELSE
      PRINT '("Error-3 in SET_EPS_JSHIFTED for i/j ",2x,i4,2x,i4)', i, j
-     CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
+     errcode=352
+     CALL MPI_ABORT(MPI_COMM_WORLD,errcode,ierr)
   END IF
 
 END SUBROUTINE SET_EPS_JSHIFTED
@@ -2056,7 +2059,7 @@ SUBROUTINE GET_EPS_IN_POINT(x, y, eps)
 
   INCLUDE 'mpif.h'
 
-  INTEGER ierr
+  INTEGER errcode,ierr
  
   REAL(8), INTENT(IN) :: x, y
   REAL(8), INTENT(OUT) :: eps
@@ -2179,7 +2182,8 @@ SUBROUTINE GET_EPS_IN_POINT(x, y, eps)
      RETURN
   ELSE
      PRINT '("Error-3 in GET_EPS_IN_POINT for x/y ",2x,f11.3,2x,f11.3)', x, y
-     CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
+     errcode=353
+     CALL MPI_ABORT(MPI_COMM_WORLD,errcode,ierr)
   END IF
 
 END SUBROUTINE GET_EPS_IN_POINT

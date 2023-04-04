@@ -14,7 +14,7 @@ SUBROUTINE INITIATE_ELECTRON_NEUTRAL_COLLISIONS
 
   INCLUDE 'mpif.h'
 
-  INTEGER ierr
+  INTEGER errcode,ierr
  
   LOGICAL exists
 
@@ -178,7 +178,8 @@ SUBROUTINE INITIATE_ELECTRON_NEUTRAL_COLLISIONS
         IF (.NOT.exists) THEN
            IF (Rank_of_process.EQ.0) PRINT '("###ERROR :: file ",A49," not found, for neutrals ",A6," while collisions ",i2," of type ",i2," are activated, program terminated")', &
                 & initneutral_crsect_filename, neutral(n)%name, p, neutral(n)%en_colproc(p)%type
-           CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
+           errcode=430
+           CALL MPI_ABORT(MPI_COMM_WORLD,errcode,ierr)
         END IF
 
         OPEN(9, FILE = initneutral_crsect_filename)
@@ -263,7 +264,8 @@ SUBROUTINE INITIATE_ELECTRON_NEUTRAL_COLLISIONS
      IF (collision_e_neutral(n)%N_of_energy_values.NE.collision_e_neutral(n)%energy_segment_boundary_index(collision_e_neutral(n)%N_of_energy_segments)) THEN
 ! error
         PRINT '("error")'
-        CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
+        errcode=431
+        CALL MPI_ABORT(MPI_COMM_WORLD,errcode,ierr)
      END IF
 
 ! create array of energy values corresponding to the probability array
@@ -346,7 +348,7 @@ SUBROUTINE PERFORM_ELECTRON_NEUTRAL_COLLISIONS
 
   INCLUDE 'mpif.h'
 
-  INTEGER ierr
+  INTEGER errcode,ierr
   INTEGER stattus(MPI_STATUS_SIZE)
   INTEGER request
 
@@ -470,7 +472,8 @@ SUBROUTINE PERFORM_ELECTRON_NEUTRAL_COLLISIONS
            IF ((energy_eV.LT.collision_e_neutral(n)%energy_eV(indx_energy)).OR.(energy_eV.GT.collision_e_neutral(n)%energy_eV(indx_energy+1))) THEN
 ! error
               PRINT '("Proc ",i4," error in PERFORM_ELECTRON_NEUTRAL_COLLISIONS")', Rank_of_process
-              CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
+              errcode=432
+              CALL MPI_ABORT(MPI_COMM_WORLD,errcode,ierr)
            END IF
            a1 = (energy_eV - collision_e_neutral(n)%energy_eV(indx_energy)) / collision_e_neutral(n)%energy_segment_step(indx_segment)
            a0 = 1.0_8 - a1
