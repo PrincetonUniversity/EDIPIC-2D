@@ -84,7 +84,7 @@ SUBROUTINE CALCULATE_OBJECT_POTENTIAL_CHARGE_COEFFS
 
   INCLUDE 'mpif.h'
 
-  INTEGER ierr
+  INTEGER errcode,ierr
 
   INTEGER nn      ! index of the object in object_charge_calculation array
   INTEGER noi     ! index of the object in whole_object array
@@ -599,7 +599,8 @@ print *, Rank_of_process, noi
               ELSE    ! IF (whole_object(noi)%segment(nseg)%istart.EQ.indx_x_min) THEN
 ! error
                  PRINT '("CALCULATE_OBJECT_POTENTIAL_CHARGE_COEFFS :: improbable ERROR-1")'
-                 CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
+                 errcode=250
+                 CALL MPI_ABORT(MPI_COMM_WORLD,errcode,ierr)
               END IF  ! IF (whole_object(noi)%segment(nseg)%istart.EQ.indx_x_min) THEN
 
            ELSE IF (whole_object(noi)%segment(nseg)%jstart.EQ.whole_object(noi)%segment(nseg)%jend) THEN   !-------------------------------------------------------------------
@@ -1082,13 +1083,15 @@ print *, Rank_of_process, noi
               ELSE    ! IF (whole_object(noi)%segment(nseg)%jstart.EQ.indx_y_min) THEN
 ! error
                  PRINT '("CALCULATE_OBJECT_POTENTIAL_CHARGE_COEFFS :: improbable ERROR-2")'
-                 CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
+                 errcode=251
+                 CALL MPI_ABORT(MPI_COMM_WORLD,errcode,ierr)
               END IF  ! IF (whole_object(noi)%segment(nseg)%jstart.EQ.indx_y_min) THEN
 
            ELSE     !### IF (whole_object(noi)%segment(nseg)%istart.EQ.whole_object(noi)%segment(nseg)%iend) THEN
 ! error
               PRINT '("CALCULATE_OBJECT_POTENTIAL_CHARGE_COEFFS :: improbable ERROR-3")'
-              CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
+              errcode=252
+              CALL MPI_ABORT(MPI_COMM_WORLD,errcode,ierr)
            END IF   !### IF (whole_object(noi)%segment(nseg)%istart.EQ.whole_object(noi)%segment(nseg)%iend) THEN
         
         END DO  !### DO nseg = 1, whole_object(noi)%number_of_segments
@@ -1536,7 +1539,7 @@ SUBROUTINE ADD_MORE_CONTROL_POINTS(nn, N_to_add)
 
   INCLUDE 'mpif.h'
 
-  INTEGER ierr
+  INTEGER errcode,ierr
 
   INTEGER, INTENT(IN) :: nn, N_to_add
 
@@ -1583,13 +1586,15 @@ SUBROUTINE ADD_MORE_CONTROL_POINTS(nn, N_to_add)
      IF ((ipos+2*MAX(N_to_use,1)).GT.ibuflength) THEN
 ! error
         PRINT '("ADD_MORE_CONTROL_POINTS :: ERROR ipos")'
-        CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
+        errcode=253
+        CALL MPI_ABORT(MPI_COMM_WORLD,errcode,ierr)
      END IF
 
      IF ((dpos+N_to_use).GT.ibuflength) THEN
 ! error
         PRINT '("ADD_MORE_CONTROL_POINTS :: ERROR dpos")'
-        CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
+        errcode=254
+        CALL MPI_ABORT(MPI_COMM_WORLD,errcode,ierr)
      END IF
 
      ibufer(ipos) = N_to_use
@@ -1660,7 +1665,7 @@ SUBROUTINE SOLVE_EXTERNAL_CONTOUR
 
   INCLUDE 'mpif.h'
 
-  INTEGER ierr
+  INTEGER errcode,ierr
 
   INTEGER nn  ! index of object
   INTEGER pos ! index of point on the surface of the object
@@ -1794,7 +1799,8 @@ SUBROUTINE SOLVE_EXTERNAL_CONTOUR
            ELSE
 ! error
               PRINT '("error zero a(1,1)")'
-              CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
+              errcode=255
+              CALL MPI_ABORT(MPI_COMM_WORLD,errcode,ierr)
            END IF
 
         CASE (2)
@@ -1811,7 +1817,8 @@ SUBROUTINE SOLVE_EXTERNAL_CONTOUR
            ELSE
 ! error
               PRINT '("error zero a(1,1)")'
-              CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
+              errcode=256
+              CALL MPI_ABORT(MPI_COMM_WORLD,errcode,ierr)
            END IF
 
         CASE (3)
@@ -1840,7 +1847,8 @@ SUBROUTINE SOLVE_EXTERNAL_CONTOUR
            ELSE
 ! error
               PRINT '("error zero d0")'
-              CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
+              errcode=257
+              CALL MPI_ABORT(MPI_COMM_WORLD,errcode,ierr)
            END IF
 
      END SELECT
