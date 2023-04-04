@@ -3295,7 +3295,8 @@ SUBROUTINE DISTRIBUTE_PARTICLES
            CALL GetMaxwellVelocity(v)
            ion(s)%part(k)%VY = v * factor_convert
 
-           ion(s)%part(k)%VZ = 0.0_8
+           CALL GetMaxwellVelocity(v)
+           ion(s)%part(k)%VZ = v * factor_convert
            ion(s)%part(k)%tag = 0
         END DO
      END DO
