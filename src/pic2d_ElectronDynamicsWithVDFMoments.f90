@@ -169,7 +169,7 @@ SUBROUTINE ADVANCE_ELECTRONS_AND_CALCULATE_MOMENTS_2D
 
   INCLUDE 'mpif.h'
 
-  INTEGER ierr
+  INTEGER errcode,ierr
   INTEGER stattus(MPI_STATUS_SIZE)
   INTEGER request
 
@@ -302,7 +302,8 @@ SUBROUTINE ADVANCE_ELECTRONS_AND_CALCULATE_MOMENTS_2D
         print '("Process ",i4," : Error-1 in ADVANCE_ELECTRONS : particle out of bounds xmin/xmax/ymin/ymax : ",4(2x,e14.7))', Rank_of_process, c_X_area_min, c_X_area_max, c_Y_area_min, c_Y_area_max
         print '("Process ",i4," : k/N_electrons : ",i8,2x,i8)', Rank_of_process, k, N_electrons
         print '("Process ",i4," : x/y/vx/vy/vz/tag : ",5(2x,e14.7),2x,i4)', Rank_of_process, electron(k)%X, electron(k)%Y, electron(k)%VX, electron(k)%VY, electron(k)%VZ, electron(k)%tag
-        CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
+        errcode=210
+        CALL MPI_ABORT(MPI_COMM_WORLD,errcode,ierr)
      end if
 
 ! interpolate electric field
@@ -318,7 +319,8 @@ SUBROUTINE ADVANCE_ELECTRONS_AND_CALCULATE_MOMENTS_2D
         print '("Process ",i4," : k/N_electrons : ",i8,2x,i8)', Rank_of_process, k, N_electrons
         print '("Process ",i4," : x/y/vx/vy/vz/tag : ",5(2x,e14.7),2x,i4)', Rank_of_process, electron(k)%X, electron(k)%Y, electron(k)%VX, electron(k)%VY, electron(k)%VZ, electron(k)%tag
         print '("Process ",i4," : minx/maxx/miny/maxy : ",4(2x,e14.7))', Rank_of_process, c_X_area_min, c_X_area_max, c_Y_area_min, c_Y_area_max
-        CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
+        errcode=211
+        CALL MPI_ABORT(MPI_COMM_WORLD,errcode,ierr)
      end if
 
      ax_ip1 = electron(k)%X - DBLE(i)
@@ -485,13 +487,15 @@ SUBROUTINE ADVANCE_ELECTRONS_AND_CALCULATE_MOMENTS_2D
 !###     IF (ABS(electron(k)%VX).GT.1.0_8) THEN
 !        PRINT '("Error in process ",i4," too high VX of electron ",i9," :: X/Y/VX/VY/VZ are ",5(2x,e12.5))', &
 !             & Rank_of_process, k, electron(k)%X, electron(k)%Y, electron(k)%VX, electron(k)%VY, electron(k)%VZ
-!        CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
+!        errcode=212
+!        CALL MPI_ABORT(MPI_COMM_WORLD,errcode,ierr)
 !###     END IF
 
 !###     IF(ABS(electron(k)%VY).GT.1.0_8) THEN
 !        PRINT '("Error in process ",i4," too high VY of electron ",i9," :: X/Y/VX/VY/VZ are ",5(2x,e12.5))', &
 !             & Rank_of_process, k, electron(k)%X, electron(k)%Y, electron(k)%VX, electron(k)%VY, electron(k)%VZ
-!        CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
+!        errcode=213
+!        CALL MPI_ABORT(MPI_COMM_WORLD,errcode,ierr)
 !###     END IF
 
      electron(k)%X = electron(k)%X + electron(k)%VX
@@ -645,7 +649,8 @@ SUBROUTINE ADVANCE_ELECTRONS_AND_CALCULATE_MOMENTS_2D
         ELSE
 ! ERROR, we shouldn't be here
            PRINT '("ERROR-1 in ADVANCE_ELECTRONS: we should not be here")'
-           CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
+           errcode=214
+           CALL MPI_ABORT(MPI_COMM_WORLD,errcode,ierr)
         END IF
         CALL REMOVE_ELECTRON(k)  ! this subroutine does  N_electrons = N_electrons - 1 and k = k-1
         CYCLE
@@ -764,7 +769,8 @@ SUBROUTINE ADVANCE_ELECTRONS_AND_CALCULATE_MOMENTS_2D
         ELSE
 ! ERROR, we shouldn't be here
            PRINT '("ERROR-2 in ADVANCE_ELECTRONS: we should not be here")'
-           CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
+           errcode=215
+           CALL MPI_ABORT(MPI_COMM_WORLD,errcode,ierr)
         END IF
         CALL REMOVE_ELECTRON(k)  !       this subroutine does  N_electrons = N_electrons - 1
         CYCLE
@@ -1022,7 +1028,7 @@ SUBROUTINE ADVANCE_ELECTRONS_AND_CALCULATE_MOMENTS_PROBES
 
   INCLUDE 'mpif.h'
 
-  INTEGER ierr
+  INTEGER errcode,ierr
 
 !------------------------------------------>>>
   INTEGER bufsize
@@ -1097,7 +1103,8 @@ SUBROUTINE ADVANCE_ELECTRONS_AND_CALCULATE_MOMENTS_PROBES
         print '("Process ",i4," : Error-1 in ADVANCE_ELECTRONS : particle out of bounds xmin/xmax/ymin/ymax : ",4(2x,e14.7))', Rank_of_process, c_X_area_min, c_X_area_max, c_Y_area_min, c_Y_area_max
         print '("Process ",i4," : k/N_electrons : ",i8,2x,i8)', Rank_of_process, k, N_electrons
         print '("Process ",i4," : x/y/vx/vy/vz/tag : ",5(2x,e14.7),2x,i4)', Rank_of_process, electron(k)%X, electron(k)%Y, electron(k)%VX, electron(k)%VY, electron(k)%VZ, electron(k)%tag
-        CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
+        errcode=216
+        CALL MPI_ABORT(MPI_COMM_WORLD,errcode,ierr)
      end if
 
 ! interpolate electric field
@@ -1113,7 +1120,8 @@ if ((i.lt.c_indx_x_min).or.(i.gt.(c_indx_x_max-1)).or.(j.lt.c_indx_y_min).or.(j.
    print '("Process ",i4," : k/N_electrons : ",i8,2x,i8)', Rank_of_process, k, N_electrons
    print '("Process ",i4," : x/y/vx/vy/vz/tag : ",5(2x,e14.7),2x,i4)', Rank_of_process, electron(k)%X, electron(k)%Y, electron(k)%VX, electron(k)%VY, electron(k)%VZ, electron(k)%tag
    print '("Process ",i4," : minx/maxx/miny/maxy : ",4(2x,e14.7))', Rank_of_process, c_X_area_min, c_X_area_max, c_Y_area_min, c_Y_area_max
-   CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
+   errcode=217
+   CALL MPI_ABORT(MPI_COMM_WORLD,errcode,ierr)
 end if
 
      ax_ip1 = electron(k)%X - DBLE(i)
@@ -1252,13 +1260,15 @@ end if
 !###     IF (ABS(electron(k)%VX).GT.1.0_8) THEN
 !        PRINT '("Error in process ",i4," too high VX of electron ",i9," :: X/Y/VX/VY/VZ are ",5(2x,e12.5))', &
 !             & Rank_of_process, k, electron(k)%X, electron(k)%Y, electron(k)%VX, electron(k)%VY, electron(k)%VZ
-!        CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
+!        errcode=218
+!        CALL MPI_ABORT(MPI_COMM_WORLD,errcode,ierr)
 !###     END IF
 
 !###     IF(ABS(electron(k)%VY).GT.1.0_8) THEN
 !        PRINT '("Error in process ",i4," too high VY of electron ",i9," :: X/Y/VX/VY/VZ are ",5(2x,e12.5))', &
 !             & Rank_of_process, k, electron(k)%X, electron(k)%Y, electron(k)%VX, electron(k)%VY, electron(k)%VZ
-!        CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
+!        errcode=219
+!        CALL MPI_ABORT(MPI_COMM_WORLD,errcode,ierr)
 !###     END IF
 
      electron(k)%X = electron(k)%X + electron(k)%VX
@@ -1412,7 +1422,8 @@ end if
         ELSE
 ! ERROR, we shouldn't be here
            PRINT '("ERROR-1 in ADVANCE_ELECTRONS: we should not be here")'
-           CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
+           errcode=220
+           CALL MPI_ABORT(MPI_COMM_WORLD,errcode,ierr)
         END IF
         CALL REMOVE_ELECTRON(k)  ! this subroutine does  N_electrons = N_electrons - 1 and k = k-1
         CYCLE
@@ -1531,7 +1542,8 @@ end if
         ELSE
 ! ERROR, we shouldn't be here
            PRINT '("ERROR-2 in ADVANCE_ELECTRONS: we should not be here")'
-           CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
+           errcode=221
+           CALL MPI_ABORT(MPI_COMM_WORLD,errcode,ierr)
         END IF
         CALL REMOVE_ELECTRON(k)  !       this subroutine does  N_electrons = N_electrons - 1
         CYCLE

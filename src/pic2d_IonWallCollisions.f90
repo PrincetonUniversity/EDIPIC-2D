@@ -11,7 +11,7 @@ SUBROUTINE PROCESS_ION_COLL_WITH_BOUNDARY_LEFT(s, x, y, vx, vy, vz, tag)
 
   INCLUDE 'mpif.h'
 
-  INTEGER ierr
+  INTEGER errcode,ierr
 
   INTEGER s
   REAL(8) x, y, vx, vy, vz
@@ -73,7 +73,8 @@ SUBROUTINE PROCESS_ION_COLL_WITH_BOUNDARY_LEFT(s, x, y, vx, vy, vz, tag)
   IF (particle_not_processed) THEN
      PRINT '("Process ",i4,": ERROR in PROCESS_ION_COLL_WITH_BOUNDARY_LEFT")', Rank_of_process
      PRINT '("particle s= ",i4," x= ",e14.7," y= ",e14.7)', s, x, y
-     CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
+     errcode=320
+     CALL MPI_ABORT(MPI_COMM_WORLD,errcode,ierr)
   END IF
 
 END SUBROUTINE PROCESS_ION_COLL_WITH_BOUNDARY_LEFT
@@ -91,7 +92,7 @@ SUBROUTINE PROCESS_ION_COLL_WITH_BOUNDARY_RIGHT(s, x, y, vx, vy, vz, tag)
 
   INCLUDE 'mpif.h'
 
-  INTEGER ierr
+  INTEGER errcode,ierr
 
   INTEGER s
   REAL(8) x, y, vx, vy, vz
@@ -153,7 +154,8 @@ SUBROUTINE PROCESS_ION_COLL_WITH_BOUNDARY_RIGHT(s, x, y, vx, vy, vz, tag)
   IF (particle_not_processed) THEN
      PRINT '("Process ",i4,": ERROR in PROCESS_ION_COLL_WITH_BOUNDARY_RIGHT")', Rank_of_process
      PRINT '("particle s= ",i4," x= ",e14.7," y= ",e14.7)', s, x, y
-     CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
+     errcode=321
+     CALL MPI_ABORT(MPI_COMM_WORLD,errcode,ierr)
   END IF
 
 END SUBROUTINE PROCESS_ION_COLL_WITH_BOUNDARY_RIGHT
@@ -171,7 +173,7 @@ SUBROUTINE PROCESS_ION_COLL_WITH_BOUNDARY_BELOW(s, x, y, vx, vy, vz, tag)
 
   INCLUDE 'mpif.h'
 
-  INTEGER ierr
+  INTEGER errcode,ierr
 
   INTEGER s
   REAL(8) x, y, vx, vy, vz
@@ -233,7 +235,8 @@ SUBROUTINE PROCESS_ION_COLL_WITH_BOUNDARY_BELOW(s, x, y, vx, vy, vz, tag)
   IF (particle_not_processed) THEN
      PRINT '("Process ",i4,": ERROR in PROCESS_ION_COLL_WITH_BOUNDARY_BELOW")', Rank_of_process
      PRINT '("particle s= ",i4," x= ",e14.7," y= ",e14.7)', s, x, y
-     CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
+     errcode=322
+     CALL MPI_ABORT(MPI_COMM_WORLD,errcode,ierr)
   END IF
 
 END SUBROUTINE PROCESS_ION_COLL_WITH_BOUNDARY_BELOW
@@ -251,7 +254,7 @@ SUBROUTINE PROCESS_ION_COLL_WITH_BOUNDARY_ABOVE(s, x, y, vx, vy, vz, tag)
 
   INCLUDE 'mpif.h'
 
-  INTEGER ierr
+  INTEGER errcode,ierr
 
   INTEGER s
   REAL(8) x, y, vx, vy, vz
@@ -313,7 +316,8 @@ SUBROUTINE PROCESS_ION_COLL_WITH_BOUNDARY_ABOVE(s, x, y, vx, vy, vz, tag)
   IF (particle_not_processed) THEN
      PRINT '("Process ",i4,": ERROR in PROCESS_ION_COLL_WITH_BOUNDARY_ABOVE")', Rank_of_process
      PRINT '("particle s= ",i4," x= ",e14.7," y= ",e14.7)', s, x, y
-     CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
+     errcode=323
+     CALL MPI_ABORT(MPI_COMM_WORLD,errcode,ierr)
   END IF
 
 END SUBROUTINE PROCESS_ION_COLL_WITH_BOUNDARY_ABOVE
@@ -331,7 +335,7 @@ SUBROUTINE COLLECT_PARTICLE_BOUNDARY_HITS
 
   INCLUDE 'mpif.h'
 
-  INTEGER ierr
+  INTEGER errcode,ierr
 !  INTEGER stattus(MPI_STATUS_SIZE)
 !  INTEGER request
 
@@ -399,7 +403,7 @@ SUBROUTINE TRY_ION_COLL_WITH_INNER_OBJECT(s, x, y, vx, vy, vz, tag)
 
   INCLUDE 'mpif.h'
 
-  INTEGER ierr
+  INTEGER errcode,ierr
 
 !  INTEGER nio  ! number of the inner object
   INTEGER s
@@ -455,7 +459,8 @@ SUBROUTINE TRY_ION_COLL_WITH_INNER_OBJECT(s, x, y, vx, vy, vz, tag)
    
   IF (mcross.EQ.-1) THEN
      PRINT '("Error-1 in TRY_ION_COLL_WITH_INNER_OBJECT")'
-     CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
+     errcode=324
+     CALL MPI_ABORT(MPI_COMM_WORLD,errcode,ierr)
   END IF
 
   SELECT CASE (mcross)
@@ -586,7 +591,7 @@ SUBROUTINE GATHER_SURFACE_CHARGE_DENSITY
 
   INCLUDE 'mpif.h'
 
-  INTEGER ierr
+  INTEGER errcode,ierr
   INTEGER stattus(MPI_STATUS_SIZE)
   INTEGER request
 
@@ -655,7 +660,8 @@ SUBROUTINE GATHER_SURFACE_CHARGE_DENSITY
                 & c_local_object_part(n)%iend, &
                 & c_local_object_part(n)%jstart, &
                 & c_local_object_part(n)%jend
-           CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
+           errcode=325
+           CALL MPI_ABORT(MPI_COMM_WORLD,errcode,ierr)
         END IF
      END IF
   END DO
@@ -688,7 +694,8 @@ SUBROUTINE GATHER_SURFACE_CHARGE_DENSITY
                    & c_local_object_part(n)%iend, &
                    & c_local_object_part(n)%jstart, &
                    & c_local_object_part(n)%jend
-              CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
+              errcode=326
+              CALL MPI_ABORT(MPI_COMM_WORLD,errcode,ierr)
            END IF
         END IF
      END DO
@@ -924,7 +931,7 @@ SUBROUTINE GATHER_SURFACE_CHARGE_DENSITY_INNER_OBJECTS
 
   INCLUDE 'mpif.h'
 
-  INTEGER ierr
+  INTEGER errcode,ierr
 
   INTEGER bufsize
   INTEGER n, k
@@ -1034,14 +1041,16 @@ SUBROUTINE GATHER_SURFACE_CHARGE_DENSITY_INNER_OBJECTS
         IF ((2*i0top).NE.(i_right_top + i_left_top)) THEN
 ! this should not happen
            PRINT '("Error-A in GATHER_SURFACE_CHARGE_DENSITY_INNER_OBJECTS, object ",i3," is not symmetric relative x=0")', n
-           CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
+           errcode=327
+           CALL MPI_ABORT(MPI_COMM_WORLD,errcode,ierr)
         END IF
 
         i0bot = (i_left_bottom_bis + 1 + i_right_bottom)/2
         IF ((2*i0bot).NE.(i_left_bottom_bis + 1 + i_right_bottom)) THEN
 ! this should not happen
            PRINT '("Error-B in GATHER_SURFACE_CHARGE_DENSITY_INNER_OBJECTS, object ",i3," is not symmetric relative x=0")', n
-           CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
+           errcode=328
+           CALL MPI_ABORT(MPI_COMM_WORLD,errcode,ierr)
         END IF
 
 ! add the left wall of the object to the right wall

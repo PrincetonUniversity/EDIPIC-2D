@@ -9,7 +9,7 @@ SUBROUTINE PREPARE_SETUP_VALUES
 
   INCLUDE 'mpif.h'
 
-  INTEGER ierr
+  INTEGER errcode,ierr
 
   INTEGER n
 
@@ -116,7 +116,8 @@ SUBROUTINE PREPARE_SETUP_VALUES
         IF (We_beam_constant_emit_eV.LE.(1.5_8 * Te_normal_constant_emit_eV)) THEN
            IF (Rank_of_process.EQ.0) PRINT '("Error in PREPARE_SETUP_VALUES, boundary object ",i2," :: for beam energy ",f8.3," eV the beam energy spread ",f7.3," eV exceeds threshold ",f8.3," eV")', &
                 & n, We_beam_constant_emit_eV, Te_normal_constant_emit_eV, We_beam_constant_emit_eV/1.5
-           CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
+           errcode=380
+           CALL MPI_ABORT(MPI_COMM_WORLD,errcode,ierr)
         END IF
 ! scaling factor is calculated with a reduced temperature to achieve required energy spread in the beam frame
         whole_object(n)%factor_convert_vinj_normal_constant_emit = SQRT(0.25_8 * Te_normal_constant_emit_eV**2 / (We_beam_constant_emit_eV * T_e_eV)) / N_max_vel
@@ -1015,7 +1016,7 @@ SUBROUTINE PERFORM_ELECTRON_EMISSION_SETUP_INNER_OBJECTS
 
   INCLUDE 'mpif.h'
 
-  INTEGER ierr
+  INTEGER errcode,ierr
 
   INTEGER nio
   INTEGER cross_j_min, cross_j_max
@@ -1090,7 +1091,8 @@ SUBROUTINE PERFORM_ELECTRON_EMISSION_SETUP_INNER_OBJECTS
 ! fool proof-1
               IF (.NOT.value_assigned) THEN
                  PRINT '("Error-1 in PERFORM_ELECTRON_EMISSION_SETUP_INNER_OBJECTS")'
-                 CALL MPI_ABORT(MPI_COMM_WORLD, ierr) 
+                 errcode=381
+                 CALL MPI_ABORT(MPI_COMM_WORLD,errcode,ierr)
               END IF
 
 !              y = DBLE(cross_j_min) + well_random_number() * DBLE(cross_j_max - cross_j_min)
@@ -1099,7 +1101,8 @@ SUBROUTINE PERFORM_ELECTRON_EMISSION_SETUP_INNER_OBJECTS
 ! fool proof-2
               IF (whole_object(nio)%segment(1)%cell_is_covered(jj)) THEN
                  PRINT '("Error-2 in PERFORM_ELECTRON_EMISSION_SETUP_INNER_OBJECTS")'
-                 CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
+                 errcode=382
+                 CALL MPI_ABORT(MPI_COMM_WORLD,errcode,ierr)
               END IF
 
               IF (whole_object(nio)%model_constant_emit.EQ.0) THEN
@@ -1146,7 +1149,8 @@ SUBROUTINE PERFORM_ELECTRON_EMISSION_SETUP_INNER_OBJECTS
 ! fool proof-1
               IF (.NOT.value_assigned) THEN
                  PRINT '("Error-3 in PERFORM_ELECTRON_EMISSION_SETUP_INNER_OBJECTS")'
-                 CALL MPI_ABORT(MPI_COMM_WORLD, ierr) 
+                 errcode=383
+                 CALL MPI_ABORT(MPI_COMM_WORLD,errcode,ierr)
               END IF
 
 !              y = DBLE(cross_j_min) + well_random_number() * DBLE(cross_j_max - cross_j_min)
@@ -1155,7 +1159,8 @@ SUBROUTINE PERFORM_ELECTRON_EMISSION_SETUP_INNER_OBJECTS
 ! fool proof-2
               IF (whole_object(nio)%segment(1)%cell_is_covered(jj)) THEN
                  PRINT '("Error-4 in PERFORM_ELECTRON_EMISSION_SETUP_INNER_OBJECTS")'
-                 CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
+                 errcode=384
+                 CALL MPI_ABORT(MPI_COMM_WORLD,errcode,ierr)
               END IF
 
               IF (whole_object(nio)%model_constant_emit.EQ.0) THEN
@@ -1219,7 +1224,8 @@ SUBROUTINE PERFORM_ELECTRON_EMISSION_SETUP_INNER_OBJECTS
 ! fool proof-1
               IF (.NOT.value_assigned) THEN
                  PRINT '("Error-5 in PERFORM_ELECTRON_EMISSION_SETUP_INNER_OBJECTS")'
-                 CALL MPI_ABORT(MPI_COMM_WORLD, ierr) 
+                 errcode=385
+                 CALL MPI_ABORT(MPI_COMM_WORLD,errcode,ierr)
               END IF
 
 !              y = DBLE(cross_j_min) + well_random_number() * DBLE(cross_j_max - cross_j_min)
@@ -1228,7 +1234,8 @@ SUBROUTINE PERFORM_ELECTRON_EMISSION_SETUP_INNER_OBJECTS
 ! fool proof-2
               IF (whole_object(nio)%segment(3)%cell_is_covered(jj)) THEN
                  PRINT '("Error-6 in PERFORM_ELECTRON_EMISSION_SETUP_INNER_OBJECTS")'
-                 CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
+                 errcode=386
+                 CALL MPI_ABORT(MPI_COMM_WORLD,errcode,ierr)
               END IF
 
               IF (whole_object(nio)%model_constant_emit.EQ.0) THEN
@@ -1275,7 +1282,8 @@ SUBROUTINE PERFORM_ELECTRON_EMISSION_SETUP_INNER_OBJECTS
 ! fool proof-1
               IF (.NOT.value_assigned) THEN
                  PRINT '("Error-7 in PERFORM_ELECTRON_EMISSION_SETUP_INNER_OBJECTS")'
-                 CALL MPI_ABORT(MPI_COMM_WORLD, ierr) 
+                 errcode=387
+                 CALL MPI_ABORT(MPI_COMM_WORLD,errcode,ierr)
               END IF
 
 !              y = DBLE(cross_j_min) + well_random_number() * DBLE(cross_j_max - cross_j_min)
@@ -1284,7 +1292,8 @@ SUBROUTINE PERFORM_ELECTRON_EMISSION_SETUP_INNER_OBJECTS
 ! fool proof-2
               IF (whole_object(nio)%segment(3)%cell_is_covered(jj)) THEN
                  PRINT '("Error-8 in PERFORM_ELECTRON_EMISSION_SETUP_INNER_OBJECTS")'
-                 CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
+                 errcode=388
+                 CALL MPI_ABORT(MPI_COMM_WORLD,errcode,ierr)
               END IF
 
               IF (whole_object(nio)%model_constant_emit.EQ.0) THEN
@@ -1348,7 +1357,8 @@ SUBROUTINE PERFORM_ELECTRON_EMISSION_SETUP_INNER_OBJECTS
 ! fool proof-1
               IF (.NOT.value_assigned) THEN
                  PRINT '("Error-9 in PERFORM_ELECTRON_EMISSION_SETUP_INNER_OBJECTS")'
-                 CALL MPI_ABORT(MPI_COMM_WORLD, ierr) 
+                 errcode=389
+                 CALL MPI_ABORT(MPI_COMM_WORLD,errcode,ierr)
               END IF
 
 !              x = DBLE(cross_i_min) + well_random_number() * DBLE(cross_i_max - cross_i_min)
@@ -1357,7 +1367,8 @@ SUBROUTINE PERFORM_ELECTRON_EMISSION_SETUP_INNER_OBJECTS
 ! fool proof-2
               IF (whole_object(nio)%segment(4)%cell_is_covered(ii)) THEN
                  PRINT '("Error-10 in PERFORM_ELECTRON_EMISSION_SETUP_INNER_OBJECTS")'
-                 CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
+                 errcode=390
+                 CALL MPI_ABORT(MPI_COMM_WORLD,errcode,ierr)
               END IF
 
               IF (whole_object(nio)%model_constant_emit.EQ.0) THEN
@@ -1404,7 +1415,8 @@ SUBROUTINE PERFORM_ELECTRON_EMISSION_SETUP_INNER_OBJECTS
 ! fool proof-1
               IF (.NOT.value_assigned) THEN
                  PRINT '("Error-11 in PERFORM_ELECTRON_EMISSION_SETUP_INNER_OBJECTS")'
-                 CALL MPI_ABORT(MPI_COMM_WORLD, ierr) 
+                 errcode=391
+                 CALL MPI_ABORT(MPI_COMM_WORLD,errcode,ierr)
               END IF
 
 !              x = DBLE(cross_i_min) + well_random_number() * DBLE(cross_i_max - cross_i_min)
@@ -1413,7 +1425,8 @@ SUBROUTINE PERFORM_ELECTRON_EMISSION_SETUP_INNER_OBJECTS
 ! fool proof-2
               IF (whole_object(nio)%segment(4)%cell_is_covered(ii)) THEN
                  PRINT '("Error-12 in PERFORM_ELECTRON_EMISSION_SETUP_INNER_OBJECTS")'
-                 CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
+                 errcode=392
+                 CALL MPI_ABORT(MPI_COMM_WORLD,errcode,ierr)
               END IF
 
               IF (whole_object(nio)%model_constant_emit.EQ.0) THEN
@@ -1478,7 +1491,8 @@ SUBROUTINE PERFORM_ELECTRON_EMISSION_SETUP_INNER_OBJECTS
 ! fool proof-1
               IF (.NOT.value_assigned) THEN
                  PRINT '("Error-13 in PERFORM_ELECTRON_EMISSION_SETUP_INNER_OBJECTS")'
-                 CALL MPI_ABORT(MPI_COMM_WORLD, ierr) 
+                 errcode=393
+                 CALL MPI_ABORT(MPI_COMM_WORLD,errcode,ierr)
               END IF
 
 !              x = DBLE(cross_i_min) + well_random_number() * DBLE(cross_i_max - cross_i_min)
@@ -1487,7 +1501,8 @@ SUBROUTINE PERFORM_ELECTRON_EMISSION_SETUP_INNER_OBJECTS
 ! fool proof-2
               IF (whole_object(nio)%segment(2)%cell_is_covered(ii)) THEN
                  PRINT '("Error-14 in PERFORM_ELECTRON_EMISSION_SETUP_INNER_OBJECTS")'
-                 CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
+                 errcode=394
+                 CALL MPI_ABORT(MPI_COMM_WORLD,errcode,ierr)
               END IF
 
               IF (whole_object(nio)%model_constant_emit.EQ.0) THEN
@@ -1534,7 +1549,8 @@ SUBROUTINE PERFORM_ELECTRON_EMISSION_SETUP_INNER_OBJECTS
 ! fool proof-1
               IF (.NOT.value_assigned) THEN
                  PRINT '("Error-15 in PERFORM_ELECTRON_EMISSION_SETUP_INNER_OBJECTS")'
-                 CALL MPI_ABORT(MPI_COMM_WORLD, ierr) 
+                 errcode=395
+                 CALL MPI_ABORT(MPI_COMM_WORLD,errcode,ierr)
               END IF
 
 !              x = DBLE(cross_i_min) + well_random_number() * DBLE(cross_i_max - cross_i_min)
@@ -1543,7 +1559,8 @@ SUBROUTINE PERFORM_ELECTRON_EMISSION_SETUP_INNER_OBJECTS
 ! fool proof-2
               IF (whole_object(nio)%segment(2)%cell_is_covered(ii)) THEN
                  PRINT '("Error-16 in PERFORM_ELECTRON_EMISSION_SETUP_INNER_OBJECTS")'
-                 CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
+                 errcode=396
+                 CALL MPI_ABORT(MPI_COMM_WORLD,errcode,ierr)
               END IF
 
               IF (whole_object(nio)%model_constant_emit.EQ.0) THEN

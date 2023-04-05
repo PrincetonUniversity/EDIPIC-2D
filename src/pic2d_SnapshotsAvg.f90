@@ -13,7 +13,7 @@ SUBROUTINE INITIATE_AVERAGED_SNAPSHOTS
 
   INCLUDE 'mpif.h'
 
-  INTEGER ierr
+  INTEGER errcode,ierr
 
   LOGICAL exists
   CHARACTER (1) buf
@@ -230,7 +230,8 @@ SUBROUTINE INITIATE_AVERAGED_SNAPSHOTS
      IF (avgsnapshot(n)%T_cntr_begin.GE.avgsnapshot(n)%T_cntr_end) THEN
         IF (Rank_of_process.EQ.0) PRINT '("ERROR-1 in INITIATE_AVERAGED_SNAPSHOTS, snapshot "i4," begins at ",i9," and ends at ",i9)', &
              & n, avgsnapshot(n)%T_cntr_begin, avgsnapshot(n)%T_cntr_end
-        CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
+        errcode=410
+        CALL MPI_ABORT(MPI_COMM_WORLD,errcode,ierr)
      END IF
   END DO
 
@@ -242,7 +243,8 @@ SUBROUTINE INITIATE_AVERAGED_SNAPSHOTS
         IF (Rank_of_process.EQ.0) PRINT '("ERROR-2 in INITIATE_AVERAGED_SNAPSHOTS, snapshot ",i4,2x,i9,2x,i9," overlaps with snapshot "i4,2x,i9,2x,i9)', &
              & n,   avgsnapshot(n)%T_cntr_begin,   avgsnapshot(n)%T_cntr_end, &
              & n+1, avgsnapshot(n+1)%T_cntr_begin, avgsnapshot(n+1)%T_cntr_end
-        CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
+        errcode=411
+        CALL MPI_ABORT(MPI_COMM_WORLD,errcode,ierr)
      END IF
   END DO
 

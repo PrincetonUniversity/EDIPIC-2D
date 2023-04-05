@@ -10,7 +10,7 @@ SUBROUTINE PROCESS_ELECTRON_COLL_WITH_BOUNDARY_LEFT(x, y, vx, vy, vz, tag)
 
   INCLUDE 'mpif.h'
 
-  INTEGER ierr
+  INTEGER errcode,ierr
 
   REAL(8) x, y, vx, vy, vz
   INTEGER tag
@@ -65,7 +65,8 @@ SUBROUTINE PROCESS_ELECTRON_COLL_WITH_BOUNDARY_LEFT(x, y, vx, vy, vz, tag)
   IF (particle_not_processed) THEN
      PRINT '("Process ",i4,": ERROR in PROCESS_ELECTRON_COLL_WITH_BOUNDARY_LEFT")', Rank_of_process
      PRINT '("particle x= ",e14.7," y= ",e14.7)', x, y
-     CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
+     errcode=240
+     CALL MPI_ABORT(MPI_COMM_WORLD,errcode,ierr)
   END IF
 
 END SUBROUTINE PROCESS_ELECTRON_COLL_WITH_BOUNDARY_LEFT
@@ -82,7 +83,7 @@ SUBROUTINE PROCESS_ELECTRON_COLL_WITH_BOUNDARY_RIGHT(x, y, vx, vy, vz, tag)
 
   INCLUDE 'mpif.h'
 
-  INTEGER ierr
+  INTEGER errcode,ierr
 
   REAL(8) x, y, vx, vy, vz
   INTEGER tag
@@ -137,7 +138,8 @@ SUBROUTINE PROCESS_ELECTRON_COLL_WITH_BOUNDARY_RIGHT(x, y, vx, vy, vz, tag)
   IF (particle_not_processed) THEN
      PRINT '("Process ",i4,": ERROR in PROCESS_ELECTRON_COLL_WITH_BOUNDARY_RIGHT")', Rank_of_process
      PRINT '("particle x= ",e14.7," y= ",e14.7)', x, y
-     CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
+     errcode=241
+     CALL MPI_ABORT(MPI_COMM_WORLD,errcode,ierr)
   END IF
 
 END SUBROUTINE PROCESS_ELECTRON_COLL_WITH_BOUNDARY_RIGHT
@@ -154,7 +156,7 @@ SUBROUTINE PROCESS_ELECTRON_COLL_WITH_BOUNDARY_BELOW(x, y, vx, vy, vz, tag)
 
   INCLUDE 'mpif.h'
 
-  INTEGER ierr
+  INTEGER errcode,ierr
 
   REAL(8) x, y, vx, vy, vz
   INTEGER tag
@@ -209,7 +211,8 @@ SUBROUTINE PROCESS_ELECTRON_COLL_WITH_BOUNDARY_BELOW(x, y, vx, vy, vz, tag)
   IF (particle_not_processed) THEN
      PRINT '("Process ",i4,": ERROR in PROCESS_ELECTRON_COLL_WITH_BOUNDARY_BELOW")', Rank_of_process
      PRINT '("particle x= ",e14.7," y= ",e14.7)', x, y
-     CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
+     errcode=242
+     CALL MPI_ABORT(MPI_COMM_WORLD,errcode,ierr)
   END IF
 
 END SUBROUTINE PROCESS_ELECTRON_COLL_WITH_BOUNDARY_BELOW
@@ -226,7 +229,7 @@ SUBROUTINE PROCESS_ELECTRON_COLL_WITH_BOUNDARY_ABOVE(x, y, vx, vy, vz, tag)
 
   INCLUDE 'mpif.h'
 
-  INTEGER ierr
+  INTEGER errcode,ierr
 
   REAL(8) x, y, vx, vy, vz
   INTEGER tag
@@ -281,7 +284,8 @@ SUBROUTINE PROCESS_ELECTRON_COLL_WITH_BOUNDARY_ABOVE(x, y, vx, vy, vz, tag)
   IF (particle_not_processed) THEN
      PRINT '("Process ",i4,": ERROR in PROCESS_ELECTRON_COLL_WITH_BOUNDARY_ABOVE")', Rank_of_process
      PRINT '("particle x= ",e14.7," y= ",e14.7)', x, y
-     CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
+     errcode=243
+     CALL MPI_ABORT(MPI_COMM_WORLD,errcode,ierr)
   END IF
 
 END SUBROUTINE PROCESS_ELECTRON_COLL_WITH_BOUNDARY_ABOVE
@@ -477,7 +481,7 @@ SUBROUTINE TRY_ELECTRON_COLL_WITH_INNER_OBJECT(x, y, vx, vy, vz, tag) !, myobjec
 
   INCLUDE 'mpif.h'
 
-  INTEGER ierr
+  INTEGER errcode,ierr
 
 !  INTEGER nio  ! number of the inner object
   REAL(8) x, y, vx, vy, vz
@@ -532,7 +536,8 @@ SUBROUTINE TRY_ELECTRON_COLL_WITH_INNER_OBJECT(x, y, vx, vy, vz, tag) !, myobjec
    
   IF (mcross.EQ.-1) THEN
      PRINT '("Error-1 in TRY_ELECTRON_COLL_WITH_INNER_OBJECT ",4(2x,f10.4))', xorg, yorg, x, y
-     CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
+     errcode=244
+     CALL MPI_ABORT(MPI_COMM_WORLD,errcode,ierr)
   END IF
 
   SELECT CASE (mcross)
@@ -841,7 +846,7 @@ SUBROUTINE PrepareMaxwellDistribIntegral
 
   INCLUDE 'mpif.h'
 
-  INTEGER ierr
+  INTEGER errcode,ierr
 
   INTEGER i
   INTEGER N_pnts
@@ -923,7 +928,8 @@ SUBROUTINE PrepareMaxwellDistribIntegral
      PRINT '(2x,"Process ",i3," : ERROR in PrepareMaxwellDistribIntegral !!!")', Rank_of_process
      PRINT '(2x,"The initialization in PrepareMaxwellDistribIntegral is not performed !!!")'
      PRINT '(2x,"The program will be terminated now :(")'
-     CALL MPI_ABORT(MPI_COMM_WORLD, ierr)
+     errcode=245
+     CALL MPI_ABORT(MPI_COMM_WORLD,errcode,ierr)
   END IF
 
 END SUBROUTINE PrepareMaxwellDistribIntegral
