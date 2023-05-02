@@ -3,7 +3,7 @@
 --------dd--- number of all possible collisional processes
          3
 ---dd--d--dd--d- collision #1 :: type / activated (1/0 = Yes/No) / ion species produced (ionization collisions only) / save coll. frequency
-   10  1   0  0
+   11  1   0  0
 ---dd--d--dd--d- collision #2 :: type / activated (1/0 = Yes/No) / ion species produced (ionization collisions only) / save coll. frequency
    20  1   0  0
 ---dd--d--dd--d- collision #3 :: type / activated (1/0 = Yes/No) / ion species produced (ionization collisions only) / save coll. frequency
