@@ -1,6 +1,12 @@
 # EDIPIC-2D
 
-**Main developer**: Dmytro Sydorenko, University of Alberta
+**Main developers**: 
+- Dmytro Sydorenko, University of Alberta
+- Alexander Khrabrov, Princeton Plasma Physics Laboratory
+- Salomon Janhunen, University of Alberta
+- Willca Villafana, Princeton Plasma Physics Laboratory
+- Stéphane Ethier, Princeton Plasma Physics Laboratory
+
 
 This repository contains the 2D version of EDIPIC, a particle-in-cell code developed for low temperature plasma applications.
 
