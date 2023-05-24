@@ -57,6 +57,15 @@ SUBROUTINE INITIATE_SNAPSHOTS
   save_data = .FALSE.
   current_snap = 1
 
+! create structure for collision diagnostics arrays, to be stored between snapshots by cluster masters only. I need this because it can be used by averaged snapshots as well!
+  IF ( .NOT.en_collisions_turned_off .AND. cluster_rank_key==0 ) THEN
+   ALLOCATE(diagnostics_neutral(1:N_neutral_spec), STAT = ALLOC_ERR)
+   DO n = 1, N_neutral_spec
+      IF (collision_e_neutral(n)%N_of_activated_colproc.LE.0) CYCLE
+      ALLOCATE(diagnostics_neutral(n)%activated_collision(1:collision_e_neutral(n)%N_of_activated_colproc), STAT = ALLOC_ERR)
+   END DO   
+  END IF
+
 ! read / write the data file 
   INQUIRE (FILE = 'init_snapshots.dat', EXIST = exists)
 
@@ -276,13 +285,6 @@ SUBROUTINE INITIATE_SNAPSHOTS
 
   IF (en_collisions_turned_off) RETURN
   IF (cluster_rank_key.NE.0) RETURN
-
-! create structure for collision diagnostics arrays, to be stored between snapshots by cluster masters only
-  ALLOCATE(diagnostics_neutral(1:N_neutral_spec), STAT = ALLOC_ERR)
-  DO n = 1, N_neutral_spec
-     IF (collision_e_neutral(n)%N_of_activated_colproc.LE.0) CYCLE
-     ALLOCATE(diagnostics_neutral(n)%activated_collision(1:collision_e_neutral(n)%N_of_activated_colproc), STAT = ALLOC_ERR)
-  END DO 
 
   IF (no_ionization_collisions) RETURN
   IF (.NOT.save_ionization_rates_2d(current_snap))RETURN
