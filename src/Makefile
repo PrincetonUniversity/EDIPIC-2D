@@ -1,5 +1,12 @@
-FC := mpif90
-CC := mpicc
+ifeq ($(NERSC_HOST),perlmutter)
+# The Cray environment on Perlmutter uses "ftn" and "cc" as the wrappers for MPI
+   FC := ftn
+   CC := cc
+else
+   FC := mpif90
+   CC := mpicc
+endif
+
 # Get the actual Fortran compiler invoked by mpif90. Need to use double $$ in awk.
 BASE_FCOMP := $(shell mpif90 -show | awk '{print $$1}' | awk -F/ '{print $$NF}' | awk -F- '{print $$1}')
 
@@ -16,7 +23,7 @@ ifeq ($(BASE_FCOMP),ifort)
    CFLAGS := -O2
 else ifeq ($(BASE_FCOMP),gfortran)
    $(info "Using gcc/gfortran compilers" )
-   FFLAGS := -O2 -ffree-line-length-none -I${PETSC_DIR}/include
+   FFLAGS := -O2 -ffree-line-length-none -fallow-argument-mismatch -I${PETSC_DIR}/include
    CFLAGS := -O2
 else
    FFLAGS := -O2 -I${PETSC_DIR}/include
