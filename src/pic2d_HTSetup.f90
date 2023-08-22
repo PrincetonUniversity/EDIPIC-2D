@@ -8,6 +8,8 @@ SUBROUTINE PREPARE_HT_SETUP_VALUES
   USE IonParticles
   USE ClusterAndItsBoundaries
 
+  use mpi
+
   IMPLICIT NONE
 
   LOGICAl exists
@@ -209,6 +211,8 @@ SUBROUTINE PrepareYIonizRateDistribIntegral
   USE CurrentProblemValues, ONLY : whole_object
   USE IonParticles, ONLY : N_spec
 
+  use mpi
+
   IMPLICIT NONE
 
   INTEGER N_pnts
@@ -344,9 +348,10 @@ SUBROUTINE PERFORM_IONIZATION_HT_SETUP
 
   USE rng_wrapper
 
+  use mpi
+
   IMPLICIT NONE
 
-  INCLUDE 'mpif.h'
 
   INTEGER ierr
 
@@ -414,6 +419,8 @@ SUBROUTINE GetYCoordIoniz(y)
 
   USE rng_wrapper
 
+  use mpi
+
   IMPLICIT NONE
 
   REAL(8) y
@@ -443,6 +450,8 @@ REAL(8) FUNCTION RateDistrFun(y)
 
   USE SetupValues, ONLY : j_ion_source_1, j_ion_source_2
   
+
+  use mpi
 
   IMPLICIT NONE
 
@@ -474,9 +483,10 @@ SUBROUTINE PERFORM_ELECTRON_EMISSION_HT_SETUP
 
   USE rng_wrapper
 
+  use mpi
+
   IMPLICIT NONE
 
-  INCLUDE 'mpif.h'
 
   INTEGER ierr
 
@@ -618,9 +628,10 @@ SUBROUTINE PERFORM_ELECTRON_EMISSION_HT_SETUP_ZERO_GRAD_F
 
   USE rng_wrapper
 
+  use mpi
+
   IMPLICIT NONE
 
-  INCLUDE 'mpif.h'
 
   INTEGER ierr
   INTEGER stattus(MPI_STATUS_SIZE)
@@ -845,13 +856,13 @@ print '("      Process ",i4," will emit ",i7," electron macroparticles")', Rank_
         IF (Rank_horizontal_right.GE.0) THEN
 ! ## 1 ## send right densities in the right edge
            rbufer(1:2) = temp_c_rho_band(c_indx_x_max-1:c_indx_x_max)
-           CALL MPI_SEND(rbufer, 2, MPI_DOUBLE_PRECISION, Rank_horizontal_right, Rank_horizontal, COMM_HORIZONTAL, request, ierr) 
+           CALL MPI_SEND(rbufer, 2, MPI_DOUBLE_PRECISION, Rank_horizontal_right, Rank_horizontal, COMM_HORIZONTAL, ierr) 
         END IF
 
         IF (Rank_horizontal_left.GE.0) THEN
 ! ## 2 ## send left densities in the left edge
            rbufer(1:2) = temp_c_rho_band(c_indx_x_min:c_indx_x_min+1)
-           CALL MPI_SEND(rbufer, 2, MPI_DOUBLE_PRECISION, Rank_horizontal_left, Rank_horizontal, COMM_HORIZONTAL, request, ierr) 
+           CALL MPI_SEND(rbufer, 2, MPI_DOUBLE_PRECISION, Rank_horizontal_left, Rank_horizontal, COMM_HORIZONTAL, ierr) 
         END IF
 
         IF (Rank_horizontal_left.GE.0) THEN
@@ -884,13 +895,13 @@ print '("      Process ",i4," will emit ",i7," electron macroparticles")', Rank_
         IF (Rank_horizontal_right.GE.0) THEN
 ! ## 3 ## send right densities in the right edge
            rbufer(1:2) = temp_c_rho_band(c_indx_x_max-1:c_indx_x_max)
-           CALL MPI_SEND(rbufer, 2, MPI_DOUBLE_PRECISION, Rank_horizontal_right, Rank_horizontal, COMM_HORIZONTAL, request, ierr) 
+           CALL MPI_SEND(rbufer, 2, MPI_DOUBLE_PRECISION, Rank_horizontal_right, Rank_horizontal, COMM_HORIZONTAL, ierr) 
         END IF
 
         IF (Rank_horizontal_left.GE.0) THEN
 ! ## 4 ## send left densities in the left edge
            rbufer(1:2) = temp_c_rho_band(c_indx_x_min:c_indx_x_min+1)
-           CALL MPI_SEND(rbufer, 2, MPI_DOUBLE_PRECISION, Rank_horizontal_left, Rank_horizontal, COMM_HORIZONTAL, request, ierr) 
+           CALL MPI_SEND(rbufer, 2, MPI_DOUBLE_PRECISION, Rank_horizontal_left, Rank_horizontal, COMM_HORIZONTAL, ierr) 
         END IF
 
      END IF
@@ -919,6 +930,8 @@ SUBROUTINE INITIATE_WALL_DIAGNOSTICS_HT_SETUP
   USE Checkpoints
   USE Diagnostics
   USE SetupValues, ONLY : ht_use_e_emission_from_cathode, ht_use_e_emission_from_cathode_zerogradf, ht_emission_constant
+
+  use mpi
 
   IMPLICIT NONE
 
@@ -978,6 +991,8 @@ SUBROUTINE SAVE_BOUNDARY_PARTICLE_HITS_EMISSIONS_HT_SETUP
   USE CurrentProblemValues
   USE SetupValues, ONLY : total_cathode_N_e_to_inject, total_cathode_N_e_injected, &
                         & ht_use_e_emission_from_cathode, ht_use_e_emission_from_cathode_zerogradf, ht_emission_constant
+
+  use mpi
 
   IMPLICIT NONE
 

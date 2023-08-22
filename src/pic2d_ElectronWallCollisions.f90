@@ -6,9 +6,10 @@ SUBROUTINE PROCESS_ELECTRON_COLL_WITH_BOUNDARY_LEFT(x, y, vx, vy, vz, tag)
   USE ClusterAndItsBoundaries
   USE CurrentProblemValues, ONLY : whole_object, VACUUM_GAP, METAL_WALL, DIELECTRIC
 
+  use mpi
+
   IMPLICIT NONE
 
-  INCLUDE 'mpif.h'
 
   INTEGER errcode,ierr
 
@@ -79,9 +80,10 @@ SUBROUTINE PROCESS_ELECTRON_COLL_WITH_BOUNDARY_RIGHT(x, y, vx, vy, vz, tag)
   USE ClusterAndItsBoundaries
   USE CurrentProblemValues, ONLY : whole_object, VACUUM_GAP, METAL_WALL, DIELECTRIC
 
+  use mpi
+
   IMPLICIT NONE
 
-  INCLUDE 'mpif.h'
 
   INTEGER errcode,ierr
 
@@ -152,9 +154,10 @@ SUBROUTINE PROCESS_ELECTRON_COLL_WITH_BOUNDARY_BELOW(x, y, vx, vy, vz, tag)
   USE ClusterAndItsBoundaries
   USE CurrentProblemValues, ONLY : whole_object, VACUUM_GAP, METAL_WALL, DIELECTRIC
 
+  use mpi
+
   IMPLICIT NONE
 
-  INCLUDE 'mpif.h'
 
   INTEGER errcode,ierr
 
@@ -225,9 +228,10 @@ SUBROUTINE PROCESS_ELECTRON_COLL_WITH_BOUNDARY_ABOVE(x, y, vx, vy, vz, tag)
   USE ClusterAndItsBoundaries
   USE CurrentProblemValues, ONLY : whole_object, VACUUM_GAP, METAL_WALL, DIELECTRIC
 
+  use mpi
+
   IMPLICIT NONE
 
-  INCLUDE 'mpif.h'
 
   INTEGER errcode,ierr
 
@@ -299,9 +303,10 @@ SUBROUTINE COLLECT_ELECTRON_BOUNDARY_HITS
   USE ClusterAndItsBoundaries
   USE IonParticles, ONLY : N_spec
 
+  use mpi
+
   IMPLICIT NONE
 
-  INCLUDE 'mpif.h'
 
   INTEGER ierr
 !  INTEGER stattus(MPI_STATUS_SIZE)
@@ -349,6 +354,8 @@ SUBROUTINE INITIATE_WALL_DIAGNOSTICS
   USE Checkpoints, ONLY : use_checkpoint
 !  USE Diagnostics, ONLY : N_of_saved_records
   USE SetupValues, ONLY : ht_use_e_emission_from_cathode, ht_use_e_emission_from_cathode_zerogradf, ht_emission_constant
+
+  use mpi
 
   IMPLICIT NONE
 
@@ -423,6 +430,8 @@ SUBROUTINE SAVE_BOUNDARY_PARTICLE_HITS_EMISSIONS
   USE IonParticles, ONLY : N_spec, Qs
   USE ExternalCircuit
 
+  use mpi
+
   IMPLICIT NONE
 
   INTEGER nn, noi, s
@@ -477,9 +486,10 @@ SUBROUTINE TRY_ELECTRON_COLL_WITH_INNER_OBJECT(x, y, vx, vy, vz, tag) !, myobjec
   USE ClusterAndItsBoundaries
   USE CurrentProblemValues !, ONLY : inner_object, METAL_WALL, DIELECTRIC
 
+  use mpi
+
   IMPLICIT NONE
 
-  INCLUDE 'mpif.h'
 
   INTEGER errcode,ierr
 
@@ -569,6 +579,8 @@ SUBROUTINE DO_ELECTRON_COLL_WITH_INNER_OBJECT(x, y, vx, vy, vz, tag, myobject, c
   USE ClusterAndItsBoundaries
   USE CurrentProblemValues !, ONLY : inner_object, METAL_WALL, DIELECTRIC
 
+  use mpi
+
   IMPLICIT NONE
 
 !  INTEGER nio  ! number of the inner object
@@ -654,6 +666,8 @@ END SUBROUTINE DO_ELECTRON_COLL_WITH_INNER_OBJECT
 SUBROUTINE FIND_CLOSEST_INTERSECTION_WITH_OBJECT(xorg, yorg, x, y, n, mcross, xcross, ycross, distorg)
 
   USE CurrentProblemValues !, ONLY : inner_object, METAL_WALL, DIELECTRIC
+
+  use mpi
 
   IMPLICIT NONE
 
@@ -753,6 +767,8 @@ SUBROUTINE CHECK_INTERSECTION_WITH_VERTICAL_SEGMENT( xorg, yorg, x, y, xseg, ymi
 
   use, intrinsic :: ieee_arithmetic
 
+  use mpi
+
   IMPLICIT NONE
 
   REAL(8), INTENT(IN) :: xorg, yorg, x, y          ! coordinates of the ends of particle trajectory segment
@@ -796,6 +812,8 @@ END SUBROUTINE CHECK_INTERSECTION_WITH_VERTICAL_SEGMENT
 SUBROUTINE CHECK_INTERSECTION_WITH_HORIZONTAL_SEGMENT( xorg, yorg, x, y, yseg, xminseg, xmaxseg, mystatus, xcross )
 
   use, intrinsic :: ieee_arithmetic
+
+  use mpi
 
   IMPLICIT NONE
 
@@ -842,9 +860,10 @@ SUBROUTINE PrepareMaxwellDistribIntegral
   USE ParallelOperationValues
   USE MaxwellVelocity
 !  USE CurrentProblemValues, ONLY : N_box_vel
+  use mpi
+
   IMPLICIT NONE
 
-  INCLUDE 'mpif.h'
 
   INTEGER errcode,ierr
 
@@ -942,6 +961,8 @@ SUBROUTINE GetInjMaxwellVelocity(U)
  
   USE rng_wrapper
 
+  use mpi
+
   IMPLICIT NONE
 
   REAL(8) U
@@ -970,6 +991,8 @@ SUBROUTINE GetMaxwellVelocity(U)
 
   USE rng_wrapper
 
+  use mpi
+
   IMPLICIT NONE
 
   REAL(8) U
@@ -994,6 +1017,8 @@ END SUBROUTINE GetMaxwellVelocity
 !
 REAL(8) FUNCTION vector_product_z(ax, ay, bx, by)
 
+  use mpi
+
   IMPLICIT NONE
   REAL(8) ax, ay, bx, by
 
@@ -1007,6 +1032,8 @@ SUBROUTINE ADD_ELECTRON_TO_BO_COLLS_LIST(coll_coord, vx, vy, vz, tag, nwo, nseg)
 
   USE CurrentProblemValues, ONLY : e_colls_with_bo
   USE Snapshots
+
+  use mpi
 
   IMPLICIT NONE
 

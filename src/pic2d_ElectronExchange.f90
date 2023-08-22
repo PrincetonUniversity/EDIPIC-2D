@@ -6,9 +6,9 @@ SUBROUTINE EXCHANGE_ELECTRONS_WITH_LEFT_RIGHT_NEIGHBOURS
   USE ElectronParticles
   USE ClusterAndItsBoundaries, ONLY : c_X_area_min, c_X_area_max, c_Y_area_min, c_Y_area_max
 
-  IMPLICIT NONE
+  use mpi
 
-  INCLUDE 'mpif.h'
+  IMPLICIT NONE
 
   INTEGER total_part_number_to_receive
   INTEGER n
@@ -97,7 +97,7 @@ SUBROUTINE EXCHANGE_ELECTRONS_WITH_LEFT_RIGHT_NEIGHBOURS
         END DO
      ELSE
 ! send the number of particles
-        CALL MPI_SEND(N_e_to_send_right, 1, MPI_INTEGER, MOD(Rank_cluster,N_processes_cluster_right), 0, COMM_CLUSTER, request, ierr) 
+        CALL MPI_SEND(N_e_to_send_right, 1, MPI_INTEGER, MOD(Rank_cluster,N_processes_cluster_right), 0, COMM_CLUSTER, ierr) 
         IF (N_e_to_send_right.GT.0) THEN
 ! prepare array to send
            ALLOCATE(rbufer(1:N_e_to_send_right*6), STAT=ALLOC_ERR)
@@ -112,7 +112,7 @@ SUBROUTINE EXCHANGE_ELECTRONS_WITH_LEFT_RIGHT_NEIGHBOURS
               pos = pos+6
            END DO
 ! send particles
-           CALL MPI_SEND(rbufer, N_e_to_send_right*6, MPI_DOUBLE_PRECISION, MOD(Rank_cluster,N_processes_cluster_right), Rank_cluster, COMM_CLUSTER, request, ierr)     
+           CALL MPI_SEND(rbufer, N_e_to_send_right*6, MPI_DOUBLE_PRECISION, MOD(Rank_cluster,N_processes_cluster_right), Rank_cluster, COMM_CLUSTER, ierr)     
 ! clear the counter
            N_e_to_send_right = 0
            DEALLOCATE(rbufer, STAT=ALLOC_ERR)
@@ -188,7 +188,7 @@ SUBROUTINE EXCHANGE_ELECTRONS_WITH_LEFT_RIGHT_NEIGHBOURS
         END DO
      ELSE
 ! send the number of particles
-        CALL MPI_SEND(N_e_to_send_left, 1, MPI_INTEGER, MOD(Rank_cluster,N_processes_cluster_left), 0, COMM_CLUSTER, request, ierr) 
+        CALL MPI_SEND(N_e_to_send_left, 1, MPI_INTEGER, MOD(Rank_cluster,N_processes_cluster_left), 0, COMM_CLUSTER, ierr) 
         IF (N_e_to_send_left.GT.0) THEN
 ! prepare array to send
            ALLOCATE(rbufer(1:N_e_to_send_left*6), STAT=ALLOC_ERR)
@@ -203,7 +203,7 @@ SUBROUTINE EXCHANGE_ELECTRONS_WITH_LEFT_RIGHT_NEIGHBOURS
               pos = pos+6
            END DO
 ! send particles
-           CALL MPI_SEND(rbufer, N_e_to_send_left*6, MPI_DOUBLE_PRECISION, MOD(Rank_cluster,N_processes_cluster_left), Rank_cluster, COMM_CLUSTER, request, ierr)     
+           CALL MPI_SEND(rbufer, N_e_to_send_left*6, MPI_DOUBLE_PRECISION, MOD(Rank_cluster,N_processes_cluster_left), Rank_cluster, COMM_CLUSTER, ierr)     
 ! clear the counter
            N_e_to_send_left = 0
            DEALLOCATE(rbufer, STAT=ALLOC_ERR)
@@ -219,7 +219,7 @@ SUBROUTINE EXCHANGE_ELECTRONS_WITH_LEFT_RIGHT_NEIGHBOURS
 
 ! ##  1 ## send right the number of particles ----------------------------------
      IF (Rank_horizontal_right.GE.0) THEN
-        CALL MPI_SEND(N_e_to_send_right, 1, MPI_INTEGER, Rank_horizontal_right, 0, COMM_HORIZONTAL, request, ierr) 
+        CALL MPI_SEND(N_e_to_send_right, 1, MPI_INTEGER, Rank_horizontal_right, 0, COMM_HORIZONTAL, ierr) 
 
 ! ##  2 ## send right the particles
         IF (N_e_to_send_right.GT.0) THEN
@@ -235,7 +235,7 @@ SUBROUTINE EXCHANGE_ELECTRONS_WITH_LEFT_RIGHT_NEIGHBOURS
               pos = pos+6
            END DO
 ! send particles to right neighbor
-           CALL MPI_SEND(rbufer, N_e_to_send_right*6, MPI_DOUBLE_PRECISION, Rank_horizontal_right, Rank_horizontal, COMM_HORIZONTAL, request, ierr)     
+           CALL MPI_SEND(rbufer, N_e_to_send_right*6, MPI_DOUBLE_PRECISION, Rank_horizontal_right, Rank_horizontal, COMM_HORIZONTAL, ierr)     
 ! clear the counter
            N_e_to_send_right = 0
            DEALLOCATE(rbufer, STAT=ALLOC_ERR)
@@ -246,7 +246,7 @@ SUBROUTINE EXCHANGE_ELECTRONS_WITH_LEFT_RIGHT_NEIGHBOURS
 
 ! ##  3 ## send left the number of particles
      IF (Rank_horizontal_left.GE.0) THEN
-        CALL MPI_SEND(N_e_to_send_left, 1, MPI_INTEGER, Rank_horizontal_left, 0, COMM_HORIZONTAL, request, ierr) 
+        CALL MPI_SEND(N_e_to_send_left, 1, MPI_INTEGER, Rank_horizontal_left, 0, COMM_HORIZONTAL, ierr) 
 
 ! ##  4 ## send left the particles
         IF (N_e_to_send_left.GT.0) THEN
@@ -262,7 +262,7 @@ SUBROUTINE EXCHANGE_ELECTRONS_WITH_LEFT_RIGHT_NEIGHBOURS
               pos = pos+6
            END DO
 ! send particles to left neighbor
-           CALL MPI_SEND(rbufer, N_e_to_send_left*6, MPI_DOUBLE_PRECISION, Rank_horizontal_left, Rank_horizontal, COMM_HORIZONTAL, request, ierr)     
+           CALL MPI_SEND(rbufer, N_e_to_send_left*6, MPI_DOUBLE_PRECISION, Rank_horizontal_left, Rank_horizontal, COMM_HORIZONTAL, ierr)     
 ! clear the counter
            N_e_to_send_left = 0
            DEALLOCATE(rbufer, STAT=ALLOC_ERR)
@@ -441,7 +441,7 @@ SUBROUTINE EXCHANGE_ELECTRONS_WITH_LEFT_RIGHT_NEIGHBOURS
 
 ! ##  5 ## send right the number of particles ----------------------------------
      IF (Rank_horizontal_right.GE.0) THEN
-        CALL MPI_SEND(N_e_to_send_right, 1, MPI_INTEGER, Rank_horizontal_right, 0, COMM_HORIZONTAL, request, ierr) 
+        CALL MPI_SEND(N_e_to_send_right, 1, MPI_INTEGER, Rank_horizontal_right, 0, COMM_HORIZONTAL, ierr) 
 
 ! ##  6 ## send right the particles
         IF (N_e_to_send_right.GT.0) THEN
@@ -463,7 +463,7 @@ SUBROUTINE EXCHANGE_ELECTRONS_WITH_LEFT_RIGHT_NEIGHBOURS
               END DO
            END IF
 ! send particles to right neighbor
-           CALL MPI_SEND(rbufer, N_e_to_send_right*6, MPI_DOUBLE_PRECISION, Rank_horizontal_right, Rank_horizontal, COMM_HORIZONTAL, request, ierr)     
+           CALL MPI_SEND(rbufer, N_e_to_send_right*6, MPI_DOUBLE_PRECISION, Rank_horizontal_right, Rank_horizontal, COMM_HORIZONTAL, ierr)     
 ! clear the counter
            N_e_to_send_right = 0
            DEALLOCATE(rbufer, STAT=ALLOC_ERR)
@@ -474,7 +474,7 @@ SUBROUTINE EXCHANGE_ELECTRONS_WITH_LEFT_RIGHT_NEIGHBOURS
 
 ! ##  7 ## send left the number of particles
      IF (Rank_horizontal_left.GE.0) THEN
-        CALL MPI_SEND(N_e_to_send_left, 1, MPI_INTEGER, Rank_horizontal_left, 0, COMM_HORIZONTAL, request, ierr) 
+        CALL MPI_SEND(N_e_to_send_left, 1, MPI_INTEGER, Rank_horizontal_left, 0, COMM_HORIZONTAL, ierr) 
 
 ! ##  8 ## send left the particles
         IF (N_e_to_send_left.GT.0) THEN
@@ -496,7 +496,7 @@ SUBROUTINE EXCHANGE_ELECTRONS_WITH_LEFT_RIGHT_NEIGHBOURS
               END DO
            END IF
 ! send particles to left neighbor
-           CALL MPI_SEND(rbufer, N_e_to_send_left*6, MPI_DOUBLE_PRECISION, Rank_horizontal_left, Rank_horizontal, COMM_HORIZONTAL, request, ierr)     
+           CALL MPI_SEND(rbufer, N_e_to_send_left*6, MPI_DOUBLE_PRECISION, Rank_horizontal_left, Rank_horizontal, COMM_HORIZONTAL, ierr)     
 ! clear the counter
            N_e_to_send_left = 0
            DEALLOCATE(rbufer, STAT=ALLOC_ERR)
@@ -521,9 +521,9 @@ SUBROUTINE EXCHANGE_ELECTRONS_WITH_ABOVE_BELOW_NEIGHBOURS
   USE ElectronParticles
   USE ClusterAndItsBoundaries, ONLY : c_X_area_min, c_X_area_max, c_Y_area_min, c_Y_area_max
 
-  IMPLICIT NONE
+  use mpi
 
-  INCLUDE 'mpif.h'
+  IMPLICIT NONE
 
   INTEGER total_part_number_to_receive
   INTEGER n
@@ -611,7 +611,7 @@ SUBROUTINE EXCHANGE_ELECTRONS_WITH_ABOVE_BELOW_NEIGHBOURS
         END DO
      ELSE
 ! send the number of particles
-        CALL MPI_SEND(N_e_to_send_above, 1, MPI_INTEGER, MOD(Rank_cluster,N_processes_cluster_above), 0, COMM_CLUSTER, request, ierr) 
+        CALL MPI_SEND(N_e_to_send_above, 1, MPI_INTEGER, MOD(Rank_cluster,N_processes_cluster_above), 0, COMM_CLUSTER, ierr) 
         IF (N_e_to_send_above.GT.0) THEN
 ! prepare array to send
            ALLOCATE(rbufer(1:N_e_to_send_above*6), STAT=ALLOC_ERR)
@@ -626,7 +626,7 @@ SUBROUTINE EXCHANGE_ELECTRONS_WITH_ABOVE_BELOW_NEIGHBOURS
               pos = pos+6
            END DO
 ! send particles
-           CALL MPI_SEND(rbufer, N_e_to_send_above*6, MPI_DOUBLE_PRECISION, MOD(Rank_cluster,N_processes_cluster_above), Rank_cluster, COMM_CLUSTER, request, ierr)     
+           CALL MPI_SEND(rbufer, N_e_to_send_above*6, MPI_DOUBLE_PRECISION, MOD(Rank_cluster,N_processes_cluster_above), Rank_cluster, COMM_CLUSTER, ierr)     
 ! clear the counter
            N_e_to_send_above = 0
            DEALLOCATE(rbufer, STAT=ALLOC_ERR)
@@ -702,7 +702,7 @@ SUBROUTINE EXCHANGE_ELECTRONS_WITH_ABOVE_BELOW_NEIGHBOURS
         END DO
      ELSE
 ! send the number of particles
-        CALL MPI_SEND(N_e_to_send_below, 1, MPI_INTEGER, MOD(Rank_cluster,N_processes_cluster_below), 0, COMM_CLUSTER, request, ierr) 
+        CALL MPI_SEND(N_e_to_send_below, 1, MPI_INTEGER, MOD(Rank_cluster,N_processes_cluster_below), 0, COMM_CLUSTER, ierr) 
         IF (N_e_to_send_below.GT.0) THEN
 ! prepare array to send
            ALLOCATE(rbufer(1:N_e_to_send_below*6), STAT=ALLOC_ERR)
@@ -717,7 +717,7 @@ SUBROUTINE EXCHANGE_ELECTRONS_WITH_ABOVE_BELOW_NEIGHBOURS
               pos = pos+6
            END DO
 ! send particles
-           CALL MPI_SEND(rbufer, N_e_to_send_below*6, MPI_DOUBLE_PRECISION, MOD(Rank_cluster,N_processes_cluster_below), Rank_cluster, COMM_CLUSTER, request, ierr)     
+           CALL MPI_SEND(rbufer, N_e_to_send_below*6, MPI_DOUBLE_PRECISION, MOD(Rank_cluster,N_processes_cluster_below), Rank_cluster, COMM_CLUSTER, ierr)     
 ! clear the counter
            N_e_to_send_below = 0
            DEALLOCATE(rbufer, STAT=ALLOC_ERR)
@@ -733,7 +733,7 @@ SUBROUTINE EXCHANGE_ELECTRONS_WITH_ABOVE_BELOW_NEIGHBOURS
 
 ! ##  9 ## send up the number of particles -------------------------------------
      IF (Rank_horizontal_above.GE.0) THEN
-        CALL MPI_SEND(N_e_to_send_above, 1, MPI_INTEGER, Rank_horizontal_above, 0, COMM_HORIZONTAL, request, ierr) 
+        CALL MPI_SEND(N_e_to_send_above, 1, MPI_INTEGER, Rank_horizontal_above, 0, COMM_HORIZONTAL, ierr) 
 
 ! ## 10 ## send up the particles
         IF (N_e_to_send_above.GT.0) THEN
@@ -749,7 +749,7 @@ SUBROUTINE EXCHANGE_ELECTRONS_WITH_ABOVE_BELOW_NEIGHBOURS
               pos = pos+6
            END DO
 ! send particles to neighbor above
-           CALL MPI_SEND(rbufer, N_e_to_send_above*6, MPI_DOUBLE_PRECISION, Rank_horizontal_above, Rank_horizontal, COMM_HORIZONTAL, request, ierr)     
+           CALL MPI_SEND(rbufer, N_e_to_send_above*6, MPI_DOUBLE_PRECISION, Rank_horizontal_above, Rank_horizontal, COMM_HORIZONTAL, ierr)     
 ! clear the counter
            N_e_to_send_above = 0
            DEALLOCATE(rbufer, STAT=ALLOC_ERR)
@@ -760,7 +760,7 @@ SUBROUTINE EXCHANGE_ELECTRONS_WITH_ABOVE_BELOW_NEIGHBOURS
 
 ! ## 11 ## send down the number of particles
      IF (Rank_horizontal_below.GE.0) THEN
-        CALL MPI_SEND(N_e_to_send_below, 1, MPI_INTEGER, Rank_horizontal_below, 0, COMM_HORIZONTAL, request, ierr) 
+        CALL MPI_SEND(N_e_to_send_below, 1, MPI_INTEGER, Rank_horizontal_below, 0, COMM_HORIZONTAL, ierr) 
 
 ! ## 12 ## send down the particles
         IF (N_e_to_send_below.GT.0) THEN
@@ -776,7 +776,7 @@ SUBROUTINE EXCHANGE_ELECTRONS_WITH_ABOVE_BELOW_NEIGHBOURS
               pos = pos+6
            END DO
 ! send particles to neighbor below
-           CALL MPI_SEND(rbufer, N_e_to_send_below*6, MPI_DOUBLE_PRECISION, Rank_horizontal_below, Rank_horizontal, COMM_HORIZONTAL, request, ierr)     
+           CALL MPI_SEND(rbufer, N_e_to_send_below*6, MPI_DOUBLE_PRECISION, Rank_horizontal_below, Rank_horizontal, COMM_HORIZONTAL, ierr)     
 ! clear the counter
            N_e_to_send_below = 0
            DEALLOCATE(rbufer, STAT=ALLOC_ERR)
@@ -960,7 +960,7 @@ SUBROUTINE EXCHANGE_ELECTRONS_WITH_ABOVE_BELOW_NEIGHBOURS
 
 ! ## 13 ## send up the number of particles -------------------------------------
      IF (Rank_horizontal_above.GE.0) THEN
-        CALL MPI_SEND(N_e_to_send_above, 1, MPI_INTEGER, Rank_horizontal_above, 0, COMM_HORIZONTAL, request, ierr) 
+        CALL MPI_SEND(N_e_to_send_above, 1, MPI_INTEGER, Rank_horizontal_above, 0, COMM_HORIZONTAL, ierr) 
 
 ! ## 14 ## send up the particles
         IF (N_e_to_send_above.GT.0) THEN
@@ -982,7 +982,7 @@ SUBROUTINE EXCHANGE_ELECTRONS_WITH_ABOVE_BELOW_NEIGHBOURS
               END DO
            END IF
 ! send particles to neighbor above
-           CALL MPI_SEND(rbufer, N_e_to_send_above*6, MPI_DOUBLE_PRECISION, Rank_horizontal_above, Rank_horizontal, COMM_HORIZONTAL, request, ierr)     
+           CALL MPI_SEND(rbufer, N_e_to_send_above*6, MPI_DOUBLE_PRECISION, Rank_horizontal_above, Rank_horizontal, COMM_HORIZONTAL, ierr)     
 ! clear the counter
            N_e_to_send_above = 0
            DEALLOCATE(rbufer, STAT=ALLOC_ERR)
@@ -993,7 +993,7 @@ SUBROUTINE EXCHANGE_ELECTRONS_WITH_ABOVE_BELOW_NEIGHBOURS
 
 ! ## 15 ## send down the number of particles
      IF (Rank_horizontal_below.GE.0) THEN
-        CALL MPI_SEND(N_e_to_send_below, 1, MPI_INTEGER, Rank_horizontal_below, 0, COMM_HORIZONTAL, request, ierr) 
+        CALL MPI_SEND(N_e_to_send_below, 1, MPI_INTEGER, Rank_horizontal_below, 0, COMM_HORIZONTAL, ierr) 
 
 ! ## 16 ## send down the particles
         IF (N_e_to_send_below.GT.0) THEN
@@ -1015,7 +1015,7 @@ SUBROUTINE EXCHANGE_ELECTRONS_WITH_ABOVE_BELOW_NEIGHBOURS
               END DO
            END IF
 ! send particles to neighbor below
-           CALL MPI_SEND(rbufer, N_e_to_send_below*6, MPI_DOUBLE_PRECISION, Rank_horizontal_below, Rank_horizontal, COMM_HORIZONTAL, request, ierr)     
+           CALL MPI_SEND(rbufer, N_e_to_send_below*6, MPI_DOUBLE_PRECISION, Rank_horizontal_below, Rank_horizontal, COMM_HORIZONTAL, ierr)     
 ! clear the counter
            N_e_to_send_below = 0
            DEALLOCATE(rbufer, STAT=ALLOC_ERR)

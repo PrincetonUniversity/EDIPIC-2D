@@ -12,9 +12,10 @@ SUBROUTINE SOLVE_POTENTIAL_WITH_PETSC
   USE BlockAndItsBoundaries
   USE Diagnostics, ONLY : Save_probes_e_data_T_cntr, N_of_probes_block, Probe_params_block_list, probe_F_block
 
+  use mpi
+
   IMPLICIT NONE
 
-  INCLUDE 'mpif.h'
 
   INTEGER errcode,ierr
   INTEGER stattus(MPI_STATUS_SIZE)
@@ -231,13 +232,13 @@ SUBROUTINE SOLVE_POTENTIAL_WITH_PETSC
      IF (Rank_of_process_right.GE.0) THEN
 ! ## 1 ## send right potential in column left of the right edge
         rbufer(1:n1) = phi(indx_x_max-1, indx_y_min:indx_y_max)
-        CALL MPI_SEND(rbufer, n1, MPI_DOUBLE_PRECISION, Rank_of_process_right, Rank_of_process, MPI_COMM_WORLD, request, ierr) 
+        CALL MPI_SEND(rbufer, n1, MPI_DOUBLE_PRECISION, Rank_of_process_right, Rank_of_process, MPI_COMM_WORLD, ierr) 
      END IF
 
      IF (Rank_of_process_left.GE.0) THEN
 ! ## 2 ## send left potential in column right of the left edge
         rbufer(1:n1) = phi(indx_x_min+1, indx_y_min:indx_y_max)
-        CALL MPI_SEND(rbufer, n1, MPI_DOUBLE_PRECISION, Rank_of_process_left, Rank_of_process, MPI_COMM_WORLD, request, ierr) 
+        CALL MPI_SEND(rbufer, n1, MPI_DOUBLE_PRECISION, Rank_of_process_left, Rank_of_process, MPI_COMM_WORLD, ierr) 
      END IF
 
      IF (Rank_of_process_left.GE.0) THEN
@@ -258,13 +259,13 @@ SUBROUTINE SOLVE_POTENTIAL_WITH_PETSC
      IF (Rank_of_process_above.GE.0) THEN
 ! ## 5 ## send up potential in the row below the top edge
         rbufer(1:n3) = phi(indx_x_min:indx_x_max, indx_y_max-1)
-        CALL MPI_SEND(rbufer, n3, MPI_DOUBLE_PRECISION, Rank_of_process_above, Rank_of_process, MPI_COMM_WORLD, request, ierr) 
+        CALL MPI_SEND(rbufer, n3, MPI_DOUBLE_PRECISION, Rank_of_process_above, Rank_of_process, MPI_COMM_WORLD, ierr) 
      END IF
 
      IF (Rank_of_process_below.GE.0) THEN
 ! ## 6 ## send down potential in the row above the bottom edge
         rbufer(1:n3) = phi(indx_x_min:indx_x_max, indx_y_min+1)
-        CALL MPI_SEND(rbufer, n3, MPI_DOUBLE_PRECISION, Rank_of_process_below, Rank_of_process, MPI_COMM_WORLD, request, ierr) 
+        CALL MPI_SEND(rbufer, n3, MPI_DOUBLE_PRECISION, Rank_of_process_below, Rank_of_process, MPI_COMM_WORLD, ierr) 
      END IF
 
      IF (Rank_of_process_below.GE.0) THEN
@@ -300,13 +301,13 @@ SUBROUTINE SOLVE_POTENTIAL_WITH_PETSC
      IF (Rank_of_process_right.GE.0) THEN
 ! ## 3 ## send right potential in column left of the right edge
         rbufer(1:n1) = phi(indx_x_max-1, indx_y_min:indx_y_max)
-        CALL MPI_SEND(rbufer, n1, MPI_DOUBLE_PRECISION, Rank_of_process_right, Rank_of_process, MPI_COMM_WORLD, request, ierr) 
+        CALL MPI_SEND(rbufer, n1, MPI_DOUBLE_PRECISION, Rank_of_process_right, Rank_of_process, MPI_COMM_WORLD, ierr) 
      END IF
 
      IF (Rank_of_process_left.GE.0) THEN
 ! ## 4 ## send left potential in column right of the left edge
         rbufer(1:n1) = phi(indx_x_min+1, indx_y_min:indx_y_max)
-        CALL MPI_SEND(rbufer, n1, MPI_DOUBLE_PRECISION, Rank_of_process_left, Rank_of_process, MPI_COMM_WORLD, request, ierr) 
+        CALL MPI_SEND(rbufer, n1, MPI_DOUBLE_PRECISION, Rank_of_process_left, Rank_of_process, MPI_COMM_WORLD, ierr) 
      END IF
 
      IF (ALLOCATED(rbufer)) DEALLOCATE(rbufer, STAT=ALLOC_ERR)
@@ -327,13 +328,13 @@ SUBROUTINE SOLVE_POTENTIAL_WITH_PETSC
      IF (Rank_of_process_above.GE.0) THEN
 ! ## 7 ## send up potential in the row below the top edge
         rbufer(1:n3) = phi(indx_x_min:indx_x_max, indx_y_max-1)
-        CALL MPI_SEND(rbufer, n3, MPI_DOUBLE_PRECISION, Rank_of_process_above, Rank_of_process, MPI_COMM_WORLD, request, ierr) 
+        CALL MPI_SEND(rbufer, n3, MPI_DOUBLE_PRECISION, Rank_of_process_above, Rank_of_process, MPI_COMM_WORLD, ierr) 
      END IF
 
      IF (Rank_of_process_below.GE.0) THEN
 ! ## 8 ## send down potential in the row above the bottom edge
         rbufer(1:n3) = phi(indx_x_min:indx_x_max, indx_y_min+1)
-        CALL MPI_SEND(rbufer, n3, MPI_DOUBLE_PRECISION, Rank_of_process_below, Rank_of_process, MPI_COMM_WORLD, request, ierr) 
+        CALL MPI_SEND(rbufer, n3, MPI_DOUBLE_PRECISION, Rank_of_process_below, Rank_of_process, MPI_COMM_WORLD, ierr) 
      END IF
 
   END IF
@@ -365,9 +366,10 @@ SUBROUTINE CALCULATE_ELECTRIC_FIELD
   USE BlockAndItsBoundaries
   USE ClusterAndItsBoundaries
 
+  use mpi
+
   IMPLICIT NONE
 
-  INCLUDE 'mpif.h'
 
   INTEGER ierr
   INTEGER stattus(MPI_STATUS_SIZE)
@@ -555,14 +557,14 @@ SUBROUTINE CALCULATE_ELECTRIC_FIELD
 ! ## 1 ## send right electric fields in column left of the right edge
            rbufer(1:n1)           = EX(c_indx_x_max-1, c_indx_y_min:c_indx_y_max)
            rbufer((n1+1):(n1+n1)) = EY(c_indx_x_max-1, c_indx_y_min:c_indx_y_max)
-           CALL MPI_SEND(rbufer, n1+n1, MPI_DOUBLE_PRECISION, Rank_horizontal_right, Rank_horizontal, COMM_HORIZONTAL, request, ierr) 
+           CALL MPI_SEND(rbufer, n1+n1, MPI_DOUBLE_PRECISION, Rank_horizontal_right, Rank_horizontal, COMM_HORIZONTAL, ierr) 
         END IF
 
         IF (Rank_horizontal_left.GE.0) THEN
 ! ## 2 ## send left electric field in column right of the left edge
            rbufer(1:n1)           = EX(c_indx_x_min+1, c_indx_y_min:c_indx_y_max)
            rbufer((n1+1):(n1+n1)) = EY(c_indx_x_min+1, c_indx_y_min:c_indx_y_max)
-           CALL MPI_SEND(rbufer, n1+n1, MPI_DOUBLE_PRECISION, Rank_horizontal_left, Rank_horizontal, COMM_HORIZONTAL, request, ierr) 
+           CALL MPI_SEND(rbufer, n1+n1, MPI_DOUBLE_PRECISION, Rank_horizontal_left, Rank_horizontal, COMM_HORIZONTAL, ierr) 
         END IF
 
         IF (Rank_horizontal_left.GE.0) THEN
@@ -586,14 +588,14 @@ SUBROUTINE CALCULATE_ELECTRIC_FIELD
 ! ## 5 ## send up electric fields in the row below the top edge
            rbufer(1:n3)           = EX(c_indx_x_min:c_indx_x_max, c_indx_y_max-1)
            rbufer((n3+1):(n3+n3)) = EY(c_indx_x_min:c_indx_x_max, c_indx_y_max-1)
-           CALL MPI_SEND(rbufer, n3+n3, MPI_DOUBLE_PRECISION, Rank_horizontal_above, Rank_horizontal, COMM_HORIZONTAL, request, ierr) 
+           CALL MPI_SEND(rbufer, n3+n3, MPI_DOUBLE_PRECISION, Rank_horizontal_above, Rank_horizontal, COMM_HORIZONTAL, ierr) 
         END IF
 
         IF (Rank_horizontal_below.GE.0) THEN
 ! ## 6 ## send down electric fields in the row above the bottom edge
            rbufer(1:n3)           = EX(c_indx_x_min:c_indx_x_max, c_indx_y_min+1)
            rbufer((n3+1):(n3+n3)) = EY(c_indx_x_min:c_indx_x_max, c_indx_y_min+1)
-           CALL MPI_SEND(rbufer, n3+n3, MPI_DOUBLE_PRECISION, Rank_horizontal_below, Rank_horizontal, COMM_HORIZONTAL, request, ierr) 
+           CALL MPI_SEND(rbufer, n3+n3, MPI_DOUBLE_PRECISION, Rank_horizontal_below, Rank_horizontal, COMM_HORIZONTAL, ierr) 
         END IF
 
         IF (Rank_horizontal_below.GE.0) THEN
@@ -634,14 +636,14 @@ SUBROUTINE CALCULATE_ELECTRIC_FIELD
 ! ## 3 ## send right electric fields in column left of the right edge
            rbufer(1:n1)           = EX(c_indx_x_max-1, c_indx_y_min:c_indx_y_max)
            rbufer((n1+1):(n1+n1)) = EY(c_indx_x_max-1, c_indx_y_min:c_indx_y_max)
-           CALL MPI_SEND(rbufer, n1+n1, MPI_DOUBLE_PRECISION, Rank_horizontal_right, Rank_horizontal, COMM_HORIZONTAL, request, ierr) 
+           CALL MPI_SEND(rbufer, n1+n1, MPI_DOUBLE_PRECISION, Rank_horizontal_right, Rank_horizontal, COMM_HORIZONTAL, ierr) 
         END IF
 
         IF (Rank_horizontal_left.GE.0) THEN
 ! ## 4 ## send left electric field in column right of the left edge
            rbufer(1:n1)           = EX(c_indx_x_min+1, c_indx_y_min:c_indx_y_max)
            rbufer((n1+1):(n1+n1)) = EY(c_indx_x_min+1, c_indx_y_min:c_indx_y_max)
-           CALL MPI_SEND(rbufer, n1+n1, MPI_DOUBLE_PRECISION, Rank_horizontal_left, Rank_horizontal, COMM_HORIZONTAL, request, ierr) 
+           CALL MPI_SEND(rbufer, n1+n1, MPI_DOUBLE_PRECISION, Rank_horizontal_left, Rank_horizontal, COMM_HORIZONTAL, ierr) 
         END IF
 
         IF (ALLOCATED(rbufer)) DEALLOCATE(rbufer, STAT=ALLOC_ERR)
@@ -665,14 +667,14 @@ SUBROUTINE CALCULATE_ELECTRIC_FIELD
 ! ## 7 ## send up electric fields in the row below the top edge
            rbufer(1:n3)           = EX(c_indx_x_min:c_indx_x_max, c_indx_y_max-1)
            rbufer((n3+1):(n3+n3)) = EY(c_indx_x_min:c_indx_x_max, c_indx_y_max-1)
-           CALL MPI_SEND(rbufer, n3+n3, MPI_DOUBLE_PRECISION, Rank_horizontal_above, Rank_horizontal, COMM_HORIZONTAL, request, ierr) 
+           CALL MPI_SEND(rbufer, n3+n3, MPI_DOUBLE_PRECISION, Rank_horizontal_above, Rank_horizontal, COMM_HORIZONTAL, ierr) 
         END IF
 
         IF (Rank_horizontal_below.GE.0) THEN
 ! ## 8 ## send down electric fields in the row above the bottom edge
            rbufer(1:n3)           = EX(c_indx_x_min:c_indx_x_max, c_indx_y_min+1)
            rbufer((n3+1):(n3+n3)) = EY(c_indx_x_min:c_indx_x_max, c_indx_y_min+1)
-           CALL MPI_SEND(rbufer, n3+n3, MPI_DOUBLE_PRECISION, Rank_horizontal_below, Rank_horizontal, COMM_HORIZONTAL, request, ierr) 
+           CALL MPI_SEND(rbufer, n3+n3, MPI_DOUBLE_PRECISION, Rank_horizontal_below, Rank_horizontal, COMM_HORIZONTAL, ierr) 
         END IF
 
      END IF
@@ -772,7 +774,7 @@ SUBROUTINE CALCULATE_ELECTRIC_FIELD
         pos1 = pos2 + 1
         pos2 = pos2 + indx_x_max - indx_x_min + 1
      END DO
-     CALL MPI_SEND(rbufer, bufsize, MPI_DOUBLE_PRECISION, field_master, Rank_of_process, MPI_COMM_WORLD, request, ierr) 
+     CALL MPI_SEND(rbufer, bufsize, MPI_DOUBLE_PRECISION, field_master, Rank_of_process, MPI_COMM_WORLD, ierr) 
     
      DEALLOCATE(loc_EX, STAT=ALLOC_ERR)
      DEALLOCATE(loc_EY, STAT=ALLOC_ERR)
@@ -811,6 +813,8 @@ SUBROUTINE CLEAR_ACCUMULATED_FIELDS
 
   USE CurrentProblemValues
   USE ClusterAndItsBoundaries
+
+  use mpi
 
   IMPLICIT NONE
 

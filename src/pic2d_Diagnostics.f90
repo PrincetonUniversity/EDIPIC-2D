@@ -325,9 +325,9 @@ subroutine report_total_number_of_particles
   USE ElectronParticles, ONLY : N_electrons, electron
   USE IonParticles, ONLY : N_spec, N_ions, ion, Ms
 
-  IMPLICIT NONE
+  use mpi
 
-  INCLUDE 'mpif.h'
+  IMPLICIT NONE
 
   INTEGER ierr
   INTEGER stattus(MPI_STATUS_SIZE)

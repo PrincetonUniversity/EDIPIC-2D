@@ -7,9 +7,9 @@ SUBROUTINE EXCHANGE_PARTICLES_WITH_LEFT_RIGHT_NEIGHBOURS
   USE IonParticles
   USE ClusterAndItsBoundaries, ONLY : c_X_area_min, c_X_area_max, c_Y_area_min, c_Y_area_max
 
-  IMPLICIT NONE
+  use mpi
 
-  INCLUDE 'mpif.h'
+  IMPLICIT NONE
 
   INTEGER total_part_number_to_receive(0:N_spec)
   INTEGER n
@@ -169,7 +169,7 @@ SUBROUTINE EXCHANGE_PARTICLES_WITH_LEFT_RIGHT_NEIGHBOURS
 ! send the number of particles
         ibufer(0) = N_e_to_send_right
         ibufer(1:N_spec) = N_ions_to_send_right(1:N_spec)
-        CALL MPI_SEND(ibufer(0:N_spec), N_spec+1, MPI_INTEGER, MOD(Rank_cluster,N_processes_cluster_right), 0, COMM_CLUSTER, request, ierr) 
+        CALL MPI_SEND(ibufer(0:N_spec), N_spec+1, MPI_INTEGER, MOD(Rank_cluster,N_processes_cluster_right), 0, COMM_CLUSTER, ierr) 
         sum_N_part_to_send = N_e_to_send_right
         DO s = 1, N_spec
            sum_N_part_to_send = sum_N_part_to_send + N_ions_to_send_right(s)
@@ -201,7 +201,7 @@ SUBROUTINE EXCHANGE_PARTICLES_WITH_LEFT_RIGHT_NEIGHBOURS
               END DO
            END DO
 ! send particles
-           CALL MPI_SEND(rbufer, sum_N_part_to_send*6, MPI_DOUBLE_PRECISION, MOD(Rank_cluster,N_processes_cluster_right), Rank_cluster, COMM_CLUSTER, request, ierr)     
+           CALL MPI_SEND(rbufer, sum_N_part_to_send*6, MPI_DOUBLE_PRECISION, MOD(Rank_cluster,N_processes_cluster_right), Rank_cluster, COMM_CLUSTER, ierr)     
 ! clear the counters
            N_e_to_send_right = 0
            N_ions_to_send_right = 0
@@ -346,7 +346,7 @@ SUBROUTINE EXCHANGE_PARTICLES_WITH_LEFT_RIGHT_NEIGHBOURS
 ! send the number of particles
         ibufer(0) = N_e_to_send_left
         ibufer(1:N_spec) = N_ions_to_send_left(1:N_spec)
-        CALL MPI_SEND(ibufer(0:N_spec), N_spec+1, MPI_INTEGER, MOD(Rank_cluster,N_processes_cluster_left), 0, COMM_CLUSTER, request, ierr) 
+        CALL MPI_SEND(ibufer(0:N_spec), N_spec+1, MPI_INTEGER, MOD(Rank_cluster,N_processes_cluster_left), 0, COMM_CLUSTER, ierr) 
         sum_N_part_to_send = N_e_to_send_left
         DO s = 1, N_spec
            sum_N_part_to_send = sum_N_part_to_send + N_ions_to_send_left(s)
@@ -378,7 +378,7 @@ SUBROUTINE EXCHANGE_PARTICLES_WITH_LEFT_RIGHT_NEIGHBOURS
               END DO
            END DO
 ! send particles
-           CALL MPI_SEND(rbufer, sum_N_part_to_send*6, MPI_DOUBLE_PRECISION, MOD(Rank_cluster,N_processes_cluster_left), Rank_cluster, COMM_CLUSTER, request, ierr)     
+           CALL MPI_SEND(rbufer, sum_N_part_to_send*6, MPI_DOUBLE_PRECISION, MOD(Rank_cluster,N_processes_cluster_left), Rank_cluster, COMM_CLUSTER, ierr)     
 ! clear the counter
            N_e_to_send_left = 0
            N_ions_to_send_left = 0
@@ -403,7 +403,7 @@ SUBROUTINE EXCHANGE_PARTICLES_WITH_LEFT_RIGHT_NEIGHBOURS
            sum_N_part_to_send = sum_N_part_to_send + N_ions_to_send_right(s)
         END DO
         
-        CALL MPI_SEND(ibufer, N_spec+1, MPI_INTEGER, Rank_horizontal_right, 0, COMM_HORIZONTAL, request, ierr) 
+        CALL MPI_SEND(ibufer, N_spec+1, MPI_INTEGER, Rank_horizontal_right, 0, COMM_HORIZONTAL, ierr) 
 
 ! ##  2 ## send right the particles
         IF (sum_N_part_to_send.GT.0) THEN
@@ -432,7 +432,7 @@ SUBROUTINE EXCHANGE_PARTICLES_WITH_LEFT_RIGHT_NEIGHBOURS
               END DO
            END DO
 ! send particles to right neighbor
-           CALL MPI_SEND(rbufer, sum_N_part_to_send*6, MPI_DOUBLE_PRECISION, Rank_horizontal_right, Rank_horizontal, COMM_HORIZONTAL, request, ierr)     
+           CALL MPI_SEND(rbufer, sum_N_part_to_send*6, MPI_DOUBLE_PRECISION, Rank_horizontal_right, Rank_horizontal, COMM_HORIZONTAL, ierr)     
 ! clear the counters
            N_e_to_send_right = 0
            N_ions_to_send_right = 0
@@ -452,7 +452,7 @@ SUBROUTINE EXCHANGE_PARTICLES_WITH_LEFT_RIGHT_NEIGHBOURS
            sum_N_part_to_send = sum_N_part_to_send + N_ions_to_send_left(s)
         END DO
         
-        CALL MPI_SEND(ibufer, N_spec+1, MPI_INTEGER, Rank_horizontal_left, 0, COMM_HORIZONTAL, request, ierr) 
+        CALL MPI_SEND(ibufer, N_spec+1, MPI_INTEGER, Rank_horizontal_left, 0, COMM_HORIZONTAL, ierr) 
 
 ! ##  4 ## send left the particles
         IF (sum_N_part_to_send.GT.0) THEN
@@ -482,7 +482,7 @@ SUBROUTINE EXCHANGE_PARTICLES_WITH_LEFT_RIGHT_NEIGHBOURS
               END DO
            END DO
 ! send particles to left neighbor
-           CALL MPI_SEND(rbufer, sum_N_part_to_send*6, MPI_DOUBLE_PRECISION, Rank_horizontal_left, Rank_horizontal, COMM_HORIZONTAL, request, ierr)     
+           CALL MPI_SEND(rbufer, sum_N_part_to_send*6, MPI_DOUBLE_PRECISION, Rank_horizontal_left, Rank_horizontal, COMM_HORIZONTAL, ierr)     
 ! clear the counters
            N_e_to_send_left = 0
            N_ions_to_send_left = 0
@@ -793,7 +793,7 @@ SUBROUTINE EXCHANGE_PARTICLES_WITH_LEFT_RIGHT_NEIGHBOURS
            sum_N_part_to_send = sum_N_part_to_send + N_ions_to_send_right(s)
         END DO
         
-        CALL MPI_SEND(ibufer, N_spec+1, MPI_INTEGER, Rank_horizontal_right, 0, COMM_HORIZONTAL, request, ierr) 
+        CALL MPI_SEND(ibufer, N_spec+1, MPI_INTEGER, Rank_horizontal_right, 0, COMM_HORIZONTAL, ierr) 
 
 ! ##  6 ## send right the particles
         IF (sum_N_part_to_send.GT.0) THEN
@@ -822,7 +822,7 @@ SUBROUTINE EXCHANGE_PARTICLES_WITH_LEFT_RIGHT_NEIGHBOURS
               END DO
            END DO
 ! send particles to right neighbor
-           CALL MPI_SEND(rbufer, sum_N_part_to_send*6, MPI_DOUBLE_PRECISION, Rank_horizontal_right, Rank_horizontal, COMM_HORIZONTAL, request, ierr)     
+           CALL MPI_SEND(rbufer, sum_N_part_to_send*6, MPI_DOUBLE_PRECISION, Rank_horizontal_right, Rank_horizontal, COMM_HORIZONTAL, ierr)     
 ! clear the counters
            N_e_to_send_right = 0
            N_ions_to_send_right = 0
@@ -840,7 +840,7 @@ SUBROUTINE EXCHANGE_PARTICLES_WITH_LEFT_RIGHT_NEIGHBOURS
            sum_N_part_to_send = sum_N_part_to_send + N_ions_to_send_left(s)
         END DO
         
-        CALL MPI_SEND(ibufer, N_spec+1, MPI_INTEGER, Rank_horizontal_left, 0, COMM_HORIZONTAL, request, ierr) 
+        CALL MPI_SEND(ibufer, N_spec+1, MPI_INTEGER, Rank_horizontal_left, 0, COMM_HORIZONTAL, ierr) 
 
 ! ##  8 ## send left the particles
         IF (sum_N_part_to_send.GT.0) THEN
@@ -870,7 +870,7 @@ SUBROUTINE EXCHANGE_PARTICLES_WITH_LEFT_RIGHT_NEIGHBOURS
               END DO
            END DO
 ! send particles to left neighbor
-           CALL MPI_SEND(rbufer, sum_N_part_to_send*6, MPI_DOUBLE_PRECISION, Rank_horizontal_left, Rank_horizontal, COMM_HORIZONTAL, request, ierr)     
+           CALL MPI_SEND(rbufer, sum_N_part_to_send*6, MPI_DOUBLE_PRECISION, Rank_horizontal_left, Rank_horizontal, COMM_HORIZONTAL, ierr)     
 ! clear the counters
            N_e_to_send_left = 0
            N_ions_to_send_left = 0
@@ -895,9 +895,9 @@ SUBROUTINE EXCHANGE_PARTICLES_WITH_ABOVE_BELOW_NEIGHBOURS
   USE IonParticles
   USE ClusterAndItsBoundaries, ONLY : c_X_area_min, c_X_area_max, c_Y_area_min, c_Y_area_max
 
-  IMPLICIT NONE
+  use mpi
 
-  INCLUDE 'mpif.h'
+  IMPLICIT NONE
 
   INTEGER total_part_number_to_receive(0:N_spec)
   INTEGER n
@@ -1056,7 +1056,7 @@ SUBROUTINE EXCHANGE_PARTICLES_WITH_ABOVE_BELOW_NEIGHBOURS
 ! send the number of particles
         ibufer(0) = N_e_to_send_above
         ibufer(1:N_spec) = N_ions_to_send_above(1:N_spec)
-        CALL MPI_SEND(ibufer(0:N_spec), N_spec+1, MPI_INTEGER, MOD(Rank_cluster,N_processes_cluster_above), 0, COMM_CLUSTER, request, ierr) 
+        CALL MPI_SEND(ibufer(0:N_spec), N_spec+1, MPI_INTEGER, MOD(Rank_cluster,N_processes_cluster_above), 0, COMM_CLUSTER, ierr) 
         sum_N_part_to_send = N_e_to_send_above
         DO s = 1, N_spec
            sum_N_part_to_send = sum_N_part_to_send + N_ions_to_send_above(s)
@@ -1088,7 +1088,7 @@ SUBROUTINE EXCHANGE_PARTICLES_WITH_ABOVE_BELOW_NEIGHBOURS
               END DO
            END DO
 ! send particles
-           CALL MPI_SEND(rbufer, sum_N_part_to_send*6, MPI_DOUBLE_PRECISION, MOD(Rank_cluster,N_processes_cluster_above), Rank_cluster, COMM_CLUSTER, request, ierr)     
+           CALL MPI_SEND(rbufer, sum_N_part_to_send*6, MPI_DOUBLE_PRECISION, MOD(Rank_cluster,N_processes_cluster_above), Rank_cluster, COMM_CLUSTER, ierr)     
 ! clear the counters
            N_e_to_send_above = 0
            N_ions_to_send_above = 0
@@ -1233,7 +1233,7 @@ SUBROUTINE EXCHANGE_PARTICLES_WITH_ABOVE_BELOW_NEIGHBOURS
 ! send the number of particles
         ibufer(0) = N_e_to_send_below
         ibufer(1:N_spec) = N_ions_to_send_below(1:N_spec)
-        CALL MPI_SEND(ibufer(0:N_spec), N_spec+1, MPI_INTEGER, MOD(Rank_cluster,N_processes_cluster_below), 0, COMM_CLUSTER, request, ierr) 
+        CALL MPI_SEND(ibufer(0:N_spec), N_spec+1, MPI_INTEGER, MOD(Rank_cluster,N_processes_cluster_below), 0, COMM_CLUSTER, ierr) 
         sum_N_part_to_send = N_e_to_send_below
         DO s = 1, N_spec
            sum_N_part_to_send = sum_N_part_to_send + N_ions_to_send_below(s)
@@ -1265,7 +1265,7 @@ SUBROUTINE EXCHANGE_PARTICLES_WITH_ABOVE_BELOW_NEIGHBOURS
               END DO
            END DO
 ! send particles
-           CALL MPI_SEND(rbufer, sum_N_part_to_send*6, MPI_DOUBLE_PRECISION, MOD(Rank_cluster,N_processes_cluster_below), Rank_cluster, COMM_CLUSTER, request, ierr)     
+           CALL MPI_SEND(rbufer, sum_N_part_to_send*6, MPI_DOUBLE_PRECISION, MOD(Rank_cluster,N_processes_cluster_below), Rank_cluster, COMM_CLUSTER, ierr)     
 ! clear the counters
            N_e_to_send_below = 0
            N_ions_to_send_below = 0
@@ -1290,7 +1290,7 @@ SUBROUTINE EXCHANGE_PARTICLES_WITH_ABOVE_BELOW_NEIGHBOURS
            sum_N_part_to_send = sum_N_part_to_send + N_ions_to_send_above(s)
         END DO
         
-        CALL MPI_SEND(ibufer, N_spec+1, MPI_INTEGER, Rank_horizontal_above, 0, COMM_HORIZONTAL, request, ierr) 
+        CALL MPI_SEND(ibufer, N_spec+1, MPI_INTEGER, Rank_horizontal_above, 0, COMM_HORIZONTAL, ierr) 
 
 ! ## 10 ## send up the particles
         IF (sum_N_part_to_send.GT.0) THEN
@@ -1319,7 +1319,7 @@ SUBROUTINE EXCHANGE_PARTICLES_WITH_ABOVE_BELOW_NEIGHBOURS
               END DO
            END DO
 ! send particles to neighbor above
-           CALL MPI_SEND(rbufer, sum_N_part_to_send*6, MPI_DOUBLE_PRECISION, Rank_horizontal_above, Rank_horizontal, COMM_HORIZONTAL, request, ierr)     
+           CALL MPI_SEND(rbufer, sum_N_part_to_send*6, MPI_DOUBLE_PRECISION, Rank_horizontal_above, Rank_horizontal, COMM_HORIZONTAL, ierr)     
 ! clear the counters
            N_e_to_send_above = 0
            N_ions_to_send_above = 0
@@ -1337,7 +1337,7 @@ SUBROUTINE EXCHANGE_PARTICLES_WITH_ABOVE_BELOW_NEIGHBOURS
            sum_N_part_to_send = sum_N_part_to_send + N_ions_to_send_below(s)
         END DO
         
-        CALL MPI_SEND(ibufer, N_spec+1, MPI_INTEGER, Rank_horizontal_below, 0, COMM_HORIZONTAL, request, ierr) 
+        CALL MPI_SEND(ibufer, N_spec+1, MPI_INTEGER, Rank_horizontal_below, 0, COMM_HORIZONTAL, ierr) 
 
 ! ## 12 ## send down the particles
         IF (sum_N_part_to_send.GT.0) THEN
@@ -1366,7 +1366,7 @@ SUBROUTINE EXCHANGE_PARTICLES_WITH_ABOVE_BELOW_NEIGHBOURS
               END DO
            END DO
 ! send particles to neighbor below
-           CALL MPI_SEND(rbufer, sum_N_part_to_send*6, MPI_DOUBLE_PRECISION, Rank_horizontal_below, Rank_horizontal, COMM_HORIZONTAL, request, ierr)     
+           CALL MPI_SEND(rbufer, sum_N_part_to_send*6, MPI_DOUBLE_PRECISION, Rank_horizontal_below, Rank_horizontal, COMM_HORIZONTAL, ierr)     
 ! clear the counters
            N_e_to_send_below = 0
            N_ions_to_send_below = 0
@@ -1671,7 +1671,7 @@ SUBROUTINE EXCHANGE_PARTICLES_WITH_ABOVE_BELOW_NEIGHBOURS
            sum_N_part_to_send = sum_N_part_to_send + N_ions_to_send_above(s)
         END DO
         
-        CALL MPI_SEND(ibufer, N_spec+1, MPI_INTEGER, Rank_horizontal_above, 0, COMM_HORIZONTAL, request, ierr) 
+        CALL MPI_SEND(ibufer, N_spec+1, MPI_INTEGER, Rank_horizontal_above, 0, COMM_HORIZONTAL, ierr) 
 
 ! ## 14 ## send up the particles
         IF (sum_N_part_to_send.GT.0) THEN
@@ -1700,7 +1700,7 @@ SUBROUTINE EXCHANGE_PARTICLES_WITH_ABOVE_BELOW_NEIGHBOURS
               END DO
            END DO
 ! send particles to neighbor above
-           CALL MPI_SEND(rbufer, sum_N_part_to_send*6, MPI_DOUBLE_PRECISION, Rank_horizontal_above, Rank_horizontal, COMM_HORIZONTAL, request, ierr)     
+           CALL MPI_SEND(rbufer, sum_N_part_to_send*6, MPI_DOUBLE_PRECISION, Rank_horizontal_above, Rank_horizontal, COMM_HORIZONTAL, ierr)     
 ! clear the counters
            N_e_to_send_above = 0
            N_ions_to_send_above = 0
@@ -1718,7 +1718,7 @@ SUBROUTINE EXCHANGE_PARTICLES_WITH_ABOVE_BELOW_NEIGHBOURS
            sum_N_part_to_send = sum_N_part_to_send + N_ions_to_send_below(s)
         END DO
         
-        CALL MPI_SEND(ibufer, N_spec+1, MPI_INTEGER, Rank_horizontal_below, 0, COMM_HORIZONTAL, request, ierr) 
+        CALL MPI_SEND(ibufer, N_spec+1, MPI_INTEGER, Rank_horizontal_below, 0, COMM_HORIZONTAL, ierr) 
 
 ! ## 16 ## send down the particles
         IF (sum_N_part_to_send.GT.0) THEN
@@ -1747,7 +1747,7 @@ SUBROUTINE EXCHANGE_PARTICLES_WITH_ABOVE_BELOW_NEIGHBOURS
               END DO
            END DO
 ! send particles to neighbor below
-           CALL MPI_SEND(rbufer, sum_N_part_to_send*6, MPI_DOUBLE_PRECISION, Rank_horizontal_below, Rank_horizontal, COMM_HORIZONTAL, request, ierr)     
+           CALL MPI_SEND(rbufer, sum_N_part_to_send*6, MPI_DOUBLE_PRECISION, Rank_horizontal_below, Rank_horizontal, COMM_HORIZONTAL, ierr)     
 ! clear the counters
            N_e_to_send_below = 0
            N_ions_to_send_below = 0

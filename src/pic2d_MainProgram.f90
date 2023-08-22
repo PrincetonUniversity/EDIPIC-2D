@@ -7,9 +7,10 @@ PROGRAM MainProg
   USE ClusterAndItsBoundaries
   USE Checkpoints
 
+  use mpi
+
   IMPLICIT NONE
 
-  INCLUDE 'mpif.h'
 
   INTEGER errcode,ierr
   REAL(8) start, finish

@@ -1493,6 +1493,8 @@ SUBROUTINE FIND_INNER_OBJECT_CONTAINING_POINT(i, j, nio, position_flag)
 
   USE CurrentProblemValues
 
+  use mpi
+
   IMPLICIT NONE
 
   INTEGER, INTENT(IN) ::  i, j  ! x,y indices of the point of interest
@@ -1575,6 +1577,8 @@ SUBROUTINE CHECK_IF_INNER_OBJECT_CONTAINS_POINT(myobject, i, j, position_flag)
 
   USE CurrentProblemValues
 
+  use mpi
+
   IMPLICIT NONE
 
   TYPE(boundary_object), INTENT(IN) :: myobject
@@ -1645,9 +1649,10 @@ END SUBROUTINE CHECK_IF_INNER_OBJECT_CONTAINS_POINT
 REAL(8) FUNCTION Get_Surface_Charge_Inner_Object(i,j,position_flag, myobject)
 
   USE CurrentProblemValues
+  use mpi
+
   IMPLICIT NONE
 
-  INCLUDE 'mpif.h'
 
   INTEGER errcode,ierr
  
@@ -1726,9 +1731,10 @@ SUBROUTINE SET_EPS_ISHIFTED(i, j, eps)  ! here point {i,j} is between nodes {i-1
 
   USE CurrentProblemValues
 
+  use mpi
+
   IMPLICIT NONE
 
-  INCLUDE 'mpif.h'
 
   INTEGER errcode,ierr
  
@@ -1890,9 +1896,10 @@ SUBROUTINE SET_EPS_JSHIFTED(i, j, eps)  ! here point {i,j} is between nodes {i,j
 
   USE CurrentProblemValues
 
+  use mpi
+
   IMPLICIT NONE
 
-  INCLUDE 'mpif.h'
 
   INTEGER errcode,ierr
  
@@ -2055,9 +2062,10 @@ SUBROUTINE GET_EPS_IN_POINT(x, y, eps)
 
   USE CurrentProblemValues
 
+  use mpi
+
   IMPLICIT NONE
 
-  INCLUDE 'mpif.h'
 
   INTEGER errcode,ierr
  

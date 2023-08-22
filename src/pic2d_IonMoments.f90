@@ -7,9 +7,10 @@ SUBROUTINE COLLECT_ION_MOMENTS(s)
   USE ClusterAndItsBoundaries
   USE Snapshots
 
+  use mpi
+
   IMPLICIT NONE
 
-  INCLUDE 'mpif.h'
 
   INTEGER, INTENT(IN) :: s
 

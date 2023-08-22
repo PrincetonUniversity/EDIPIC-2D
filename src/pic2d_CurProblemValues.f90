@@ -74,10 +74,9 @@ SUBROUTINE INITIATE_PARAMETERS
   USE rng_wrapper
 
   USE PETSc_Solver
+  use mpi
   
   IMPLICIT NONE
-
-  INCLUDE 'mpif.h'
 
   LOGICAL exists
 
@@ -1519,9 +1518,9 @@ SUBROUTINE IDENTIFY_CLUSTER_BOUNDARIES
   USE CurrentProblemValues
   USE ClusterAndItsBoundaries
 
-  IMPLICIT NONE
+  use mpi
 
-  INCLUDE 'mpif.h'
+  IMPLICIT NONE
 
   INTEGER errcode,ierr
   INTEGER stattus(MPI_STATUS_SIZE)
@@ -1822,9 +1821,9 @@ SUBROUTINE INCLUDE_CLUSTER_PERIODICITY
   USE CurrentProblemValues
   USE ClusterAndItsBoundaries
 
-  IMPLICIT NONE
+  use mpi
 
-  INCLUDE 'mpif.h'
+  IMPLICIT NONE
 
   INTEGER errcode,ierr
   INTEGER stattus(MPI_STATUS_SIZE)
@@ -1967,7 +1966,7 @@ print '(4(2x,i4))', 0, all_periodic_messages(13:15,0)
 ! send  information about periodicity pairs to each process
         DO n = 1, N_processes_horizontal-1
 print '(4(2x,i4))', n, all_periodic_messages(13:15,n)
-           CALL MPI_SEND(all_periodic_messages(14:15,n), 2, MPI_INTEGER, n, Rank_horizontal, COMM_HORIZONTAL, request, ierr)        
+           CALL MPI_SEND(all_periodic_messages(14:15,n), 2, MPI_INTEGER, n, Rank_horizontal, COMM_HORIZONTAL, ierr)        
         END DO
      
 ! process own periodicity pair info
@@ -1996,7 +1995,7 @@ print '(4(2x,i4))', n, all_periodic_messages(13:15,n)
  
      ELSE
 ! send periodic_message to zero-rank cluster
-        CALL MPI_SEND(periodic_message, 13, MPI_INTEGER, 0, Rank_horizontal, COMM_HORIZONTAL, request, ierr) 
+        CALL MPI_SEND(periodic_message, 13, MPI_INTEGER, 0, Rank_horizontal, COMM_HORIZONTAL, ierr) 
 ! receive information about periodicity pairs
         CALL MPI_RECV(ibufer(1:2), 2, MPI_INTEGER, 0, 0, COMM_HORIZONTAL, stattus, ierr) 
         IF (ibufer(1).GE.0) THEN
@@ -2044,7 +2043,7 @@ print '("Process ",i4," :: P.B. L/R/B/A :: ",4(1x,L1))', Rank_of_process, period
         PRINT '("INCLUDE_PERIODICITY :: master process ",i4," is periodically [X] connected to itself, L_period_X = ",f10.4)', Rank_of_process, L_period_X
      ELSE IF (periodic_boundary_X_left) THEN
 ! send 
-        CALL MPI_SEND(c_indx_x_min, 1, MPI_INTEGER, Rank_of_master_left, Rank_of_process, MPI_COMM_WORLD, request, ierr) 
+        CALL MPI_SEND(c_indx_x_min, 1, MPI_INTEGER, Rank_of_master_left, Rank_of_process, MPI_COMM_WORLD, ierr) 
 ! receive 
         CALL MPI_RECV(ibufer(1), 1, MPI_INTEGER, Rank_of_master_left, Rank_of_master_left, MPI_COMM_WORLD, stattus, ierr) 
         i_period_x = ibufer(1) - c_indx_x_min - 1
@@ -2057,7 +2056,7 @@ print '("Process ",i4," :: P.B. L/R/B/A :: ",4(1x,L1))', Rank_of_process, period
         i_period_x = c_indx_x_max - ibufer(1) - 1   ! last cell is overlapping
         L_period_X = DBLE(i_period_x)
 ! send
-        CALL MPI_SEND(c_indx_x_max, 1, MPI_INTEGER, Rank_of_master_right, Rank_of_process, MPI_COMM_WORLD, request, ierr) 
+        CALL MPI_SEND(c_indx_x_max, 1, MPI_INTEGER, Rank_of_master_right, Rank_of_process, MPI_COMM_WORLD, ierr) 
 ! report
         PRINT '("INCLUDE_PERIODICITY :: master process ",i4," communicated with process ",i4," and got L_period_X = ",f10.4)', Rank_of_process, Rank_of_master_right, L_period_X
      END IF
@@ -2068,7 +2067,7 @@ print '("Process ",i4," :: P.B. L/R/B/A :: ",4(1x,L1))', Rank_of_process, period
 
      IF (periodic_boundary_Y_below) THEN
 ! send 
-        CALL MPI_SEND(c_indx_y_min, 1, MPI_INTEGER, Rank_of_master_below, Rank_of_process, MPI_COMM_WORLD, request, ierr) 
+        CALL MPI_SEND(c_indx_y_min, 1, MPI_INTEGER, Rank_of_master_below, Rank_of_process, MPI_COMM_WORLD, ierr) 
 ! receive 
         CALL MPI_RECV(ibufer(1), 1, MPI_INTEGER, Rank_of_master_below, Rank_of_master_below, MPI_COMM_WORLD, stattus, ierr) 
         i_period_y = ibufer(1) - c_indx_y_min - 1
@@ -2081,7 +2080,7 @@ print '("Process ",i4," :: P.B. L/R/B/A :: ",4(1x,L1))', Rank_of_process, period
         i_period_y = c_indx_y_max - ibufer(1) - 1   ! last cell is overlapping
         L_period_Y = DBLE(i_period_y)   ! last cell is overlapping
 ! send
-        CALL MPI_SEND(c_indx_y_max, 1, MPI_INTEGER, Rank_of_master_above, Rank_of_process, MPI_COMM_WORLD, request, ierr) 
+        CALL MPI_SEND(c_indx_y_max, 1, MPI_INTEGER, Rank_of_master_above, Rank_of_process, MPI_COMM_WORLD, ierr) 
 ! report
         PRINT '("INCLUDE_PERIODICITY :: master process ",i4," communicated with process ",i4," and got L_period_Y = ",f10.4)', Rank_of_process, Rank_of_master_above, L_period_Y
      END IF
@@ -2113,7 +2112,7 @@ print '("Process ",i4," :: P.B. L/R/B/A :: ",4(1x,L1))', Rank_of_process, period
               ibufer(2*n)   = c_local_object_part(n_right(n))%segment_number
            END IF
         END DO
-        CALL MPI_SEND(ibufer(1:4), 4, MPI_INTEGER, Rank_of_master_right, Rank_of_process, MPI_COMM_WORLD, request, ierr) 
+        CALL MPI_SEND(ibufer(1:4), 4, MPI_INTEGER, Rank_of_master_right, Rank_of_process, MPI_COMM_WORLD, ierr) 
      END IF
 
      IF (connect_left) THEN
@@ -2125,7 +2124,7 @@ print '("Process ",i4," :: P.B. L/R/B/A :: ",4(1x,L1))', Rank_of_process, period
               ibufer(2*n)   = c_local_object_part(n_left(n))%segment_number
            END IF
         END DO
-        CALL MPI_SEND(ibufer(1:4), 4, MPI_INTEGER, Rank_of_master_left, Rank_of_process, MPI_COMM_WORLD, request, ierr) 
+        CALL MPI_SEND(ibufer(1:4), 4, MPI_INTEGER, Rank_of_master_left, Rank_of_process, MPI_COMM_WORLD, ierr) 
      END IF
 
      IF (connect_left) THEN
@@ -2177,7 +2176,7 @@ print '("Process ",i4," :: P.B. L/R/B/A :: ",4(1x,L1))', Rank_of_process, period
               ibufer(2*n)   = c_local_object_part(n_above(n))%segment_number
            END IF
         END DO
-        CALL MPI_SEND(ibufer(1:4), 4, MPI_INTEGER, Rank_of_master_above, Rank_of_process, MPI_COMM_WORLD, request, ierr) 
+        CALL MPI_SEND(ibufer(1:4), 4, MPI_INTEGER, Rank_of_master_above, Rank_of_process, MPI_COMM_WORLD, ierr) 
      END IF
 
      IF (connect_below) THEN
@@ -2189,7 +2188,7 @@ print '("Process ",i4," :: P.B. L/R/B/A :: ",4(1x,L1))', Rank_of_process, period
               ibufer(2*n)   = c_local_object_part(n_below(n))%segment_number
            END IF
         END DO
-        CALL MPI_SEND(ibufer(1:4), 4, MPI_INTEGER, Rank_of_master_below, Rank_of_process, MPI_COMM_WORLD, request, ierr) 
+        CALL MPI_SEND(ibufer(1:4), 4, MPI_INTEGER, Rank_of_master_below, Rank_of_process, MPI_COMM_WORLD, ierr) 
      END IF
 
      IF (connect_below) THEN
@@ -2284,7 +2283,7 @@ print '("Process ",i4," :: P.B. L/R/B/A :: ",4(1x,L1))', Rank_of_process, period
               ibufer(2*n)   = c_local_object_part(n_right(n))%segment_number
            END IF
         END DO
-        CALL MPI_SEND(ibufer(1:4), 4, MPI_INTEGER, Rank_of_master_right, Rank_of_process, MPI_COMM_WORLD, request, ierr) 
+        CALL MPI_SEND(ibufer(1:4), 4, MPI_INTEGER, Rank_of_master_right, Rank_of_process, MPI_COMM_WORLD, ierr) 
      END IF
 
      IF (connect_left) THEN
@@ -2296,7 +2295,7 @@ print '("Process ",i4," :: P.B. L/R/B/A :: ",4(1x,L1))', Rank_of_process, period
               ibufer(2*n)   = c_local_object_part(n_left(n))%segment_number
            END IF
         END DO
-        CALL MPI_SEND(ibufer(1:4), 4, MPI_INTEGER, Rank_of_master_left, Rank_of_process, MPI_COMM_WORLD, request, ierr) 
+        CALL MPI_SEND(ibufer(1:4), 4, MPI_INTEGER, Rank_of_master_left, Rank_of_process, MPI_COMM_WORLD, ierr) 
      END IF
 
      IF (connect_below) THEN
@@ -2348,7 +2347,7 @@ print '("Process ",i4," :: P.B. L/R/B/A :: ",4(1x,L1))', Rank_of_process, period
               ibufer(2*n)   = c_local_object_part(n_above(n))%segment_number
            END IF
         END DO
-        CALL MPI_SEND(ibufer(1:4), 4, MPI_INTEGER, Rank_of_master_above, Rank_of_process, MPI_COMM_WORLD, request, ierr) 
+        CALL MPI_SEND(ibufer(1:4), 4, MPI_INTEGER, Rank_of_master_above, Rank_of_process, MPI_COMM_WORLD, ierr) 
      END IF
 
      IF (connect_below) THEN
@@ -2360,7 +2359,7 @@ print '("Process ",i4," :: P.B. L/R/B/A :: ",4(1x,L1))', Rank_of_process, period
               ibufer(2*n)   = c_local_object_part(n_below(n))%segment_number
            END IF
         END DO
-        CALL MPI_SEND(ibufer(1:4), 4, MPI_INTEGER, Rank_of_master_below, Rank_of_process, MPI_COMM_WORLD, request, ierr) 
+        CALL MPI_SEND(ibufer(1:4), 4, MPI_INTEGER, Rank_of_master_below, Rank_of_process, MPI_COMM_WORLD, ierr) 
      END IF
 
   END IF
@@ -2546,9 +2545,9 @@ SUBROUTINE SET_COMMUNICATIONS
   USE CurrentProblemValues
   USE ClusterAndItsBoundaries
 
-  IMPLICIT NONE
+  use mpi
 
-  INCLUDE 'mpif.h'
+  IMPLICIT NONE
 
   INTEGER errcode,ierr
   INTEGER stattus(MPI_STATUS_SIZE)
@@ -2606,16 +2605,16 @@ SUBROUTINE SET_COMMUNICATIONS
 
         IF (Rank_of_master_right.GE.0) THEN
 ! ##  1 ## send right the number of levels ----------------------------------
-           CALL MPI_SEND(N_processes_cluster, 1, MPI_INTEGER, Rank_of_master_right, Rank_of_process, MPI_COMM_WORLD, request, ierr) 
+           CALL MPI_SEND(N_processes_cluster, 1, MPI_INTEGER, Rank_of_master_right, Rank_of_process, MPI_COMM_WORLD, ierr) 
 ! ##  2 ## send right the ranks
-           CALL MPI_SEND(horizontal_rank_in_cluster_level, N_processes_cluster, MPI_INTEGER, Rank_of_master_right, Rank_of_process+SHIFT1, MPI_COMM_WORLD, request, ierr)     
+           CALL MPI_SEND(horizontal_rank_in_cluster_level, N_processes_cluster, MPI_INTEGER, Rank_of_master_right, Rank_of_process+SHIFT1, MPI_COMM_WORLD, ierr)     
         END IF
 
         IF (Rank_of_master_left.GE.0) THEN
 ! ##  3 ## send left the number of levels
-           CALL MPI_SEND(N_processes_cluster, 1, MPI_INTEGER, Rank_of_master_left, Rank_of_process, MPI_COMM_WORLD, request, ierr) 
+           CALL MPI_SEND(N_processes_cluster, 1, MPI_INTEGER, Rank_of_master_left, Rank_of_process, MPI_COMM_WORLD, ierr) 
 ! ##  4 ## send left the ranks
-           CALL MPI_SEND(horizontal_rank_in_cluster_level, N_processes_cluster, MPI_INTEGER, Rank_of_master_left, Rank_of_process+SHIFT1, MPI_COMM_WORLD, request, ierr)     
+           CALL MPI_SEND(horizontal_rank_in_cluster_level, N_processes_cluster, MPI_INTEGER, Rank_of_master_left, Rank_of_process+SHIFT1, MPI_COMM_WORLD, ierr)     
         END IF
 
         IF (Rank_of_master_left.GE.0) THEN
@@ -2636,16 +2635,16 @@ SUBROUTINE SET_COMMUNICATIONS
 
         IF (Rank_of_master_above.GE.0) THEN
 ! ##  9 ## send up the number of levels -------------------------------------
-           CALL MPI_SEND(N_processes_cluster, 1, MPI_INTEGER, Rank_of_master_above, Rank_of_process, MPI_COMM_WORLD, request, ierr) 
+           CALL MPI_SEND(N_processes_cluster, 1, MPI_INTEGER, Rank_of_master_above, Rank_of_process, MPI_COMM_WORLD, ierr) 
 ! ## 10 ## send up the ranks
-           CALL MPI_SEND(horizontal_rank_in_cluster_level, N_processes_cluster, MPI_INTEGER, Rank_of_master_above, Rank_of_process+SHIFT1, MPI_COMM_WORLD, request, ierr)     
+           CALL MPI_SEND(horizontal_rank_in_cluster_level, N_processes_cluster, MPI_INTEGER, Rank_of_master_above, Rank_of_process+SHIFT1, MPI_COMM_WORLD, ierr)     
         END IF
 
         IF (Rank_of_master_below.GE.0) THEN
 ! ## 11 ## send down the number of levels
-           CALL MPI_SEND(N_processes_cluster, 1, MPI_INTEGER, Rank_of_master_below, Rank_of_process, MPI_COMM_WORLD, request, ierr) 
+           CALL MPI_SEND(N_processes_cluster, 1, MPI_INTEGER, Rank_of_master_below, Rank_of_process, MPI_COMM_WORLD, ierr) 
 ! ## 12 ## send down the ranks
-           CALL MPI_SEND(horizontal_rank_in_cluster_level, N_processes_cluster, MPI_INTEGER, Rank_of_master_below, Rank_of_process+SHIFT1, MPI_COMM_WORLD, request, ierr)     
+           CALL MPI_SEND(horizontal_rank_in_cluster_level, N_processes_cluster, MPI_INTEGER, Rank_of_master_below, Rank_of_process+SHIFT1, MPI_COMM_WORLD, ierr)     
         END IF
 
         IF (Rank_of_master_below.GE.0) THEN
@@ -2685,16 +2684,16 @@ SUBROUTINE SET_COMMUNICATIONS
 
         IF (Rank_of_master_right.GE.0) THEN
 ! ##  5 ## send right the number of levels ----------------------------------
-           CALL MPI_SEND(N_processes_cluster, 1, MPI_INTEGER, Rank_of_master_right, Rank_of_process, MPI_COMM_WORLD, request, ierr) 
+           CALL MPI_SEND(N_processes_cluster, 1, MPI_INTEGER, Rank_of_master_right, Rank_of_process, MPI_COMM_WORLD, ierr) 
 ! ##  6 ## send right the ranks
-           CALL MPI_SEND(horizontal_rank_in_cluster_level, N_processes_cluster, MPI_INTEGER, Rank_of_master_right, Rank_of_process+SHIFT1, MPI_COMM_WORLD, request, ierr)     
+           CALL MPI_SEND(horizontal_rank_in_cluster_level, N_processes_cluster, MPI_INTEGER, Rank_of_master_right, Rank_of_process+SHIFT1, MPI_COMM_WORLD, ierr)     
         END IF
 
         IF (Rank_of_master_left.GE.0) THEN
 ! ##  7 ## send left the number of levels
-           CALL MPI_SEND(N_processes_cluster, 1, MPI_INTEGER, Rank_of_master_left, Rank_of_process, MPI_COMM_WORLD, request, ierr) 
+           CALL MPI_SEND(N_processes_cluster, 1, MPI_INTEGER, Rank_of_master_left, Rank_of_process, MPI_COMM_WORLD, ierr) 
 ! ##  8 ## send left the ranks
-           CALL MPI_SEND(horizontal_rank_in_cluster_level, N_processes_cluster, MPI_INTEGER, Rank_of_master_left, Rank_of_process+SHIFT1, MPI_COMM_WORLD, request, ierr)     
+           CALL MPI_SEND(horizontal_rank_in_cluster_level, N_processes_cluster, MPI_INTEGER, Rank_of_master_left, Rank_of_process+SHIFT1, MPI_COMM_WORLD, ierr)     
         END IF
 
         IF (Rank_of_master_below.GE.0) THEN
@@ -2715,16 +2714,16 @@ SUBROUTINE SET_COMMUNICATIONS
 
         IF (Rank_of_master_above.GE.0) THEN
 ! ## 13 ## send up the number of levels -------------------------------------
-           CALL MPI_SEND(N_processes_cluster, 1, MPI_INTEGER, Rank_of_master_above, Rank_of_process, MPI_COMM_WORLD, request, ierr) 
+           CALL MPI_SEND(N_processes_cluster, 1, MPI_INTEGER, Rank_of_master_above, Rank_of_process, MPI_COMM_WORLD, ierr) 
 ! ## 14 ## send up the ranks
-           CALL MPI_SEND(horizontal_rank_in_cluster_level, N_processes_cluster, MPI_INTEGER, Rank_of_master_above, Rank_of_process+SHIFT1, MPI_COMM_WORLD, request, ierr)     
+           CALL MPI_SEND(horizontal_rank_in_cluster_level, N_processes_cluster, MPI_INTEGER, Rank_of_master_above, Rank_of_process+SHIFT1, MPI_COMM_WORLD, ierr)     
         END IF
 
         IF (Rank_of_master_below.GE.0) THEN
 ! ## 15 ## send down the number of levels
-           CALL MPI_SEND(N_processes_cluster, 1, MPI_INTEGER, Rank_of_master_below, Rank_of_process, MPI_COMM_WORLD, request, ierr) 
+           CALL MPI_SEND(N_processes_cluster, 1, MPI_INTEGER, Rank_of_master_below, Rank_of_process, MPI_COMM_WORLD, ierr) 
 ! ## 16 ## send down the ranks
-           CALL MPI_SEND(horizontal_rank_in_cluster_level, N_processes_cluster, MPI_INTEGER, Rank_of_master_below, Rank_of_process+SHIFT1, MPI_COMM_WORLD, request, ierr)     
+           CALL MPI_SEND(horizontal_rank_in_cluster_level, N_processes_cluster, MPI_INTEGER, Rank_of_master_below, Rank_of_process+SHIFT1, MPI_COMM_WORLD, ierr)     
         END IF
 
      END IF
@@ -2816,9 +2815,9 @@ SUBROUTINE COLLECT_MASTERS_INFO
   USE ParallelOperationValues
   USE LoadBalancing
 
-  IMPLICIT NONE
+  use mpi
 
-  INCLUDE 'mpif.h'
+  IMPLICIT NONE
 
   INTEGER ierr
 
@@ -2859,9 +2858,9 @@ SUBROUTINE DISTRIBUTE_CLUSTER_PARAMETERS
   USE IonParticles, ONLY : N_spec
   USE SetupValues
 
-  IMPLICIT NONE
+  use mpi
 
-  INCLUDE 'mpif.h'
+  IMPLICIT NONE
 
   INTEGER errcode,ierr
 
@@ -3159,10 +3158,9 @@ SUBROUTINE DISTRIBUTE_PARTICLES
   USE ClusterAndItsBoundaries
 
   USE rng_wrapper
+  use mpi
 
   IMPLICIT NONE
-
-  INCLUDE 'mpif.h'
 
   REAL(8) x_limit_left, x_limit_right
   REAL(8) y_limit_bot, y_limit_top

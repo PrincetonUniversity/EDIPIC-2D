@@ -8,9 +8,10 @@ SUBROUTINE CALCULATE_ELECTRON_VDF
   USE ClusterAndItsBoundaries
   USE Snapshots
 
+  use mpi
+
   IMPLICIT NONE
 
-  INCLUDE 'mpif.h'
 
   INTEGER ierr
   INTEGER stattus(MPI_STATUS_SIZE)
@@ -216,9 +217,10 @@ SUBROUTINE CALCULATE_ION_VDF
   USE ClusterAndItsBoundaries
   USE Snapshots
 
+  use mpi
+
   IMPLICIT NONE
 
-  INCLUDE 'mpif.h'
 
   INTEGER ierr
   INTEGER stattus(MPI_STATUS_SIZE)

@@ -8,9 +8,10 @@ SUBROUTINE COLLECT_ELECTRON_MOMENTS
   USE ClusterAndItsBoundaries
   USE Snapshots
 
+  use mpi
+
   IMPLICIT NONE
 
-  INCLUDE 'mpif.h'
 
   INTEGER errcode,ierr
   INTEGER stattus(MPI_STATUS_SIZE)
@@ -432,9 +433,10 @@ SUBROUTINE SYNCHRONIZE_MOMENTS_IN_OVERLAP_NODES
   USE ClusterAndItsBoundaries
   USE Snapshots
 
+  use mpi
+
   IMPLICIT NONE
 
-  INCLUDE 'mpif.h'
 
   INTEGER ierr
   INTEGER stattus(MPI_STATUS_SIZE)
@@ -507,7 +509,7 @@ SUBROUTINE SYNCHRONIZE_MOMENTS_IN_OVERLAP_NODES
         pos2=pos2+n1
         rbufer(pos1:pos2) = cs_QZ(c_indx_x_max, c_indx_y_min:c_indx_y_max)
 
-        CALL MPI_SEND(rbufer, 13*n1, MPI_REAL, Rank_horizontal_right, Rank_horizontal, COMM_HORIZONTAL, request, ierr) 
+        CALL MPI_SEND(rbufer, 13*n1, MPI_REAL, Rank_horizontal_right, Rank_horizontal, COMM_HORIZONTAL, ierr) 
      END IF
 
      IF (Rank_horizontal_left.GE.0) THEN
@@ -556,7 +558,7 @@ SUBROUTINE SYNCHRONIZE_MOMENTS_IN_OVERLAP_NODES
         pos2=pos2+n1
         rbufer(pos1:pos2) = cs_QZ(c_indx_x_min, c_indx_y_min:c_indx_y_max)
 
-        CALL MPI_SEND(rbufer, 13*n1, MPI_REAL, Rank_horizontal_left, Rank_horizontal, COMM_HORIZONTAL, request, ierr) 
+        CALL MPI_SEND(rbufer, 13*n1, MPI_REAL, Rank_horizontal_left, Rank_horizontal, COMM_HORIZONTAL, ierr) 
      END IF
 
      IF (Rank_horizontal_left.GE.0) THEN
@@ -734,7 +736,7 @@ SUBROUTINE SYNCHRONIZE_MOMENTS_IN_OVERLAP_NODES
         pos2=pos2+n3
         rbufer(pos1:pos2) = cs_QZ(c_indx_x_min:c_indx_x_max, c_indx_y_max)
 
-        CALL MPI_SEND(rbufer, 13*n3, MPI_REAL, Rank_horizontal_above, Rank_horizontal, COMM_HORIZONTAL, request, ierr) 
+        CALL MPI_SEND(rbufer, 13*n3, MPI_REAL, Rank_horizontal_above, Rank_horizontal, COMM_HORIZONTAL, ierr) 
      END IF
 
      IF (Rank_horizontal_below.GE.0) THEN
@@ -783,7 +785,7 @@ SUBROUTINE SYNCHRONIZE_MOMENTS_IN_OVERLAP_NODES
         pos2=pos2+n3
         rbufer(pos1:pos2) = cs_QZ(c_indx_x_min:c_indx_x_max, c_indx_y_min)
 
-        CALL MPI_SEND(rbufer, 13*n3, MPI_REAL, Rank_horizontal_below, Rank_horizontal, COMM_HORIZONTAL, request, ierr) 
+        CALL MPI_SEND(rbufer, 13*n3, MPI_REAL, Rank_horizontal_below, Rank_horizontal, COMM_HORIZONTAL, ierr) 
      END IF
 
      IF (Rank_horizontal_below.GE.0) THEN
@@ -1090,7 +1092,7 @@ SUBROUTINE SYNCHRONIZE_MOMENTS_IN_OVERLAP_NODES
         pos2=pos2+n1
         rbufer(pos1:pos2) = cs_QZ(c_indx_x_max, c_indx_y_min:c_indx_y_max)
 
-        CALL MPI_SEND(rbufer, 13*n1, MPI_REAL, Rank_horizontal_right, Rank_horizontal, COMM_HORIZONTAL, request, ierr) 
+        CALL MPI_SEND(rbufer, 13*n1, MPI_REAL, Rank_horizontal_right, Rank_horizontal, COMM_HORIZONTAL, ierr) 
      END IF
 
      IF (Rank_horizontal_left.GE.0) THEN
@@ -1139,7 +1141,7 @@ SUBROUTINE SYNCHRONIZE_MOMENTS_IN_OVERLAP_NODES
         pos2=pos2+n1
         rbufer(pos1:pos2) = cs_QZ(c_indx_x_min, c_indx_y_min:c_indx_y_max)
 
-        CALL MPI_SEND(rbufer, 13*n1, MPI_REAL, Rank_horizontal_left, Rank_horizontal, COMM_HORIZONTAL, request, ierr) 
+        CALL MPI_SEND(rbufer, 13*n1, MPI_REAL, Rank_horizontal_left, Rank_horizontal, COMM_HORIZONTAL, ierr) 
      END IF
 
      IF (ALLOCATED(rbufer)) DEALLOCATE(rbufer, STAT=ALLOC_ERR)
@@ -1315,7 +1317,7 @@ SUBROUTINE SYNCHRONIZE_MOMENTS_IN_OVERLAP_NODES
         pos2=pos2+n3
         rbufer(pos1:pos2) = cs_QZ(c_indx_x_min:c_indx_x_max, c_indx_y_max)
 
-        CALL MPI_SEND(rbufer, 13*n3, MPI_REAL, Rank_horizontal_above, Rank_horizontal, COMM_HORIZONTAL, request, ierr) 
+        CALL MPI_SEND(rbufer, 13*n3, MPI_REAL, Rank_horizontal_above, Rank_horizontal, COMM_HORIZONTAL, ierr) 
      END IF
 
      IF (Rank_horizontal_below.GE.0) THEN
@@ -1364,7 +1366,7 @@ SUBROUTINE SYNCHRONIZE_MOMENTS_IN_OVERLAP_NODES
         pos2=pos2+n3
         rbufer(pos1:pos2) = cs_QZ(c_indx_x_min:c_indx_x_max, c_indx_y_min)
 
-        CALL MPI_SEND(rbufer, 13*n3, MPI_REAL, Rank_horizontal_below, Rank_horizontal, COMM_HORIZONTAL, request, ierr) 
+        CALL MPI_SEND(rbufer, 13*n3, MPI_REAL, Rank_horizontal_below, Rank_horizontal, COMM_HORIZONTAL, ierr) 
      END IF
 
   END IF   !###   IF (WHITE_CLUSTER) THEN
@@ -1419,7 +1421,7 @@ SUBROUTINE SYNCHRONIZE_MOMENTS_IN_OVERLAP_NODES
      pos2=pos2+n1
      rbufer(pos1:pos2) = cs_QZ(c_indx_x_min+1, c_indx_y_min:c_indx_y_max)
 
-     CALL MPI_SEND(rbufer, 13*n1, MPI_REAL, Rank_horizontal_left, Rank_horizontal, COMM_HORIZONTAL, request, ierr) 
+     CALL MPI_SEND(rbufer, 13*n1, MPI_REAL, Rank_horizontal_left, Rank_horizontal, COMM_HORIZONTAL, ierr) 
 
 ! ## 2 ## receive from left moments in the vertical line AT the left edge
      CALL MPI_RECV(rbufer, 13*n1, MPI_REAL, Rank_horizontal_left, Rank_horizontal_left, COMM_HORIZONTAL, stattus, ierr)
@@ -1591,7 +1593,7 @@ SUBROUTINE SYNCHRONIZE_MOMENTS_IN_OVERLAP_NODES
      pos2=pos2+n1
      rbufer(pos1:pos2) = cs_QZ(c_indx_x_max-1, c_indx_y_min:c_indx_y_max)
 
-     CALL MPI_SEND(rbufer, 13*n1, MPI_REAL, Rank_horizontal_right, Rank_horizontal, COMM_HORIZONTAL, request, ierr) 
+     CALL MPI_SEND(rbufer, 13*n1, MPI_REAL, Rank_horizontal_right, Rank_horizontal, COMM_HORIZONTAL, ierr) 
 
   END IF   !###   IF (periodic_boundary_X_left) THEN
 
@@ -1645,7 +1647,7 @@ SUBROUTINE SYNCHRONIZE_MOMENTS_IN_OVERLAP_NODES
      pos2=pos2+n3
      rbufer(pos1:pos2) = cs_QZ(c_indx_x_min:c_indx_x_max, c_indx_y_min+1)
 
-     CALL MPI_SEND(rbufer, 13*n3, MPI_REAL, Rank_horizontal_below, Rank_horizontal, COMM_HORIZONTAL, request, ierr) 
+     CALL MPI_SEND(rbufer, 13*n3, MPI_REAL, Rank_horizontal_below, Rank_horizontal, COMM_HORIZONTAL, ierr) 
  
 ! ## 2 ## receive from below moments in the bottom line
      CALL MPI_RECV(rbufer, 13*n3, MPI_REAL, Rank_horizontal_below, Rank_horizontal_below, COMM_HORIZONTAL, stattus, ierr)
@@ -1817,7 +1819,7 @@ SUBROUTINE SYNCHRONIZE_MOMENTS_IN_OVERLAP_NODES
      pos2=pos2+n3
      rbufer(pos1:pos2) = cs_QZ(c_indx_x_min:c_indx_x_max, c_indx_y_max-1)
 
-     CALL MPI_SEND(rbufer, 13*n3, MPI_REAL, Rank_horizontal_above, Rank_horizontal, COMM_HORIZONTAL, request, ierr) 
+     CALL MPI_SEND(rbufer, 13*n3, MPI_REAL, Rank_horizontal_above, Rank_horizontal, COMM_HORIZONTAL, ierr) 
  
   END IF   !###   IF (periodic_boundary_Y_below) THEN
 
@@ -1832,6 +1834,8 @@ SUBROUTINE ADJUST_DENSITY_AT_WALL_BOUNDARIES
   USE ParallelOperationValues
   USE ClusterAndItsBoundaries
   USE Snapshots
+
+  use mpi
 
   IMPLICIT NONE
 

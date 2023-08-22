@@ -7,9 +7,9 @@ SUBROUTINE PROCESS_ION_COLL_WITH_BOUNDARY_LEFT(s, x, y, vx, vy, vz, tag)
   USE IonParticles, ONLY : Qs
   USE CurrentProblemValues, ONLY : whole_object, VACUUM_GAP, METAL_WALL, DIELECTRIC
 
-  IMPLICIT NONE
+  use mpi
 
-  INCLUDE 'mpif.h'
+  IMPLICIT NONE
 
   INTEGER errcode,ierr
 
@@ -88,9 +88,9 @@ SUBROUTINE PROCESS_ION_COLL_WITH_BOUNDARY_RIGHT(s, x, y, vx, vy, vz, tag)
   USE IonParticles, ONLY : Qs
   USE CurrentProblemValues, ONLY : whole_object, VACUUM_GAP, METAL_WALL, DIELECTRIC
 
-  IMPLICIT NONE
+  use mpi
 
-  INCLUDE 'mpif.h'
+  IMPLICIT NONE
 
   INTEGER errcode,ierr
 
@@ -167,11 +167,11 @@ SUBROUTINE PROCESS_ION_COLL_WITH_BOUNDARY_BELOW(s, x, y, vx, vy, vz, tag)
   USE ParallelOperationValues
   USE ClusterAndItsBoundaries
   USE IonParticles, ONLY : Qs
-   USE CurrentProblemValues, ONLY : whole_object, VACUUM_GAP, METAL_WALL, DIELECTRIC
+  USE CurrentProblemValues, ONLY : whole_object, VACUUM_GAP, METAL_WALL, DIELECTRIC
+
+  use mpi
 
   IMPLICIT NONE
-
-  INCLUDE 'mpif.h'
 
   INTEGER errcode,ierr
 
@@ -250,9 +250,9 @@ SUBROUTINE PROCESS_ION_COLL_WITH_BOUNDARY_ABOVE(s, x, y, vx, vy, vz, tag)
   USE IonParticles, ONLY : Qs
   USE CurrentProblemValues, ONLY : whole_object, VACUUM_GAP, METAL_WALL, DIELECTRIC
 
-  IMPLICIT NONE
+  use mpi
 
-  INCLUDE 'mpif.h'
+  IMPLICIT NONE
 
   INTEGER errcode,ierr
 
@@ -331,9 +331,9 @@ SUBROUTINE COLLECT_PARTICLE_BOUNDARY_HITS
   USE ClusterAndItsBoundaries
   USE IonParticles, ONLY : N_spec
 
-  IMPLICIT NONE
+  use mpi
 
-  INCLUDE 'mpif.h'
+  IMPLICIT NONE
 
   INTEGER errcode,ierr
 !  INTEGER stattus(MPI_STATUS_SIZE)
@@ -399,9 +399,9 @@ SUBROUTINE TRY_ION_COLL_WITH_INNER_OBJECT(s, x, y, vx, vy, vz, tag)
   USE IonParticles, ONLY : Qs
   USE CurrentProblemValues !, ONLY : inner_object, METAL_WALL, DIELECTRIC
 
-  IMPLICIT NONE
+  use mpi
 
-  INCLUDE 'mpif.h'
+  IMPLICIT NONE
 
   INTEGER errcode,ierr
 
@@ -587,9 +587,9 @@ SUBROUTINE GATHER_SURFACE_CHARGE_DENSITY
   USE CurrentProblemValues
   USE ClusterAndItsBoundaries  
 
-  IMPLICIT NONE
+  use mpi
 
-  INCLUDE 'mpif.h'
+  IMPLICIT NONE
 
   INTEGER errcode,ierr
   INTEGER stattus(MPI_STATUS_SIZE)
@@ -738,7 +738,7 @@ SUBROUTINE GATHER_SURFACE_CHARGE_DENSITY
               c_local_object_part(n_right(n))%surface_charge(c_indx_x_max) = 0.0_8
            END IF
         END DO
-        CALL MPI_SEND(rbufer(1:2), 2, MPI_DOUBLE_PRECISION, Rank_of_master_right, Rank_of_process, MPI_COMM_WORLD, request, ierr) 
+        CALL MPI_SEND(rbufer(1:2), 2, MPI_DOUBLE_PRECISION, Rank_of_master_right, Rank_of_process, MPI_COMM_WORLD, ierr) 
      END IF
 
      IF (connect_left) THEN
@@ -750,7 +750,7 @@ SUBROUTINE GATHER_SURFACE_CHARGE_DENSITY
               c_local_object_part(n_left(n))%surface_charge(c_indx_x_min) = 0.0_8
            END IF
         END DO
-        CALL MPI_SEND(rbufer(1:2), 2, MPI_DOUBLE_PRECISION, Rank_of_master_left, Rank_of_process, MPI_COMM_WORLD, request, ierr) 
+        CALL MPI_SEND(rbufer(1:2), 2, MPI_DOUBLE_PRECISION, Rank_of_master_left, Rank_of_process, MPI_COMM_WORLD, ierr) 
      END IF
 
      IF (connect_left) THEN
@@ -784,7 +784,7 @@ SUBROUTINE GATHER_SURFACE_CHARGE_DENSITY
               c_local_object_part(n_above(n))%surface_charge(c_indx_y_max) = 0.0_8
            END IF
         END DO
-        CALL MPI_SEND(rbufer(1:2), 2, MPI_DOUBLE_PRECISION, Rank_of_master_above, Rank_of_process, MPI_COMM_WORLD, request, ierr) 
+        CALL MPI_SEND(rbufer(1:2), 2, MPI_DOUBLE_PRECISION, Rank_of_master_above, Rank_of_process, MPI_COMM_WORLD, ierr) 
      END IF
 
      IF (connect_below) THEN
@@ -796,7 +796,7 @@ SUBROUTINE GATHER_SURFACE_CHARGE_DENSITY
               c_local_object_part(n_below(n))%surface_charge(c_indx_y_min) = 0.0_8
            END IF
         END DO
-        CALL MPI_SEND(rbufer(1:2), 2, MPI_DOUBLE_PRECISION, Rank_of_master_below, Rank_of_process, MPI_COMM_WORLD, request, ierr) 
+        CALL MPI_SEND(rbufer(1:2), 2, MPI_DOUBLE_PRECISION, Rank_of_master_below, Rank_of_process, MPI_COMM_WORLD, ierr) 
      END IF
 
      IF (connect_below) THEN
@@ -853,7 +853,7 @@ SUBROUTINE GATHER_SURFACE_CHARGE_DENSITY
               c_local_object_part(n_right(n))%surface_charge(c_indx_x_max) = 0.0_8
            END IF
         END DO
-        CALL MPI_SEND(rbufer(1:2), 2, MPI_DOUBLE_PRECISION, Rank_of_master_right, Rank_of_process, MPI_COMM_WORLD, request, ierr) 
+        CALL MPI_SEND(rbufer(1:2), 2, MPI_DOUBLE_PRECISION, Rank_of_master_right, Rank_of_process, MPI_COMM_WORLD, ierr) 
      END IF
 
      IF (connect_left) THEN
@@ -865,7 +865,7 @@ SUBROUTINE GATHER_SURFACE_CHARGE_DENSITY
               c_local_object_part(n_left(n))%surface_charge(c_indx_x_min) = 0.0_8
            END IF
         END DO
-        CALL MPI_SEND(rbufer(1:2), 2, MPI_DOUBLE_PRECISION, Rank_of_master_left, Rank_of_process, MPI_COMM_WORLD, request, ierr) 
+        CALL MPI_SEND(rbufer(1:2), 2, MPI_DOUBLE_PRECISION, Rank_of_master_left, Rank_of_process, MPI_COMM_WORLD, ierr) 
      END IF
 
      IF (connect_below) THEN
@@ -897,7 +897,7 @@ SUBROUTINE GATHER_SURFACE_CHARGE_DENSITY
               c_local_object_part(n_above(n))%surface_charge(c_indx_y_max) = 0.0_8
            END IF
         END DO
-        CALL MPI_SEND(rbufer(1:2), 2, MPI_DOUBLE_PRECISION, Rank_of_master_above, Rank_of_process, MPI_COMM_WORLD, request, ierr) 
+        CALL MPI_SEND(rbufer(1:2), 2, MPI_DOUBLE_PRECISION, Rank_of_master_above, Rank_of_process, MPI_COMM_WORLD, ierr) 
      END IF
 
      IF (connect_below) THEN
@@ -909,7 +909,7 @@ SUBROUTINE GATHER_SURFACE_CHARGE_DENSITY
               c_local_object_part(n_below(n))%surface_charge(c_indx_y_min) = 0.0_8
            END IF
         END DO
-        CALL MPI_SEND(rbufer(1:2), 2, MPI_DOUBLE_PRECISION, Rank_of_master_below, Rank_of_process, MPI_COMM_WORLD, request, ierr) 
+        CALL MPI_SEND(rbufer(1:2), 2, MPI_DOUBLE_PRECISION, Rank_of_master_below, Rank_of_process, MPI_COMM_WORLD, ierr) 
      END IF
 
   END IF
@@ -927,9 +927,9 @@ SUBROUTINE GATHER_SURFACE_CHARGE_DENSITY_INNER_OBJECTS
   USE CurrentProblemValues
   USE ClusterAndItsBoundaries  
 
-  IMPLICIT NONE
+  use mpi
 
-  INCLUDE 'mpif.h'
+  IMPLICIT NONE
 
   INTEGER errcode,ierr
 

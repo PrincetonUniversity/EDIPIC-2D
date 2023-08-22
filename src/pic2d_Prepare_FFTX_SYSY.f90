@@ -9,9 +9,10 @@ SUBROUTINE PREPARE_FFT_X
   USE ParallelFFTX
   USE ParallelOperationValues, ONLY : Rank_of_process, cluster_rank_key
 
+  use mpi
+
   IMPLICIT NONE
 
-  INCLUDE 'mpif.h'
 
   INTEGER errcode,ierr
 
@@ -334,9 +335,10 @@ SUBROUTINE PREPARE_SYS_Y
   USE ParallelFFTX
   USE SetupValues, ONLY : ht_grid_requested, grid_j
 
+  use mpi
+
   IMPLICIT NONE
 
-  INCLUDE 'mpif.h'
 
   INTEGER errcode,ierr
   INTEGER stattus(MPI_STATUS_SIZE)
@@ -592,7 +594,7 @@ SUBROUTINE PREPARE_SYS_Y
            ibufer(5) = field_calculator(k)%sysy_strip_nmin
            ibufer(6) = field_calculator(k)%sysy_strip_nmax
 
-           CALL MPI_SEND(ibufer, 6, MPI_INTEGER, field_calculator(k)%rank, Rank_of_process, MPI_COMM_WORLD, request, ierr) 
+           CALL MPI_SEND(ibufer, 6, MPI_INTEGER, field_calculator(k)%rank, Rank_of_process, MPI_COMM_WORLD, ierr) 
         END DO
 
      END IF

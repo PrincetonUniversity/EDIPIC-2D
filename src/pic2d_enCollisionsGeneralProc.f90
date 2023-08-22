@@ -10,9 +10,9 @@ SUBROUTINE INITIATE_ELECTRON_NEUTRAL_COLLISIONS
   USE IonParticles, ONLY : N_spec, Ms
 !  USE ClusterAndItsBoundaries
 
-  IMPLICIT NONE
+  use mpi
 
-  INCLUDE 'mpif.h'
+  IMPLICIT NONE
 
   INTEGER errcode,ierr
  
@@ -344,9 +344,9 @@ SUBROUTINE PERFORM_ELECTRON_NEUTRAL_COLLISIONS
 
 !  USE ParallelOperationValues
 
-  IMPLICIT NONE
+  use mpi
 
-  INCLUDE 'mpif.h'
+  IMPLICIT NONE
 
   INTEGER errcode,ierr
   INTEGER stattus(MPI_STATUS_SIZE)
@@ -768,9 +768,9 @@ SUBROUTINE SAVE_en_COLLISIONS
   USE ElectronParticles, ONLY : N_electrons
   USE CurrentProblemValues, ONLY : T_cntr
 
-  IMPLICIT NONE
+  use mpi
 
-  INCLUDE 'mpif.h'
+  IMPLICIT NONE
 
   INTEGER ierr
   INTEGER stattus(MPI_STATUS_SIZE)
@@ -1071,9 +1071,9 @@ SUBROUTINE COLLECT_ELECTRON_DENSITY_FOR_COLL_FREQS
   USE AvgSnapshots
   USE CurrentProblemValues, ONLY : T_cntr
 
-  IMPLICIT NONE
+  use mpi
 
-  INCLUDE 'mpif.h'
+  IMPLICIT NONE
 
   INTEGER ierr
   INTEGER stattus(MPI_STATUS_SIZE)
@@ -1169,9 +1169,9 @@ SUBROUTINE SYNCHRONIZE_REAL_ARRAY_IN_OVERLAP_NODES(arr)
   USE ParallelOperationValues
   USE ClusterAndItsBoundaries
 
-  IMPLICIT NONE
+  use mpi
 
-  INCLUDE 'mpif.h'
+  IMPLICIT NONE
 
   INTEGER ierr
   INTEGER stattus(MPI_STATUS_SIZE)
@@ -1206,7 +1206,7 @@ SUBROUTINE SYNCHRONIZE_REAL_ARRAY_IN_OVERLAP_NODES(arr)
         pos2=n1
         rbufer(pos1:pos2) = arr(c_indx_x_max, c_indx_y_min:c_indx_y_max)
 
-        CALL MPI_SEND(rbufer, n1, MPI_REAL, Rank_horizontal_right, Rank_horizontal, COMM_HORIZONTAL, request, ierr) 
+        CALL MPI_SEND(rbufer, n1, MPI_REAL, Rank_horizontal_right, Rank_horizontal, COMM_HORIZONTAL, ierr) 
      END IF
 
      IF (Rank_horizontal_left.GE.0) THEN
@@ -1215,7 +1215,7 @@ SUBROUTINE SYNCHRONIZE_REAL_ARRAY_IN_OVERLAP_NODES(arr)
         pos2=n1
         rbufer(pos1:pos2) = arr(c_indx_x_min, c_indx_y_min:c_indx_y_max)
 
-        CALL MPI_SEND(rbufer, n1, MPI_REAL, Rank_horizontal_left, Rank_horizontal, COMM_HORIZONTAL, request, ierr) 
+        CALL MPI_SEND(rbufer, n1, MPI_REAL, Rank_horizontal_left, Rank_horizontal, COMM_HORIZONTAL, ierr) 
      END IF
 
      IF (Rank_horizontal_left.GE.0) THEN
@@ -1247,7 +1247,7 @@ SUBROUTINE SYNCHRONIZE_REAL_ARRAY_IN_OVERLAP_NODES(arr)
         pos2=n3
         rbufer(pos1:pos2) = arr(c_indx_x_min:c_indx_x_max, c_indx_y_max)
 
-        CALL MPI_SEND(rbufer, n3, MPI_REAL, Rank_horizontal_above, Rank_horizontal, COMM_HORIZONTAL, request, ierr) 
+        CALL MPI_SEND(rbufer, n3, MPI_REAL, Rank_horizontal_above, Rank_horizontal, COMM_HORIZONTAL, ierr) 
      END IF
 
      IF (Rank_horizontal_below.GE.0) THEN
@@ -1256,7 +1256,7 @@ SUBROUTINE SYNCHRONIZE_REAL_ARRAY_IN_OVERLAP_NODES(arr)
         pos2=n3
         rbufer(pos1:pos2) = arr(c_indx_x_min:c_indx_x_max, c_indx_y_min)
 
-        CALL MPI_SEND(rbufer, n3, MPI_REAL, Rank_horizontal_below, Rank_horizontal, COMM_HORIZONTAL, request, ierr) 
+        CALL MPI_SEND(rbufer, n3, MPI_REAL, Rank_horizontal_below, Rank_horizontal, COMM_HORIZONTAL, ierr) 
      END IF
 
      IF (Rank_horizontal_below.GE.0) THEN
@@ -1311,7 +1311,7 @@ SUBROUTINE SYNCHRONIZE_REAL_ARRAY_IN_OVERLAP_NODES(arr)
         pos2=n1
         rbufer(pos1:pos2) = arr(c_indx_x_max, c_indx_y_min:c_indx_y_max)
 
-        CALL MPI_SEND(rbufer, n1, MPI_REAL, Rank_horizontal_right, Rank_horizontal, COMM_HORIZONTAL, request, ierr) 
+        CALL MPI_SEND(rbufer, n1, MPI_REAL, Rank_horizontal_right, Rank_horizontal, COMM_HORIZONTAL, ierr) 
      END IF
 
      IF (Rank_horizontal_left.GE.0) THEN
@@ -1320,7 +1320,7 @@ SUBROUTINE SYNCHRONIZE_REAL_ARRAY_IN_OVERLAP_NODES(arr)
         pos2=n1
         rbufer(pos1:pos2) = arr(c_indx_x_min, c_indx_y_min:c_indx_y_max)
 
-        CALL MPI_SEND(rbufer, n1, MPI_REAL, Rank_horizontal_left, Rank_horizontal, COMM_HORIZONTAL, request, ierr) 
+        CALL MPI_SEND(rbufer, n1, MPI_REAL, Rank_horizontal_left, Rank_horizontal, COMM_HORIZONTAL, ierr) 
      END IF
 
      IF (ALLOCATED(rbufer)) DEALLOCATE(rbufer, STAT=ALLOC_ERR)
@@ -1350,7 +1350,7 @@ SUBROUTINE SYNCHRONIZE_REAL_ARRAY_IN_OVERLAP_NODES(arr)
         pos2=n3
         rbufer(pos1:pos2) = arr(c_indx_x_min:c_indx_x_max, c_indx_y_max)
 
-        CALL MPI_SEND(rbufer, n3, MPI_REAL, Rank_horizontal_above, Rank_horizontal, COMM_HORIZONTAL, request, ierr) 
+        CALL MPI_SEND(rbufer, n3, MPI_REAL, Rank_horizontal_above, Rank_horizontal, COMM_HORIZONTAL, ierr) 
      END IF
 
      IF (Rank_horizontal_below.GE.0) THEN
@@ -1359,7 +1359,7 @@ SUBROUTINE SYNCHRONIZE_REAL_ARRAY_IN_OVERLAP_NODES(arr)
         pos2=n3
         rbufer(pos1:pos2) = arr(c_indx_x_min:c_indx_x_max, c_indx_y_min)
 
-        CALL MPI_SEND(rbufer, n3, MPI_REAL, Rank_horizontal_below, Rank_horizontal, COMM_HORIZONTAL, request, ierr) 
+        CALL MPI_SEND(rbufer, n3, MPI_REAL, Rank_horizontal_below, Rank_horizontal, COMM_HORIZONTAL, ierr) 
      END IF
 
   END IF   !###   IF (WHITE_CLUSTER) THEN
