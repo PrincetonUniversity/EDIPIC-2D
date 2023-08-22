@@ -54,9 +54,10 @@ subroutine PERFORM_RESONANT_CHARGE_EXCHANGE
   USE CurrentProblemValues, ONLY : energy_factor_eV, delta_t_s, N_subcycles, V_scale_ms
   USE rng_wrapper
 
+  use mpi
+
   IMPLICIT NONE
 
-!  INCLUDE 'mpif.h'
 !  INTEGER ierr
 !  INTEGER stattus(MPI_STATUS_SIZE)
 

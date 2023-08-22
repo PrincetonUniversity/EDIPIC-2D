@@ -7,9 +7,10 @@ SUBROUTINE ADVANCE_IONS
   USE IonParticles
   USE ClusterAndItsBoundaries
   
+  use mpi
+
   IMPLICIT NONE
 
-  INCLUDE 'mpif.h'
 
   INTEGER errcode,ierr
 
@@ -534,9 +535,10 @@ SUBROUTINE REMOVE_ION(s, k)
   USE ParallelOperationValues
   USE IonParticles
 
+  use mpi
+
   IMPLICIT NONE
 
-  INCLUDE 'mpif.h'
 
   INTEGER errcode,ierr
 
@@ -584,6 +586,8 @@ SUBROUTINE ADD_ION_TO_SEND_LEFT(s, x, y, vx, vy, vz, tag)
 
 !use CurrentProblemValues, only : T_cntr
 !USE ParallelOperationValues, only : Rank_of_process
+
+  use mpi
 
   IMPLICIT NONE
 
@@ -661,6 +665,8 @@ SUBROUTINE ADD_ION_TO_SEND_RIGHT(s, x, y, vx, vy, vz, tag)
 !use CurrentProblemValues, only : T_cntr
 !USE ParallelOperationValues, only : Rank_of_process
 
+  use mpi
+
   IMPLICIT NONE
 
   INTEGER s
@@ -736,6 +742,8 @@ SUBROUTINE ADD_ION_TO_SEND_ABOVE(s, x, y, vx, vy, vz, tag)
 
 !use CurrentProblemValues, only : T_cntr
 !USE ParallelOperationValues, only : Rank_of_process
+
+  use mpi
 
   IMPLICIT NONE
 
@@ -813,6 +821,8 @@ SUBROUTINE ADD_ION_TO_SEND_BELOW(s, x, y, vx, vy, vz, tag)
 !use CurrentProblemValues, only : T_cntr
 !USE ParallelOperationValues, only : Rank_of_process
 
+  use mpi
+
   IMPLICIT NONE
 
   INTEGER s
@@ -885,6 +895,8 @@ SUBROUTINE ADD_ION_TO_ADD_LIST(s, x, y, vx, vy, vz, tag)
 
   USE IonParticles, ONLY : N_ions_to_add, max_N_ions_to_add, ion_to_add
 
+  use mpi
+
   IMPLICIT NONE
 
   INTEGER s
@@ -952,9 +964,10 @@ SUBROUTINE REMOVE_ION_FROM_ADD_LIST(s, k)
   USE ParallelOperationValues
   USE IonParticles
 
+  use mpi
+
   IMPLICIT NONE
 
-  INCLUDE 'mpif.h'
 
   INTEGER errcode,ierr
 
@@ -1002,9 +1015,10 @@ SUBROUTINE FIND_ALIENS_IN_ION_ADD_LIST
   USE ClusterAndItsBoundaries
   USE IonParticles, ONLY : N_ions_to_add, ion_to_add, N_spec
 
+  use mpi
+
   IMPLICIT NONE
 
-  INCLUDE 'mpif.h'
 
   INTEGER errcode,ierr
 
@@ -1458,6 +1472,8 @@ SUBROUTINE FIND_INNER_OBJECT_COLL_IN_ION_ADD_LIST
   USE CurrentProblemValues
   USE IonParticles, ONLY : N_ions_to_add, ion_to_add, N_spec
 
+  use mpi
+
   IMPLICIT NONE
 
   INTEGER s, k, n 
@@ -1501,6 +1517,8 @@ SUBROUTINE PROCESS_ADDED_IONS
   USE CurrentProblemValues
 
   USE IonParticles, ONLY : N_ions_to_add, N_ions, max_N_ions, ion, ion_to_add, N_spec
+
+  use mpi
 
   IMPLICIT NONE
 
@@ -1576,9 +1594,10 @@ SUBROUTINE GATHER_ION_CHARGE_DENSITY
   USE BlockAndItsBoundaries, ONLY : indx_x_min, indx_x_max, indx_y_min, indx_y_max
 !  USE Diagnostics
 
+  use mpi
+
   IMPLICIT NONE
 
-  INCLUDE 'mpif.h'
 
   INTEGER errcode,ierr
   INTEGER stattus(MPI_STATUS_SIZE)
@@ -1746,13 +1765,13 @@ SUBROUTINE GATHER_ION_CHARGE_DENSITY
         IF (Rank_horizontal_right.GE.0) THEN
 ! ## 1 ## send right densities in the right edge
            rbufer(1:n1) = c_rho_i(c_indx_x_max, c_indx_y_min:c_indx_y_max)
-           CALL MPI_SEND(rbufer, n1, MPI_DOUBLE_PRECISION, Rank_horizontal_right, Rank_horizontal, COMM_HORIZONTAL, request, ierr) 
+           CALL MPI_SEND(rbufer, n1, MPI_DOUBLE_PRECISION, Rank_horizontal_right, Rank_horizontal, COMM_HORIZONTAL, ierr) 
         END IF
 
         IF (Rank_horizontal_left.GE.0) THEN
 ! ## 2 ## send left densities in the left edge
            rbufer(1:n1) = c_rho_i(c_indx_x_min, c_indx_y_min:c_indx_y_max)
-           CALL MPI_SEND(rbufer, n1, MPI_DOUBLE_PRECISION, Rank_horizontal_left, Rank_horizontal, COMM_HORIZONTAL, request, ierr) 
+           CALL MPI_SEND(rbufer, n1, MPI_DOUBLE_PRECISION, Rank_horizontal_left, Rank_horizontal, COMM_HORIZONTAL, ierr) 
         END IF
 
         IF (Rank_horizontal_left.GE.0) THEN
@@ -1777,13 +1796,13 @@ SUBROUTINE GATHER_ION_CHARGE_DENSITY
         IF (Rank_horizontal_above.GE.0) THEN
 ! ## 5 ## send up densities in the top edge
            rbufer(1:n3) = c_rho_i(c_indx_x_min:c_indx_x_max, c_indx_y_max)
-           CALL MPI_SEND(rbufer, n3, MPI_DOUBLE_PRECISION, Rank_horizontal_above, Rank_horizontal, COMM_HORIZONTAL, request, ierr) 
+           CALL MPI_SEND(rbufer, n3, MPI_DOUBLE_PRECISION, Rank_horizontal_above, Rank_horizontal, COMM_HORIZONTAL, ierr) 
         END IF
 
         IF (Rank_horizontal_below.GE.0) THEN
 ! ## 6 ## send down densities in the bottom edge
            rbufer(1:n3) = c_rho_i(c_indx_x_min:c_indx_x_max, c_indx_y_min)
-           CALL MPI_SEND(rbufer, n3, MPI_DOUBLE_PRECISION, Rank_horizontal_below, Rank_horizontal, COMM_HORIZONTAL, request, ierr) 
+           CALL MPI_SEND(rbufer, n3, MPI_DOUBLE_PRECISION, Rank_horizontal_below, Rank_horizontal, COMM_HORIZONTAL, ierr) 
         END IF
 
         IF (Rank_horizontal_below.GE.0) THEN
@@ -1827,13 +1846,13 @@ SUBROUTINE GATHER_ION_CHARGE_DENSITY
         IF (Rank_horizontal_right.GE.0) THEN
 ! ## 3 ## send right densities in the right edge
            rbufer(1:n1) = c_rho_i(c_indx_x_max, c_indx_y_min:c_indx_y_max)
-           CALL MPI_SEND(rbufer, n1, MPI_DOUBLE_PRECISION, Rank_horizontal_right, Rank_horizontal, COMM_HORIZONTAL, request, ierr) 
+           CALL MPI_SEND(rbufer, n1, MPI_DOUBLE_PRECISION, Rank_horizontal_right, Rank_horizontal, COMM_HORIZONTAL, ierr) 
         END IF
 
         IF (Rank_horizontal_left.GE.0) THEN
 ! ## 4 ## send left densities in the left edge
            rbufer(1:n1) = c_rho_i(c_indx_x_min, c_indx_y_min:c_indx_y_max)
-           CALL MPI_SEND(rbufer, n1, MPI_DOUBLE_PRECISION, Rank_horizontal_left, Rank_horizontal, COMM_HORIZONTAL, request, ierr) 
+           CALL MPI_SEND(rbufer, n1, MPI_DOUBLE_PRECISION, Rank_horizontal_left, Rank_horizontal, COMM_HORIZONTAL, ierr) 
         END IF
 
         IF (ALLOCATED(rbufer)) DEALLOCATE(rbufer, STAT=ALLOC_ERR)
@@ -1858,13 +1877,13 @@ SUBROUTINE GATHER_ION_CHARGE_DENSITY
         IF (Rank_horizontal_above.GE.0) THEN
 ! ## 7 ## send up densities in the top edge
            rbufer(1:n3) = c_rho_i(c_indx_x_min:c_indx_x_max, c_indx_y_max)
-           CALL MPI_SEND(rbufer, n3, MPI_DOUBLE_PRECISION, Rank_horizontal_above, Rank_horizontal, COMM_HORIZONTAL, request, ierr) 
+           CALL MPI_SEND(rbufer, n3, MPI_DOUBLE_PRECISION, Rank_horizontal_above, Rank_horizontal, COMM_HORIZONTAL, ierr) 
         END IF
 
         IF (Rank_horizontal_below.GE.0) THEN
 ! ## 8 ## send down densities in the bottom edge
            rbufer(1:n3) = c_rho_i(c_indx_x_min:c_indx_x_max, c_indx_y_min)
-           CALL MPI_SEND(rbufer, n3, MPI_DOUBLE_PRECISION, Rank_horizontal_below, Rank_horizontal, COMM_HORIZONTAL, request, ierr) 
+           CALL MPI_SEND(rbufer, n3, MPI_DOUBLE_PRECISION, Rank_horizontal_below, Rank_horizontal, COMM_HORIZONTAL, ierr) 
         END IF
 
      END IF
@@ -1981,7 +2000,7 @@ SUBROUTINE GATHER_ION_CHARGE_DENSITY
 
               END DO
            END DO
-           CALL MPI_SEND(rbufer, bufsize, MPI_DOUBLE_PRECISION, field_calculator(k)%rank, Rank_of_process, MPI_COMM_WORLD, request, ierr) 
+           CALL MPI_SEND(rbufer, bufsize, MPI_DOUBLE_PRECISION, field_calculator(k)%rank, Rank_of_process, MPI_COMM_WORLD, ierr) 
         END DO
 
 ! cluster master is a field calaculator too, prepare its own charge density

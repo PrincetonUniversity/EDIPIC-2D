@@ -5,9 +5,10 @@ SUBROUTINE PREPARE_SETUP_VALUES
   USE ParallelOperationValues
   USE CurrentProblemValues
 
+  use mpi
+
   IMPLICIT NONE
 
-  INCLUDE 'mpif.h'
 
   INTEGER errcode,ierr
 
@@ -153,6 +154,8 @@ SUBROUTINE PREPARE_WAVEFORMS
   USE ParallelOperationValues, ONLY : Rank_of_process
   USE CurrentProblemValues, ONLY : whole_object, N_of_boundary_and_inner_objects, METAL_WALL, delta_t_s, F_scale_V
 
+  use mpi
+
   IMPLICIT NONE
 
   INTEGER n
@@ -275,6 +278,8 @@ SUBROUTINE PREPARE_OSCILLATIONS_AMPLITUDE_PROFILE
 
   USE ParallelOperationValues, ONLY : Rank_of_process
   USE CurrentProblemValues, ONLY : whole_object, N_of_boundary_and_inner_objects, METAL_WALL, delta_t_s
+
+  use mpi
 
   IMPLICIT NONE
 
@@ -421,6 +426,8 @@ SUBROUTINE PREPARE_EXTERNAL_CIRCUIT
   USE CurrentProblemValues, ONLY : whole_object, N_of_boundary_and_inner_objects, METAL_WALL, delta_t_s, F_scale_V, pi
   USE BlockAndItsBoundaries
 
+  use mpi
+
   IMPLICIT NONE
 
   LOGICAL exists
@@ -560,6 +567,8 @@ SUBROUTINE INITIATE_EXT_CIRCUIT_DIAGNOSTICS
   USE SetupValues, ONLY : ht_use_e_emission_from_cathode, ht_use_e_emission_from_cathode_zerogradf, ht_emission_constant
   USE ExternalCircuit, ONLY : N_of_object_potentials_to_solve
 
+  use mpi
+
   IMPLICIT NONE
 
   LOGICAL exists
@@ -606,9 +615,10 @@ SUBROUTINE PERFORM_ELECTRON_EMISSION_SETUP
 
   USE rng_wrapper
 
+  use mpi
+
   IMPLICIT NONE
 
-  INCLUDE 'mpif.h'
 
   INTEGER ierr
 
@@ -1012,9 +1022,10 @@ SUBROUTINE PERFORM_ELECTRON_EMISSION_SETUP_INNER_OBJECTS
 
   USE rng_wrapper
 
+  use mpi
+
   IMPLICIT NONE
 
-  INCLUDE 'mpif.h'
 
   INTEGER errcode,ierr
 

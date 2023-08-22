@@ -7,9 +7,10 @@ SUBROUTINE PREPARE_EXTERNAL_FIELDS
   USE CurrentProblemValues, ONLY : E_scale_Vm, B_scale_T, delta_x_m, global_maximal_j, pi, mu_0_Hm
   USE IonParticles, ONLY : ions_sense_magnetic_field, ions_sense_EZ
 
+  use mpi
+
   IMPLICIT NONE
 
-  INCLUDE 'mpif.h'
 
   LOGICAL exists
 
@@ -197,6 +198,8 @@ REAL(8) FUNCTION Bx(x, y)
 
   USE ExternalFields
 
+  use mpi
+
   IMPLICIT NONE
 
   REAL(8) x, y
@@ -216,6 +219,8 @@ REAL(8) FUNCTION By(x, y)
 
   USE ExternalFields
 
+  use mpi
+
   IMPLICIT NONE
 
   REAL(8) x, y
@@ -234,6 +239,8 @@ END FUNCTION By
 REAL(8) FUNCTION Bz(x, y)
 
   USE ExternalFields
+
+  use mpi
 
   IMPLICIT NONE
 
@@ -258,6 +265,8 @@ END FUNCTION Bz
 REAL(8) FUNCTION Ez(x, y)
 
   USE ExternalFields
+
+  use mpi
 
   IMPLICIT NONE
 

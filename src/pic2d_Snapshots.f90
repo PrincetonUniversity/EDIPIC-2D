@@ -11,9 +11,9 @@ SUBROUTINE INITIATE_SNAPSHOTS
   USE MCCollisions
   USE ClusterAndItsBoundaries
 
-  IMPLICIT NONE
+  use mpi
 
-  INCLUDE 'mpif.h'
+  IMPLICIT NONE
 
   INTEGER ierr
 
@@ -312,9 +312,9 @@ SUBROUTINE CREATE_SNAPSHOT
   USE IonParticles, ONLY : N_spec, Qs, Ms
   USE MCCollisions
 
-  IMPLICIT NONE
+  use mpi
 
-  INCLUDE 'mpif.h'
+  IMPLICIT NONE
 
   INTEGER ierr
   INTEGER stattus(MPI_STATUS_SIZE)
@@ -436,7 +436,7 @@ SUBROUTINE CREATE_SNAPSHOT
               pos1 = pos1 + recsize
            END DO
 
-           CALL MPI_SEND(rbufer, bufsize, MPI_REAL, field_master, Rank_of_process, MPI_COMM_WORLD, request, ierr) 
+           CALL MPI_SEND(rbufer, bufsize, MPI_REAL, field_master, Rank_of_process, MPI_COMM_WORLD, ierr) 
 
            DEALLOCATE(rbufer, STAT = ALLOC_ERR)
         
@@ -1214,9 +1214,9 @@ SUBROUTINE SAVE_GLOBAL_2D_ARRAY(arr, filename)
   USE IonParticles
   USE Snapshots
 
-  IMPLICIT NONE
+  use mpi
 
-  INCLUDE 'mpif.h'
+  IMPLICIT NONE
 
   REAL arr(c_indx_x_min:c_indx_x_max, c_indx_y_min:c_indx_y_max)
 
@@ -1367,9 +1367,9 @@ SUBROUTINE SAVE_ALL_VDF1D
   USE IonParticles
   USE Snapshots
 
-  IMPLICIT NONE
+  use mpi
 
-  INCLUDE 'mpif.h'
+  IMPLICIT NONE
 
   CHARACTER(15) filename      ! _NNNN_vdf1d.bin
                               ! ----x----I----x
@@ -1556,9 +1556,9 @@ SUBROUTINE SAVE_ALL_VDF2D
   USE IonParticles
   USE Snapshots
 
-  IMPLICIT NONE
+  use mpi
 
-  INCLUDE 'mpif.h'
+  IMPLICIT NONE
 
   CHARACTER(15) filename      ! _NNNN_vdf2d.bin
                               ! ----x----I----x
@@ -1715,10 +1715,10 @@ SUBROUTINE SAVE_ELECTRON_PHASE_PLANES
   USE CurrentProblemValues
   USE ElectronParticles
   USE Snapshots
+
+  use mpi
   
   IMPLICIT NONE
-
-  INCLUDE 'mpif.h'
 
   INTEGER ierr
   INTEGER stattus(MPI_STATUS_SIZE)
@@ -1853,10 +1853,10 @@ SUBROUTINE SAVE_ION_PHASE_PLANES
   USE CurrentProblemValues
   USE IonParticles
   USE Snapshots
+
+  use mpi
   
   IMPLICIT NONE
-
-  INCLUDE 'mpif.h'
 
   INTEGER ierr
   INTEGER stattus(MPI_STATUS_SIZE)
@@ -2004,9 +2004,9 @@ SUBROUTINE SAVE_en_COLLISIONS_2D
   USE MCCollisions
   USE Snapshots
 
-  IMPLICIT NONE
+  use mpi
 
-  INCLUDE 'mpif.h'
+  IMPLICIT NONE
 
   INTEGER ierr
   INTEGER stattus(MPI_STATUS_SIZE)
@@ -2073,13 +2073,13 @@ SUBROUTINE SAVE_en_COLLISIONS_2D
            IF (Rank_horizontal_right.GE.0) THEN
 ! ## 1 ## send right densities in the right edge
               rbufer(1:n1) = diagnostics_neutral(n)%activated_collision(p)%ionization_rate_local(c_indx_x_max, c_indx_y_min:c_indx_y_max)
-              CALL MPI_SEND(rbufer, n1, MPI_REAL, Rank_horizontal_right, Rank_horizontal, COMM_HORIZONTAL, request, ierr) 
+              CALL MPI_SEND(rbufer, n1, MPI_REAL, Rank_horizontal_right, Rank_horizontal, COMM_HORIZONTAL, ierr) 
            END IF
 
            IF (Rank_horizontal_left.GE.0) THEN
 ! ## 2 ## send left densities in the left edge
               rbufer(1:n1) = diagnostics_neutral(n)%activated_collision(p)%ionization_rate_local(c_indx_x_min, c_indx_y_min:c_indx_y_max)
-              CALL MPI_SEND(rbufer, n1, MPI_REAL, Rank_horizontal_left, Rank_horizontal, COMM_HORIZONTAL, request, ierr) 
+              CALL MPI_SEND(rbufer, n1, MPI_REAL, Rank_horizontal_left, Rank_horizontal, COMM_HORIZONTAL, ierr) 
            END IF
 
            IF (Rank_horizontal_left.GE.0) THEN
@@ -2104,13 +2104,13 @@ SUBROUTINE SAVE_en_COLLISIONS_2D
            IF (Rank_horizontal_above.GE.0) THEN
 ! ## 5 ## send up densities in the top edge
               rbufer(1:n3) = diagnostics_neutral(n)%activated_collision(p)%ionization_rate_local(c_indx_x_min:c_indx_x_max, c_indx_y_max)
-              CALL MPI_SEND(rbufer, n3, MPI_REAL, Rank_horizontal_above, Rank_horizontal, COMM_HORIZONTAL, request, ierr) 
+              CALL MPI_SEND(rbufer, n3, MPI_REAL, Rank_horizontal_above, Rank_horizontal, COMM_HORIZONTAL, ierr) 
            END IF
 
            IF (Rank_horizontal_below.GE.0) THEN
 ! ## 6 ## send down densities in the bottom edge
               rbufer(1:n3) = diagnostics_neutral(n)%activated_collision(p)%ionization_rate_local(c_indx_x_min:c_indx_x_max, c_indx_y_min)
-              CALL MPI_SEND(rbufer, n3, MPI_REAL, Rank_horizontal_below, Rank_horizontal, COMM_HORIZONTAL, request, ierr) 
+              CALL MPI_SEND(rbufer, n3, MPI_REAL, Rank_horizontal_below, Rank_horizontal, COMM_HORIZONTAL, ierr) 
            END IF
 
            IF (Rank_horizontal_below.GE.0) THEN
@@ -2154,13 +2154,13 @@ SUBROUTINE SAVE_en_COLLISIONS_2D
            IF (Rank_horizontal_right.GE.0) THEN
 ! ## 3 ## send right densities in the right edge
               rbufer(1:n1) = diagnostics_neutral(n)%activated_collision(p)%ionization_rate_local(c_indx_x_max, c_indx_y_min:c_indx_y_max)
-              CALL MPI_SEND(rbufer, n1, MPI_REAL, Rank_horizontal_right, Rank_horizontal, COMM_HORIZONTAL, request, ierr) 
+              CALL MPI_SEND(rbufer, n1, MPI_REAL, Rank_horizontal_right, Rank_horizontal, COMM_HORIZONTAL, ierr) 
            END IF
 
            IF (Rank_horizontal_left.GE.0) THEN
 ! ## 4 ## send left densities in the left edge
               rbufer(1:n1) = diagnostics_neutral(n)%activated_collision(p)%ionization_rate_local(c_indx_x_min, c_indx_y_min:c_indx_y_max)
-              CALL MPI_SEND(rbufer, n1, MPI_REAL, Rank_horizontal_left, Rank_horizontal, COMM_HORIZONTAL, request, ierr) 
+              CALL MPI_SEND(rbufer, n1, MPI_REAL, Rank_horizontal_left, Rank_horizontal, COMM_HORIZONTAL, ierr) 
            END IF
 
            IF (ALLOCATED(rbufer)) DEALLOCATE(rbufer, STAT=ALLOC_ERR)
@@ -2185,13 +2185,13 @@ SUBROUTINE SAVE_en_COLLISIONS_2D
            IF (Rank_horizontal_above.GE.0) THEN
 ! ## 7 ## send up densities in the top edge
               rbufer(1:n3) = diagnostics_neutral(n)%activated_collision(p)%ionization_rate_local(c_indx_x_min:c_indx_x_max, c_indx_y_max)
-              CALL MPI_SEND(rbufer, n3, MPI_REAL, Rank_horizontal_above, Rank_horizontal, COMM_HORIZONTAL, request, ierr) 
+              CALL MPI_SEND(rbufer, n3, MPI_REAL, Rank_horizontal_above, Rank_horizontal, COMM_HORIZONTAL, ierr) 
            END IF
 
            IF (Rank_horizontal_below.GE.0) THEN
 ! ## 8 ## send down densities in the bottom edge
               rbufer(1:n3) = diagnostics_neutral(n)%activated_collision(p)%ionization_rate_local(c_indx_x_min:c_indx_x_max, c_indx_y_min)
-              CALL MPI_SEND(rbufer, n3, MPI_REAL, Rank_horizontal_below, Rank_horizontal, COMM_HORIZONTAL, request, ierr) 
+              CALL MPI_SEND(rbufer, n3, MPI_REAL, Rank_horizontal_below, Rank_horizontal, COMM_HORIZONTAL, ierr) 
            END IF
 
         END IF
@@ -2293,9 +2293,9 @@ SUBROUTINE SAVE_IONS_COLLIDED_WITH_BOUNDARY_OBJECTS
   USE IonParticles, ONLY : N_spec, M_i_amu
   USE Snapshots
 
-  IMPLICIT NONE
+  use mpi
 
-  INCLUDE 'mpif.h'
+  IMPLICIT NONE
 
   INTEGER ierr
   INTEGER stattus(MPI_STATUS_SIZE)
@@ -2455,9 +2455,9 @@ SUBROUTINE SAVE_ELECTRONS_COLLIDED_WITH_BOUNDARY_OBJECTS
                                  & delta_x_m, V_scale_ms, N_scale_part_m3, e_colls_with_bo, whole_object
   USE Snapshots
 
-  IMPLICIT NONE
+  use mpi
 
-  INCLUDE 'mpif.h'
+  IMPLICIT NONE
 
   INTEGER ierr
   INTEGER stattus(MPI_STATUS_SIZE)

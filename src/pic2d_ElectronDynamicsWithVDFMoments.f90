@@ -9,6 +9,8 @@ SUBROUTINE ADVANCE_ELECTRONS_PLUS
   USE ClusterAndItsBoundaries, ONLY : c_indx_x_min, c_indx_x_max, c_indx_y_min, c_indx_y_max
   USE Diagnostics, ONLY : Save_probes_e_data_T_cntr
 
+  use mpi
+
   IMPLICIT NONE
 
   LOGICAL collect_electron_moments_now
@@ -165,9 +167,10 @@ SUBROUTINE ADVANCE_ELECTRONS_AND_CALCULATE_MOMENTS_2D
   USE Diagnostics
 !------------------------------------------<<<
 
+  use mpi
+
   IMPLICIT NONE
 
-  INCLUDE 'mpif.h'
 
   INTEGER errcode,ierr
   INTEGER stattus(MPI_STATUS_SIZE)
@@ -1024,9 +1027,10 @@ SUBROUTINE ADVANCE_ELECTRONS_AND_CALCULATE_MOMENTS_PROBES
 
   USE Diagnostics
 
+  use mpi
+
   IMPLICIT NONE
 
-  INCLUDE 'mpif.h'
 
   INTEGER errcode,ierr
 

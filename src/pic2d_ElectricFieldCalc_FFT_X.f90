@@ -10,9 +10,9 @@ SUBROUTINE SOLVE_POISSON_FFTX_LINSYSY
   USE Diagnostics, ONLY : Save_probes_e_data_T_cntr, N_of_probes_cluster, List_of_probes_cluster, Probe_position, probe_F_cluster
   USE SetupValues, ONLY : ht_soft_grid_requested, ht_grid_requested, grid_j, F_grid
 
-  IMPLICIT NONE
+  use mpi
 
-  INCLUDE 'mpif.h'
+  IMPLICIT NONE
 
   INTEGER ierr
   INTEGER stattus(MPI_STATUS_SIZE)
@@ -186,7 +186,7 @@ character(10) myfilename ! A_NNNN.dat
               rbufer(pos1:pos2) = c_rho(indx_x_begin:indx_x_end, j)
            END DO
 
-           CALL MPI_SEND(rbufer(1:bufsize), bufsize, MPI_DOUBLE_PRECISION, comm_FFTX_step(k)%rank, Rank_of_process, MPI_COMM_WORLD, request, ierr) 
+           CALL MPI_SEND(rbufer(1:bufsize), bufsize, MPI_DOUBLE_PRECISION, comm_FFTX_step(k)%rank, Rank_of_process, MPI_COMM_WORLD, ierr) 
 
 ! receive
            indx_x_begin = comm_FFTX_step(k)%c_indx_x_min+1
@@ -231,7 +231,7 @@ character(10) myfilename ! A_NNNN.dat
               rbufer(pos1:pos2) = c_rho(indx_x_begin:indx_x_end, j)
            END DO
 
-           CALL MPI_SEND(rbufer(1:bufsize), bufsize, MPI_DOUBLE_PRECISION, comm_FFTX_step(k)%rank, Rank_of_process, MPI_COMM_WORLD, request, ierr) 
+           CALL MPI_SEND(rbufer(1:bufsize), bufsize, MPI_DOUBLE_PRECISION, comm_FFTX_step(k)%rank, Rank_of_process, MPI_COMM_WORLD, ierr) 
 
 
         END IF
@@ -264,7 +264,7 @@ character(10) myfilename ! A_NNNN.dat
            pos2 = pos2 + global_maximal_i - 1
            rbufer(pos1:pos2) = xband(0:global_maximal_i-2, j)
         END DO
-        CALL MPI_SEND(rbufer(1:bufsize), bufsize, MPI_DOUBLE_PRECISION, field_calculator(k)%rank, Rank_of_process, MPI_COMM_WORLD, request, ierr) 
+        CALL MPI_SEND(rbufer(1:bufsize), bufsize, MPI_DOUBLE_PRECISION, field_calculator(k)%rank, Rank_of_process, MPI_COMM_WORLD, ierr) 
      END DO
 
   ELSE
@@ -364,7 +364,7 @@ character(10) myfilename ! A_NNNN.dat
         rbufer(pos1:pos2) = xband(0:global_maximal_i, j)
      END DO
         
-     CALL MPI_SEND(rbufer(1:bufsize), bufsize, MPI_DOUBLE_PRECISION, field_master, Rank_of_process, MPI_COMM_WORLD, request, ierr) 
+     CALL MPI_SEND(rbufer(1:bufsize), bufsize, MPI_DOUBLE_PRECISION, field_master, Rank_of_process, MPI_COMM_WORLD, ierr) 
 
   END IF
 
@@ -405,7 +405,7 @@ character(10) myfilename ! A_NNNN.dat
               rbufer(pos1:pos2) = xband(indx_x_begin:indx_x_end, j)
            END DO
 
-           CALL MPI_SEND(rbufer(1:bufsize), bufsize, MPI_DOUBLE_PRECISION, comm_FFTX_step(k)%rank, Rank_of_process, MPI_COMM_WORLD, request, ierr) 
+           CALL MPI_SEND(rbufer(1:bufsize), bufsize, MPI_DOUBLE_PRECISION, comm_FFTX_step(k)%rank, Rank_of_process, MPI_COMM_WORLD, ierr) 
 
 ! receive
            indx_x_begin = c_indx_x_min
@@ -457,7 +457,7 @@ character(10) myfilename ! A_NNNN.dat
               rbufer(pos1:pos2) = xband(indx_x_begin:indx_x_end, j)
            END DO
 
-           CALL MPI_SEND(rbufer, bufsize, MPI_DOUBLE_PRECISION, comm_FFTX_step(k)%rank, Rank_of_process, MPI_COMM_WORLD, request, ierr) 
+           CALL MPI_SEND(rbufer, bufsize, MPI_DOUBLE_PRECISION, comm_FFTX_step(k)%rank, Rank_of_process, MPI_COMM_WORLD, ierr) 
 
         END IF
 
@@ -540,7 +540,7 @@ character(10) myfilename ! A_NNNN.dat
               END DO
            END DO
 
-           CALL MPI_SEND(rbufer(1:bufsize), bufsize, MPI_DOUBLE_PRECISION, comm_SYSY_step(k)%rank, Rank_of_process, MPI_COMM_WORLD, request, ierr) 
+           CALL MPI_SEND(rbufer(1:bufsize), bufsize, MPI_DOUBLE_PRECISION, comm_SYSY_step(k)%rank, Rank_of_process, MPI_COMM_WORLD, ierr) 
 ! receive
            IF (comm_SYSY_step(k)%c_indx_y_min.GT.0) THEN
               indx_y_begin = comm_SYSY_step(k)%c_indx_y_min+1
@@ -623,7 +623,7 @@ character(10) myfilename ! A_NNNN.dat
               END DO
            END DO
 
-           CALL MPI_SEND(rbufer(1:bufsize), bufsize, MPI_DOUBLE_PRECISION, comm_SYSY_step(k)%rank, Rank_of_process, MPI_COMM_WORLD, request, ierr) 
+           CALL MPI_SEND(rbufer(1:bufsize), bufsize, MPI_DOUBLE_PRECISION, comm_SYSY_step(k)%rank, Rank_of_process, MPI_COMM_WORLD, ierr) 
 
         END IF
 
@@ -652,7 +652,7 @@ character(10) myfilename ! A_NNNN.dat
            pos2 = pos2 + ysize
            rbufer(pos1:pos2) = yband(0:(ysize-1), n)
         END DO
-        CALL MPI_SEND(rbufer(1:bufsize), bufsize, MPI_DOUBLE_PRECISION, field_calculator(k)%rank, Rank_of_process, MPI_COMM_WORLD, request, ierr) 
+        CALL MPI_SEND(rbufer(1:bufsize), bufsize, MPI_DOUBLE_PRECISION, field_calculator(k)%rank, Rank_of_process, MPI_COMM_WORLD, ierr) 
      END DO
 
   ELSE
@@ -788,7 +788,7 @@ character(10) myfilename ! A_NNNN.dat
         pos2 = pos2 + ysize
         rbufer(pos1:pos2) = yband(0:(ysize-1), n)
      END DO
-     CALL MPI_SEND(rbufer(1:bufsize), bufsize, MPI_DOUBLE_PRECISION, field_master, Rank_of_process, MPI_COMM_WORLD, request, ierr) 
+     CALL MPI_SEND(rbufer(1:bufsize), bufsize, MPI_DOUBLE_PRECISION, field_master, Rank_of_process, MPI_COMM_WORLD, ierr) 
 
   END IF
 
@@ -850,7 +850,7 @@ character(10) myfilename ! A_NNNN.dat
               rbufer(pos1:pos2) = yband(indx_y_begin:indx_y_end, n)
            END DO
 
-           CALL MPI_SEND(rbufer(1:bufsize), bufsize, MPI_DOUBLE_PRECISION, comm_SYSY_step(k)%rank, Rank_of_process, MPI_COMM_WORLD, request, ierr) 
+           CALL MPI_SEND(rbufer(1:bufsize), bufsize, MPI_DOUBLE_PRECISION, comm_SYSY_step(k)%rank, Rank_of_process, MPI_COMM_WORLD, ierr) 
 
 ! receive
            indx_y_begin = c_indx_y_min !MAX(c_indx_y_min, 1) 
@@ -910,7 +910,7 @@ character(10) myfilename ! A_NNNN.dat
               rbufer(pos1:pos2) = yband(indx_y_begin:indx_y_end, n)
            END DO
 
-           CALL MPI_SEND(rbufer(1:bufsize), bufsize, MPI_DOUBLE_PRECISION, comm_SYSY_step(k)%rank, Rank_of_process, MPI_COMM_WORLD, request, ierr) 
+           CALL MPI_SEND(rbufer(1:bufsize), bufsize, MPI_DOUBLE_PRECISION, comm_SYSY_step(k)%rank, Rank_of_process, MPI_COMM_WORLD, ierr) 
 
         END IF
 
@@ -984,7 +984,7 @@ character(10) myfilename ! A_NNNN.dat
               rbufer(pos1:pos2) = c_phi(indx_x_begin:indx_x_end, j)
            END DO
 
-           CALL MPI_SEND(rbufer(1:bufsize), bufsize, MPI_DOUBLE_PRECISION, comm_FFTX_step(k)%rank, Rank_of_process, MPI_COMM_WORLD, request, ierr) 
+           CALL MPI_SEND(rbufer(1:bufsize), bufsize, MPI_DOUBLE_PRECISION, comm_FFTX_step(k)%rank, Rank_of_process, MPI_COMM_WORLD, ierr) 
 
 ! receive
            indx_x_begin = comm_FFTX_step(k)%c_indx_x_min
@@ -1035,7 +1035,7 @@ character(10) myfilename ! A_NNNN.dat
               rbufer(pos1:pos2) = c_phi(indx_x_begin:indx_x_end, j)
            END DO
 
-           CALL MPI_SEND(rbufer(1:bufsize), bufsize, MPI_DOUBLE_PRECISION, comm_FFTX_step(k)%rank, Rank_of_process, MPI_COMM_WORLD, request, ierr) 
+           CALL MPI_SEND(rbufer(1:bufsize), bufsize, MPI_DOUBLE_PRECISION, comm_FFTX_step(k)%rank, Rank_of_process, MPI_COMM_WORLD, ierr) 
 
         END IF
 
@@ -1073,7 +1073,7 @@ character(10) myfilename ! A_NNNN.dat
            rbufer(pos1:pos2) = xband(0:global_maximal_i, j)
         END DO
 
-        CALL MPI_SEND(rbufer(1:bufsize), bufsize, MPI_DOUBLE_PRECISION, field_calculator(k)%rank, Rank_of_process, MPI_COMM_WORLD, request, ierr) 
+        CALL MPI_SEND(rbufer(1:bufsize), bufsize, MPI_DOUBLE_PRECISION, field_calculator(k)%rank, Rank_of_process, MPI_COMM_WORLD, ierr) 
 
      END DO
 
@@ -1166,7 +1166,7 @@ character(10) myfilename ! A_NNNN.dat
         rbufer(pos1:pos2) = xband(0:global_maximal_i, j)
      END DO
         
-     CALL MPI_SEND(rbufer(1:bufsize), bufsize, MPI_DOUBLE_PRECISION, field_master, Rank_of_process, MPI_COMM_WORLD, request, ierr) 
+     CALL MPI_SEND(rbufer(1:bufsize), bufsize, MPI_DOUBLE_PRECISION, field_master, Rank_of_process, MPI_COMM_WORLD, ierr) 
 
   END IF
 
@@ -1202,7 +1202,7 @@ character(10) myfilename ! A_NNNN.dat
               rbufer(pos1:pos2) = xband(indx_x_begin:indx_x_end, j)
            END DO
 
-           CALL MPI_SEND(rbufer(1:bufsize), bufsize, MPI_DOUBLE_PRECISION, comm_FFTX_step(k)%rank, Rank_of_process, MPI_COMM_WORLD, request, ierr) 
+           CALL MPI_SEND(rbufer(1:bufsize), bufsize, MPI_DOUBLE_PRECISION, comm_FFTX_step(k)%rank, Rank_of_process, MPI_COMM_WORLD, ierr) 
 
 ! receive
            indx_x_begin = c_indx_x_min
@@ -1249,7 +1249,7 @@ character(10) myfilename ! A_NNNN.dat
               rbufer(pos1:pos2) = xband(indx_x_begin:indx_x_end, j)
            END DO
 
-           CALL MPI_SEND(rbufer(1:bufsize), bufsize, MPI_DOUBLE_PRECISION, comm_FFTX_step(k)%rank, Rank_of_process, MPI_COMM_WORLD, request, ierr) 
+           CALL MPI_SEND(rbufer(1:bufsize), bufsize, MPI_DOUBLE_PRECISION, comm_FFTX_step(k)%rank, Rank_of_process, MPI_COMM_WORLD, ierr) 
 
         END IF
 
@@ -1328,9 +1328,9 @@ SUBROUTINE CALCULATE_ELECTRIC_FIELD_FFTX_LINSYSY
   USE BlockAndItsBoundaries
   USE ClusterAndItsBoundaries
 
-  IMPLICIT NONE
+  use mpi
 
-  INCLUDE 'mpif.h'
+  IMPLICIT NONE
 
   INTEGER ierr
   INTEGER stattus(MPI_STATUS_SIZE)
@@ -1393,14 +1393,14 @@ SUBROUTINE CALCULATE_ELECTRIC_FIELD_FFTX_LINSYSY
 ! ## 1 ## send right electric fields in column left of the right edge
            rbufer(1:n1)           = EX(c_indx_x_max-1, c_indx_y_min:c_indx_y_max)
            rbufer((n1+1):(n1+n1)) = EY(c_indx_x_max-1, c_indx_y_min:c_indx_y_max)
-           CALL MPI_SEND(rbufer, n1+n1, MPI_DOUBLE_PRECISION, Rank_horizontal_right, Rank_horizontal, COMM_HORIZONTAL, request, ierr) 
+           CALL MPI_SEND(rbufer, n1+n1, MPI_DOUBLE_PRECISION, Rank_horizontal_right, Rank_horizontal, COMM_HORIZONTAL, ierr) 
         END IF
 
         IF (Rank_horizontal_left.GE.0) THEN
 ! ## 2 ## send left electric field in column right of the left edge
            rbufer(1:n1)           = EX(c_indx_x_min+1, c_indx_y_min:c_indx_y_max)
            rbufer((n1+1):(n1+n1)) = EY(c_indx_x_min+1, c_indx_y_min:c_indx_y_max)
-           CALL MPI_SEND(rbufer, n1+n1, MPI_DOUBLE_PRECISION, Rank_horizontal_left, Rank_horizontal, COMM_HORIZONTAL, request, ierr) 
+           CALL MPI_SEND(rbufer, n1+n1, MPI_DOUBLE_PRECISION, Rank_horizontal_left, Rank_horizontal, COMM_HORIZONTAL, ierr) 
         END IF
 
         IF (Rank_horizontal_left.GE.0) THEN
@@ -1424,14 +1424,14 @@ SUBROUTINE CALCULATE_ELECTRIC_FIELD_FFTX_LINSYSY
 ! ## 5 ## send up electric fields in the row below the top edge
            rbufer(1:n3)           = EX(c_indx_x_min:c_indx_x_max, c_indx_y_max-1)
            rbufer((n3+1):(n3+n3)) = EY(c_indx_x_min:c_indx_x_max, c_indx_y_max-1)
-           CALL MPI_SEND(rbufer, n3+n3, MPI_DOUBLE_PRECISION, Rank_horizontal_above, Rank_horizontal, COMM_HORIZONTAL, request, ierr) 
+           CALL MPI_SEND(rbufer, n3+n3, MPI_DOUBLE_PRECISION, Rank_horizontal_above, Rank_horizontal, COMM_HORIZONTAL, ierr) 
         END IF
 
         IF (Rank_horizontal_below.GE.0) THEN
 ! ## 6 ## send down electric fields in the row above the bottom edge
            rbufer(1:n3)           = EX(c_indx_x_min:c_indx_x_max, c_indx_y_min+1)
            rbufer((n3+1):(n3+n3)) = EY(c_indx_x_min:c_indx_x_max, c_indx_y_min+1)
-           CALL MPI_SEND(rbufer, n3+n3, MPI_DOUBLE_PRECISION, Rank_horizontal_below, Rank_horizontal, COMM_HORIZONTAL, request, ierr) 
+           CALL MPI_SEND(rbufer, n3+n3, MPI_DOUBLE_PRECISION, Rank_horizontal_below, Rank_horizontal, COMM_HORIZONTAL, ierr) 
         END IF
 
         IF (Rank_horizontal_below.GE.0) THEN
@@ -1472,14 +1472,14 @@ SUBROUTINE CALCULATE_ELECTRIC_FIELD_FFTX_LINSYSY
 ! ## 3 ## send right electric fields in column left of the right edge
            rbufer(1:n1)           = EX(c_indx_x_max-1, c_indx_y_min:c_indx_y_max)
            rbufer((n1+1):(n1+n1)) = EY(c_indx_x_max-1, c_indx_y_min:c_indx_y_max)
-           CALL MPI_SEND(rbufer, n1+n1, MPI_DOUBLE_PRECISION, Rank_horizontal_right, Rank_horizontal, COMM_HORIZONTAL, request, ierr) 
+           CALL MPI_SEND(rbufer, n1+n1, MPI_DOUBLE_PRECISION, Rank_horizontal_right, Rank_horizontal, COMM_HORIZONTAL, ierr) 
         END IF
 
         IF (Rank_horizontal_left.GE.0) THEN
 ! ## 4 ## send left electric field in column right of the left edge
            rbufer(1:n1)           = EX(c_indx_x_min+1, c_indx_y_min:c_indx_y_max)
            rbufer((n1+1):(n1+n1)) = EY(c_indx_x_min+1, c_indx_y_min:c_indx_y_max)
-           CALL MPI_SEND(rbufer, n1+n1, MPI_DOUBLE_PRECISION, Rank_horizontal_left, Rank_horizontal, COMM_HORIZONTAL, request, ierr) 
+           CALL MPI_SEND(rbufer, n1+n1, MPI_DOUBLE_PRECISION, Rank_horizontal_left, Rank_horizontal, COMM_HORIZONTAL, ierr) 
         END IF
      
         IF (ALLOCATED(rbufer)) DEALLOCATE(rbufer, STAT=ALLOC_ERR)
@@ -1503,14 +1503,14 @@ SUBROUTINE CALCULATE_ELECTRIC_FIELD_FFTX_LINSYSY
 ! ## 7 ## send up electric fields in the row below the top edge
            rbufer(1:n3)           = EX(c_indx_x_min:c_indx_x_max, c_indx_y_max-1)
            rbufer((n3+1):(n3+n3)) = EY(c_indx_x_min:c_indx_x_max, c_indx_y_max-1)
-           CALL MPI_SEND(rbufer, n3+n3, MPI_DOUBLE_PRECISION, Rank_horizontal_above, Rank_horizontal, COMM_HORIZONTAL, request, ierr) 
+           CALL MPI_SEND(rbufer, n3+n3, MPI_DOUBLE_PRECISION, Rank_horizontal_above, Rank_horizontal, COMM_HORIZONTAL, ierr) 
         END IF
 
         IF (Rank_horizontal_below.GE.0) THEN
 ! ## 8 ## send down electric fields in the row above the bottom edge
            rbufer(1:n3)           = EX(c_indx_x_min:c_indx_x_max, c_indx_y_min+1)
            rbufer((n3+1):(n3+n3)) = EY(c_indx_x_min:c_indx_x_max, c_indx_y_min+1)
-           CALL MPI_SEND(rbufer, n3+n3, MPI_DOUBLE_PRECISION, Rank_horizontal_below, Rank_horizontal, COMM_HORIZONTAL, request, ierr) 
+           CALL MPI_SEND(rbufer, n3+n3, MPI_DOUBLE_PRECISION, Rank_horizontal_below, Rank_horizontal, COMM_HORIZONTAL, ierr) 
         END IF
 
      END IF

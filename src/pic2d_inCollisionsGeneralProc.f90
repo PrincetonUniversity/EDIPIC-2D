@@ -8,9 +8,10 @@ SUBROUTINE INITIATE_ION_NEUTRAL_COLLISIONS
   USE IonParticles, ONLY : N_spec, Ms
 !  USE ClusterAndItsBoundaries
 
+  use mpi
+
   IMPLICIT NONE
 
-  INCLUDE 'mpif.h'
 
   INTEGER ierr
 
@@ -98,6 +99,8 @@ SUBROUTINE INITIATE_in_COLL_DIAGNOSTICS
   USE CurrentProblemValues, ONLY : Start_T_cntr, N_subcycles, delta_t_s
   USE Checkpoints, ONLY : use_checkpoint
   USE IonParticles, ONLY : N_spec
+
+  use mpi
 
   IMPLICIT NONE
 
@@ -199,9 +202,10 @@ SUBROUTINE SAVE_in_COLLISIONS
   USE IonParticles, ONLY : N_spec, N_ions
   USE CurrentProblemValues, ONLY : T_cntr
 
+  use mpi
+
   IMPLICIT NONE
 
-  INCLUDE 'mpif.h'
 
   INTEGER ierr
 !  INTEGER stattus(MPI_STATUS_SIZE)

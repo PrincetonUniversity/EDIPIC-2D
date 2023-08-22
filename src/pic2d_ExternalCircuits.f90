@@ -7,9 +7,10 @@ SUBROUTINE CALCULATE_OBJECT_POTENTIALS_2D
   USE CurrentProblemValues
   USE BlockAndItsBoundaries
 
+  use mpi
+
   IMPLICIT NONE
 
-  INCLUDE 'mpif.h'
 
   INTEGER ierr
 
@@ -80,9 +81,10 @@ SUBROUTINE CALCULATE_OBJECT_POTENTIAL_CHARGE_COEFFS
   USE CurrentProblemValues
   USE BlockAndItsBoundaries
 
+  use mpi
+
   IMPLICIT NONE
 
-  INCLUDE 'mpif.h'
 
   INTEGER errcode,ierr
 
@@ -1538,9 +1540,10 @@ SUBROUTINE ADD_MORE_CONTROL_POINTS(nn, N_to_add)
 
   USE ExternalCircuit
 
+  use mpi
+
   IMPLICIT NONE
 
-  INCLUDE 'mpif.h'
 
   INTEGER errcode,ierr
 
@@ -1664,9 +1667,10 @@ SUBROUTINE SOLVE_EXTERNAL_CONTOUR
   USE IonParticles, ONLY : N_spec, Qs
   USE Diagnostics, ONLY : Save_probes_e_data_T_cntr, N_of_probes_block, Probe_params_block_list, probe_F_block
 
+  use mpi
+
   IMPLICIT NONE
 
-  INCLUDE 'mpif.h'
 
   INTEGER errcode,ierr
 

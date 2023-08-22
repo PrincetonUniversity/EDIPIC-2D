@@ -10,9 +10,10 @@ SUBROUTINE ADVANCE_IONS_PLUS
   USE IonParticles, ONLY : N_spec, N_ions_to_send_left, N_ions_to_send_right, N_ions_to_send_above, N_ions_to_send_below
   USE Diagnostics, ONLY : Save_probes_i_data_T_cntr
 
+  use mpi
+
   IMPLICIT NONE
 
-  INCLUDE 'mpif.h'
 
   INTEGER ierr
 
@@ -189,9 +190,10 @@ SUBROUTINE ADVANCE_IONS_AND_CALCULATE_MOMENTS_2D(s)
   USE Diagnostics
 !------------------------------------------<<<
 
+  use mpi
+
   IMPLICIT NONE
 
-  INCLUDE 'mpif.h'
 
   INTEGER, INTENT(IN) :: s
 
@@ -1041,9 +1043,10 @@ SUBROUTINE ADVANCE_IONS_AND_CALCULATE_MOMENTS_PROBES
   
   USE Diagnostics
   
+  use mpi
+
   IMPLICIT NONE
 
-  INCLUDE 'mpif.h'
 
   INTEGER errcode,ierr
 

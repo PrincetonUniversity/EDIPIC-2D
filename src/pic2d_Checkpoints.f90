@@ -17,10 +17,9 @@ SUBROUTINE SAVE_CHECKPOINT_MPIIO_2(n_sub)
   USE ExternalCircuit
 
   USE rng_wrapper
+  use mpi
 
   IMPLICIT NONE
-
-  INCLUDE 'mpif.h'
 
   INTEGER errcode,ierr
   INTEGER stattus(MPI_STATUS_SIZE)
@@ -328,7 +327,7 @@ SUBROUTINE SAVE_CHECKPOINT_MPIIO_2(n_sub)
 
   IF (Rank_of_process.GT.0) THEN  
      myibufer(1) = Rank_of_process
-     CALL MPI_SEND(myibufer(1), 1, MPI_INTEGER, Rank_of_process-1, Rank_of_process, MPI_COMM_WORLD, request, ierr)
+     CALL MPI_SEND(myibufer(1), 1, MPI_INTEGER, Rank_of_process-1, Rank_of_process, MPI_COMM_WORLD, ierr)
   END IF
 
   IF (Rank_of_process.EQ.0) PRINT '("Created checkpoint report file ",A21)', filename_report
@@ -361,10 +360,9 @@ SUBROUTINE READ_CHECKPOINT_MPIIO_2
   USE ExternalCircuit
 
   USE rng_wrapper
+  use mpi
 
   IMPLICIT NONE
-
-  INCLUDE 'mpif.h'
 
   INTEGER errcode,ierr
   INTEGER stattus(MPI_STATUS_SIZE)
@@ -646,7 +644,7 @@ SUBROUTINE READ_CHECKPOINT_MPIIO_2
 
   IF (Rank_of_process.GT.0) THEN  
      myibufer(1) = Rank_of_process
-     CALL MPI_SEND(myibufer(1), 1, MPI_INTEGER, Rank_of_process-1, Rank_of_process, MPI_COMM_WORLD, request, ierr)
+     CALL MPI_SEND(myibufer(1), 1, MPI_INTEGER, Rank_of_process-1, Rank_of_process, MPI_COMM_WORLD, ierr)
   END IF
 
   IF (Rank_of_process.EQ.0) PRINT '("Created checkpoint report file ",A20)', filename_report
@@ -716,10 +714,9 @@ SUBROUTINE SAVE_CHECKPOINT_POSIX(n_sub)
   USE ExternalCircuit
 
   USE rng_wrapper
+  use mpi
 
   IMPLICIT NONE
-
-  INCLUDE 'mpif.h'
 
   INTEGER errcode,ierr
 
@@ -941,10 +938,9 @@ SUBROUTINE READ_CHECKPOINT_POSIX
   USE ExternalCircuit
 
   USE rng_wrapper
+  use mpi
 
   IMPLICIT NONE
-
-  INCLUDE 'mpif.h'
 
   INTEGER errcode,ierr
 
@@ -1135,9 +1131,9 @@ SUBROUTINE READ_A_CHECKPOINT
   USE ParallelOperationValues
   USE Checkpoints, ONLY : T_cntr_to_continue
 
-  IMPLICIT NONE
+  use mpi
 
-  INCLUDE 'mpif.h'
+  IMPLICIT NONE
 
   INTEGER errcode,ierr
   

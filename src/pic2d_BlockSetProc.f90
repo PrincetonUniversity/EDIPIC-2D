@@ -109,9 +109,9 @@ SUBROUTINE IDENTIFY_BLOCK_BOUNDARIES
   USE CurrentProblemValues
   USE BlockAndItsBoundaries
 
-  IMPLICIT NONE
+  use mpi
 
-  INCLUDE 'mpif.h'
+  IMPLICIT NONE
 
   INTEGER errcode,ierr
 
@@ -284,9 +284,9 @@ SUBROUTINE INCLUDE_BLOCK_PERIODICITY
   USE CurrentProblemValues
   USE BlockAndItsBoundaries
 
-  IMPLICIT NONE
+  use mpi
 
-  INCLUDE 'mpif.h'
+  IMPLICIT NONE
 
   INTEGER errcode,ierr
   INTEGER stattus(MPI_STATUS_SIZE)
@@ -413,7 +413,7 @@ SUBROUTINE INCLUDE_BLOCK_PERIODICITY
 
      ! send  information about periodicity pairs to each process
      DO n = 1, N_of_processes-1
-        CALL MPI_SEND(all_periodic_messages(13:14,n), 2, MPI_INTEGER, n, Rank_of_process, MPI_COMM_WORLD, request, ierr)        
+        CALL MPI_SEND(all_periodic_messages(13:14,n), 2, MPI_INTEGER, n, Rank_of_process, MPI_COMM_WORLD, ierr)        
      END DO
      
 ! process own periodicity pair info
@@ -443,7 +443,7 @@ SUBROUTINE INCLUDE_BLOCK_PERIODICITY
   ELSE
      
 ! send periodic_message to zero-rank process
-     CALL MPI_SEND(periodic_message, 12, MPI_INTEGER, 0, Rank_of_process, MPI_COMM_WORLD, request, ierr)
+     CALL MPI_SEND(periodic_message, 12, MPI_INTEGER, 0, Rank_of_process, MPI_COMM_WORLD, ierr)
      
 ! receive information about periodicity pairs
      CALL MPI_RECV(ibufer(1:2), 2, MPI_INTEGER, 0, 0, MPI_COMM_WORLD, stattus, ierr) 
@@ -484,9 +484,9 @@ SUBROUTINE CALCULATE_BLOCK_OFFSET
   USE CurrentProblemValues
   USE BlockAndItsBoundaries
 
-  IMPLICIT NONE
+  use mpi
 
-  INCLUDE 'mpif.h'
+  IMPLICIT NONE
 
   INTEGER ierr
   INTEGER stattus(MPI_STATUS_SIZE)
@@ -553,7 +553,7 @@ SUBROUTINE CALCULATE_BLOCK_OFFSET
         IF (Rank_of_process_below.LT.0) bottom_right_inner_node = bottom_right_inner_node + N_of_nodes_to_solve_x  ! skip line of nodes along the bottom boundary
         ibufer(1) = bottom_right_inner_node
         ibufer(2) = N_of_nodes_to_solve_x
-        CALL MPI_SEND(ibufer, 2, MPI_INTEGER, Rank_of_process_right, Rank_of_process, MPI_COMM_WORLD, request, ierr) 
+        CALL MPI_SEND(ibufer, 2, MPI_INTEGER, Rank_of_process_right, Rank_of_process, MPI_COMM_WORLD, ierr) 
      END IF
 
      IF (Rank_of_process_left.GE.0) THEN
@@ -562,7 +562,7 @@ SUBROUTINE CALCULATE_BLOCK_OFFSET
         IF (Rank_of_process_below.LT.0) bottom_left_inner_node = bottom_left_inner_node + N_of_nodes_to_solve_x  ! skip line of nodes along the bottom boundary
         ibufer(1) = bottom_left_inner_node
         ibufer(2) = N_of_nodes_to_solve_x
-        CALL MPI_SEND(ibufer, 2, MPI_INTEGER, Rank_of_process_left, Rank_of_process, MPI_COMM_WORLD, request, ierr)
+        CALL MPI_SEND(ibufer, 2, MPI_INTEGER, Rank_of_process_left, Rank_of_process, MPI_COMM_WORLD, ierr)
      END IF
 
      IF (Rank_of_process_left.GE.0) THEN
@@ -584,7 +584,7 @@ SUBROUTINE CALCULATE_BLOCK_OFFSET
         left_top_inner_node = global_offset + N_of_nodes_to_solve_x * (N_of_nodes_to_solve_y-1) + 1
         IF (Rank_of_process_left.LT.0) left_top_inner_node = left_top_inner_node + 1  ! skip the node at the left boundary
         ibufer(1) = left_top_inner_node
-        CALL MPI_SEND(ibufer(1), 1, MPI_INTEGER, Rank_of_process_above, Rank_of_process, MPI_COMM_WORLD, request, ierr) 
+        CALL MPI_SEND(ibufer(1), 1, MPI_INTEGER, Rank_of_process_above, Rank_of_process, MPI_COMM_WORLD, ierr) 
      END IF
 
      IF (Rank_of_process_below.GE.0) THEN
@@ -592,7 +592,7 @@ SUBROUTINE CALCULATE_BLOCK_OFFSET
         left_bottom_inner_node = global_offset + 1
         IF (Rank_of_process_left.LT.0) left_bottom_inner_node = left_bottom_inner_node + 1  ! skip the node at the left boundary
         ibufer(1) = left_bottom_inner_node
-        CALL MPI_SEND(ibufer(1), 1, MPI_INTEGER, Rank_of_process_below, Rank_of_process, MPI_COMM_WORLD, request, ierr) 
+        CALL MPI_SEND(ibufer(1), 1, MPI_INTEGER, Rank_of_process_below, Rank_of_process, MPI_COMM_WORLD, ierr) 
      END IF
 
      IF (Rank_of_process_below.GE.0) THEN
@@ -629,7 +629,7 @@ SUBROUTINE CALCULATE_BLOCK_OFFSET
         IF (Rank_of_process_below.LT.0) bottom_right_inner_node = bottom_right_inner_node + N_of_nodes_to_solve_x  ! skip line of nodes along the bottom boundary
         ibufer(1) = bottom_right_inner_node
         ibufer(2) = N_of_nodes_to_solve_x
-        CALL MPI_SEND(ibufer, 2, MPI_INTEGER, Rank_of_process_right, Rank_of_process, MPI_COMM_WORLD, request, ierr) 
+        CALL MPI_SEND(ibufer, 2, MPI_INTEGER, Rank_of_process_right, Rank_of_process, MPI_COMM_WORLD, ierr) 
      END IF
 
      IF (Rank_of_process_left.GE.0) THEN
@@ -638,7 +638,7 @@ SUBROUTINE CALCULATE_BLOCK_OFFSET
         IF (Rank_of_process_below.LT.0) bottom_left_inner_node = bottom_left_inner_node + N_of_nodes_to_solve_x  ! skip line of nodes along the bottom boundary
         ibufer(1) = bottom_left_inner_node
         ibufer(2) = N_of_nodes_to_solve_x
-        CALL MPI_SEND(ibufer, 2, MPI_INTEGER, Rank_of_process_left, Rank_of_process, MPI_COMM_WORLD, request, ierr)
+        CALL MPI_SEND(ibufer, 2, MPI_INTEGER, Rank_of_process_left, Rank_of_process, MPI_COMM_WORLD, ierr)
      END IF
 
      IF (Rank_of_process_below.GE.0) THEN
@@ -658,7 +658,7 @@ SUBROUTINE CALCULATE_BLOCK_OFFSET
         left_top_inner_node = global_offset + N_of_nodes_to_solve_x * (N_of_nodes_to_solve_y-1) + 1
         IF (Rank_of_process_left.LT.0) left_top_inner_node = left_top_inner_node + 1  ! skip the node at the left boundary
         ibufer(1) = left_top_inner_node
-        CALL MPI_SEND(ibufer(1), 1, MPI_INTEGER, Rank_of_process_above, Rank_of_process, MPI_COMM_WORLD, request, ierr) 
+        CALL MPI_SEND(ibufer(1), 1, MPI_INTEGER, Rank_of_process_above, Rank_of_process, MPI_COMM_WORLD, ierr) 
      END IF
 
      IF (Rank_of_process_below.GE.0) THEN
@@ -666,7 +666,7 @@ SUBROUTINE CALCULATE_BLOCK_OFFSET
         left_bottom_inner_node = global_offset + 1
         IF (Rank_of_process_left.LT.0) left_bottom_inner_node = left_bottom_inner_node + 1  ! skip the node at the left boundary
         ibufer(1) = left_bottom_inner_node
-        CALL MPI_SEND(ibufer(1), 1, MPI_INTEGER, Rank_of_process_below, Rank_of_process, MPI_COMM_WORLD, request, ierr) 
+        CALL MPI_SEND(ibufer(1), 1, MPI_INTEGER, Rank_of_process_below, Rank_of_process, MPI_COMM_WORLD, ierr) 
      END IF
 
   END IF
@@ -679,9 +679,9 @@ SUBROUTINE ANALYZE_BOUNDARY_OBJECTS
 
   USE CurrentProblemValues
 
-  IMPLICIT NONE
+  use mpi
 
-  INCLUDE 'mpif.h'
+  IMPLICIT NONE
 
   INTEGER errcode,ierr
 

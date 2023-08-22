@@ -9,9 +9,10 @@ SUBROUTINE INITIATE_AVERAGED_SNAPSHOTS
   USE Checkpoints, ONLY : use_checkpoint
   USE MCCollisions, ONLY : N_neutral_spec, collision_e_neutral, en_collisions_turned_off
 
+  use mpi
+
   IMPLICIT NONE
 
-  INCLUDE 'mpif.h'
 
   INTEGER errcode,ierr
 
@@ -287,9 +288,10 @@ SUBROUTINE COLLECT_F_EX_EY_FOR_AVERAGED_SNAPSHOT
   USE Snapshots, ONLY : diagnostics_neutral
 
 
+  use mpi
+
   IMPLICIT NONE
 
-  INCLUDE 'mpif.h'
 
   INTEGER ierr
   INTEGER stattus(MPI_STATUS_SIZE)
@@ -565,7 +567,7 @@ SUBROUTINE COLLECT_F_EX_EY_FOR_AVERAGED_SNAPSHOT
               pos1 = pos1 + recsize
            END DO
 
-           CALL MPI_SEND(rbufer, bufsize, MPI_REAL, field_master, Rank_of_process, MPI_COMM_WORLD, request, ierr) 
+           CALL MPI_SEND(rbufer, bufsize, MPI_REAL, field_master, Rank_of_process, MPI_COMM_WORLD, ierr) 
 
            DEALLOCATE(rbufer, STAT = ALLOC_ERR)
         
@@ -607,6 +609,8 @@ SUBROUTINE COLLECT_ELECTRON_DATA_FOR_AVERAGED_SNAPSHOT
   USE AvgSnapshots
   USE Snapshots, ONLY : cs_N, cs_VX, cs_VY, cs_VZ, cs_WX, cs_WY, cs_WZ, cs_VXVY, cs_VXVZ, cs_VYVZ, cs_QX, cs_QY, cs_QZ
   USE ClusterAndItsBoundaries
+
+  use mpi
 
   IMPLICIT NONE
 
@@ -738,6 +742,8 @@ SUBROUTINE COLLECT_ION_DATA_FOR_AVERAGED_SNAPSHOT(s)
   USE AvgSnapshots
   USE Snapshots, ONLY : cs_N, cs_VX, cs_VY, cs_VZ, cs_WX, cs_WY, cs_WZ, cs_VXVY, cs_VXVZ, cs_VYVZ, cs_QX, cs_QY, cs_QZ
   USE ClusterAndItsBoundaries
+
+  use mpi
 
   IMPLICIT NONE
 
@@ -891,9 +897,10 @@ SUBROUTINE CREATE_AVERAGED_SNAPSHOT
   USE MCCollisions, ONLY : N_neutral_spec, neutral, collision_e_neutral
   USE Snapshots, ONLY : diagnostics_neutral
 
+  use mpi
+
   IMPLICIT NONE
 
-  INCLUDE 'mpif.h'
 
   INTEGER ierr
 
