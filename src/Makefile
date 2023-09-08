@@ -23,8 +23,8 @@ ifeq ($(BASE_FCOMP),ifort)
    CFLAGS := -O2
 else ifeq ($(BASE_FCOMP),gfortran)
    $(info "Using gcc/gfortran compilers" )
-   FFLAGS := -O2 -ffree-line-length-none -I${PETSC_DIR}/include
-   CFLAGS := -O2
+   FFLAGS := -O2 -g -ffree-line-length-none -I${PETSC_DIR}/include
+   CFLAGS := -O2 -g
 else
    FFLAGS := -O2 -I${PETSC_DIR}/include
    CFLAGS := -O2
