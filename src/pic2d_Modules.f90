@@ -167,6 +167,8 @@ MODULE CurrentProblemValues
 
   REAL(8), PARAMETER :: pi = 3.141592653589793_8
 
+  CHARACTER(14), PARAMETER :: dir_history = 'history_files/' ! Directory where the history files are written
+
   REAL(8) eps_0_Fm
 
   INTEGER i_given_F_double_period_sys    ! in a system which is periodic in both X and Y directions, if there is no metal objects with given potential
