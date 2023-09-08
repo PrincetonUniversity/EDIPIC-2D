@@ -927,6 +927,7 @@ END SUBROUTINE PERFORM_ELECTRON_EMISSION_HT_SETUP_ZERO_GRAD_F
 SUBROUTINE INITIATE_WALL_DIAGNOSTICS_HT_SETUP
 
   USE ParallelOperationValues
+  USE CurrentProblemValues, ONLY : dir_history
   USE Checkpoints
   USE Diagnostics
   USE SetupValues, ONLY : ht_use_e_emission_from_cathode, ht_use_e_emission_from_cathode_zerogradf, ht_emission_constant
@@ -949,9 +950,9 @@ SUBROUTINE INITIATE_WALL_DIAGNOSTICS_HT_SETUP
 ! start from checkpoint, must trim the time dependences
 
 ! upper wall 
-     INQUIRE (FILE = 'history_bo_02.dat', EXIST = exists)
+     INQUIRE (FILE = dir_history//'history_bo_02.dat', EXIST = exists)
      IF (exists) THEN                                                       
-        OPEN (21, FILE = 'history_bo_02.dat', STATUS = 'OLD')          
+        OPEN (21, FILE = dir_history//'history_bo_02.dat', STATUS = 'OLD')
         DO i = 1, N_of_saved_records
            READ (21, '(2x,i8,3(2x,i8))') i_dummy
         END DO
@@ -960,9 +961,9 @@ SUBROUTINE INITIATE_WALL_DIAGNOSTICS_HT_SETUP
      END IF
 
 ! lower wall 
-     INQUIRE (FILE = 'history_bo_04.dat', EXIST = exists)
+     INQUIRE (FILE = dir_history//'history_bo_04.dat', EXIST = exists)
      IF (exists) THEN                                                       
-        OPEN (21, FILE = 'history_bo_04.dat', STATUS = 'OLD')          
+        OPEN (21, FILE = dir_history//'history_bo_04.dat', STATUS = 'OLD')
         DO i = 1, N_of_saved_records
            READ (21, '(2x,i8,3(2x,i8))') i_dummy
         END DO
@@ -973,10 +974,10 @@ SUBROUTINE INITIATE_WALL_DIAGNOSTICS_HT_SETUP
   ELSE
 ! fresh start, empty files, clean up whatever garbage there might be
 
-     OPEN  (21, FILE = 'history_bo_02.dat', STATUS = 'REPLACE')          
+     OPEN  (21, FILE = dir_history//'history_bo_02.dat', STATUS = 'REPLACE')
      CLOSE (21, STATUS = 'KEEP')
 
-     OPEN  (21, FILE = 'history_bo_04.dat', STATUS = 'REPLACE')          
+     OPEN  (21, FILE = dir_history//'history_bo_04.dat', STATUS = 'REPLACE')
      CLOSE (21, STATUS = 'KEEP')
 
   END IF
@@ -1003,7 +1004,7 @@ SUBROUTINE SAVE_BOUNDARY_PARTICLE_HITS_EMISSIONS_HT_SETUP
 ! hardwired for objects #2 (cathode) and #4 (anode) and 1 ion species
 ! object #2 (cathode) emits electrons  
 
-  OPEN (21, FILE = 'history_bo_02.dat', POSITION = 'APPEND')
+  OPEN (21, FILE = dir_history//'history_bo_02.dat', POSITION = 'APPEND')
 
   WRITE (21, '(2x,i8,3(2x,i8))') &
        & T_cntr, &
@@ -1015,7 +1016,7 @@ SUBROUTINE SAVE_BOUNDARY_PARTICLE_HITS_EMISSIONS_HT_SETUP
   
 ! object #4 (anode) does not emit anything at this time         
 
-  OPEN (21, FILE = 'history_bo_04.dat', POSITION = 'APPEND')
+  OPEN (21, FILE = dir_history//'history_bo_04.dat', POSITION = 'APPEND')
 
   WRITE (21, '(2x,i8,3(2x,i8))') &
        & T_cntr, &

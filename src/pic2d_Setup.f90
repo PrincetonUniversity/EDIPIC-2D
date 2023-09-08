@@ -561,7 +561,7 @@ END SUBROUTINE PREPARE_EXTERNAL_CIRCUIT
 SUBROUTINE INITIATE_EXT_CIRCUIT_DIAGNOSTICS
 
   USE ParallelOperationValues
-  USE CurrentProblemValues, ONLY : N_of_boundary_and_inner_objects, Start_T_cntr
+  USE CurrentProblemValues, ONLY : N_of_boundary_and_inner_objects, Start_T_cntr, dir_history
   USE Checkpoints, ONLY : use_checkpoint
 !  USE Diagnostics, ONLY : N_of_saved_records
   USE SetupValues, ONLY : ht_use_e_emission_from_cathode, ht_use_e_emission_from_cathode_zerogradf, ht_emission_constant
@@ -584,9 +584,9 @@ SUBROUTINE INITIATE_EXT_CIRCUIT_DIAGNOSTICS
   IF (use_checkpoint.EQ.1) THEN
 ! start from checkpoint, must trim the time dependences
 
-     INQUIRE (FILE = 'history_ext_circuit.dat', EXIST = exists)
+     INQUIRE (FILE = dir_history//'history_ext_circuit.dat', EXIST = exists)
      IF (exists) THEN                                                       
-        OPEN (21, FILE = 'history_ext_circuit.dat', STATUS = 'OLD')          
+        OPEN (21, FILE = dir_history//'history_ext_circuit.dat', STATUS = 'OLD')
         DO i = 1, Start_T_cntr   !N_of_saved_records             ! these files are updated at every electron timestep
            READ (21, '(2x,i9,8(2x,e14.7))') i_dummy
         END DO
@@ -597,7 +597,7 @@ SUBROUTINE INITIATE_EXT_CIRCUIT_DIAGNOSTICS
   ELSE
 ! fresh start, empty files, clean up whatever garbage there might be
 
-     OPEN  (21, FILE = 'history_ext_circuit.dat', STATUS = 'REPLACE')          
+     OPEN  (21, FILE = dir_history//'history_ext_circuit.dat', STATUS = 'REPLACE')
      CLOSE (21, STATUS = 'KEEP')
 
   END IF

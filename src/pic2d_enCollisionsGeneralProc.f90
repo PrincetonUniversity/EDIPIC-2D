@@ -662,7 +662,7 @@ SUBROUTINE INITIATE_en_COLL_DIAGNOSTICS
 
   USE ParallelOperationValues
   USE MCCollisions
-  USE CurrentProblemValues, ONLY : Start_T_cntr, N_subcycles, delta_t_s
+  USE CurrentProblemValues, ONLY : Start_T_cntr, N_subcycles, delta_t_s, dir_history
   USE Checkpoints, ONLY : use_checkpoint
 
   IMPLICIT NONE
@@ -690,10 +690,10 @@ SUBROUTINE INITIATE_en_COLL_DIAGNOSTICS
         historycoll_filename = 'history_coll_e_n_AAAAAA.dat'
         historycoll_filename(18:23) = neutral(n)%name
 
-        INQUIRE (FILE = historycoll_filename, EXIST = exists)
+        INQUIRE (FILE = dir_history//historycoll_filename, EXIST = exists)
         IF (exists) THEN                                                       
 
-           OPEN (21, FILE = historycoll_filename, STATUS = 'OLD')          
+           OPEN (21, FILE = dir_history//historycoll_filename, STATUS = 'OLD')
 ! skip header
            READ (21, '(A1)') buf ! WRITE (21, '("# electron time step is ",e14.7," s")'), delta_t_s
            READ (21, '(A1)') buf ! WRITE (21, '("#      ion time step is ",e14.7," s")'), delta_t_s * N_subcycles
@@ -715,7 +715,7 @@ SUBROUTINE INITIATE_en_COLL_DIAGNOSTICS
 
         ELSE
 
-           OPEN  (21, FILE = historycoll_filename, STATUS = 'REPLACE')
+           OPEN  (21, FILE = dir_history//historycoll_filename, STATUS = 'REPLACE')
 ! save header
            WRITE (21, '("# electron time step is ",e14.7," s")') delta_t_s
            WRITE (21, '("#      ion time step is ",e14.7," s")') delta_t_s * N_subcycles
@@ -741,7 +741,7 @@ SUBROUTINE INITIATE_en_COLL_DIAGNOSTICS
         historycoll_filename = 'history_coll_e_n_AAAAAA.dat'
         historycoll_filename(18:23) = neutral(n)%name
 
-        OPEN  (21, FILE = historycoll_filename, STATUS = 'REPLACE')
+        OPEN  (21, FILE = dir_history//historycoll_filename, STATUS = 'REPLACE')
 ! save header
         WRITE (21, '("# electron time step is ",e14.7," s")') delta_t_s
         WRITE (21, '("#      ion time step is ",e14.7," s")') delta_t_s * N_subcycles
@@ -766,7 +766,7 @@ SUBROUTINE SAVE_en_COLLISIONS
   USE ParallelOperationValues
   USE MCCollisions
   USE ElectronParticles, ONLY : N_electrons
-  USE CurrentProblemValues, ONLY : T_cntr
+  USE CurrentProblemValues, ONLY : T_cntr, dir_history
 
   use mpi
 
@@ -835,7 +835,7 @@ SUBROUTINE SAVE_en_COLLISIONS
      historycoll_filename = 'history_coll_e_n_AAAAAA.dat'
      historycoll_filename(18:23) = neutral(n)%name
 
-     OPEN (21, FILE = historycoll_filename, POSITION = 'APPEND')
+     OPEN (21, FILE = dir_history//historycoll_filename, POSITION = 'APPEND')
      WRITE (21, '(2x,i8,10(2x,i8))') &
           & T_cntr, &
           & global_N_of_electrons, &

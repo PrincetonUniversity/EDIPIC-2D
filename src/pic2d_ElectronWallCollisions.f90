@@ -350,7 +350,7 @@ END SUBROUTINE COLLECT_ELECTRON_BOUNDARY_HITS
 SUBROUTINE INITIATE_WALL_DIAGNOSTICS
 
   USE ParallelOperationValues
-  USE CurrentProblemValues, ONLY : N_of_boundary_and_inner_objects, Start_T_cntr
+  USE CurrentProblemValues, ONLY : N_of_boundary_and_inner_objects, Start_T_cntr, dir_history
   USE Checkpoints, ONLY : use_checkpoint
 !  USE Diagnostics, ONLY : N_of_saved_records
   USE SetupValues, ONLY : ht_use_e_emission_from_cathode, ht_use_e_emission_from_cathode_zerogradf, ht_emission_constant
@@ -388,9 +388,9 @@ SUBROUTINE INITIATE_WALL_DIAGNOSTICS
         historybo_filename = 'history_bo_NN.dat'
         historybo_filename(12:13) = convert_int_to_txt_string(k, 2)
 
-        INQUIRE (FILE = historybo_filename, EXIST = exists)
+        INQUIRE (FILE = dir_history//historybo_filename, EXIST = exists)
         IF (exists) THEN                                                       
-           OPEN (21, FILE = historybo_filename, STATUS = 'OLD')          
+           OPEN (21, FILE = dir_history//historybo_filename, STATUS = 'OLD')
            DO !i = 1, Start_T_cntr   !N_of_saved_records             ! these files are updated at every electron timestep
               READ (21, '(2x,i8,10(2x,i8))', iostat = ios) i_dummy
               IF (ios.NE.0) EXIT
@@ -411,7 +411,7 @@ SUBROUTINE INITIATE_WALL_DIAGNOSTICS
         historybo_filename = 'history_bo_NN.dat'
         historybo_filename(12:13) = convert_int_to_txt_string(k, 2)
 
-        OPEN  (21, FILE = historybo_filename, STATUS = 'REPLACE')          
+        OPEN  (21, FILE = dir_history//historybo_filename, STATUS = 'REPLACE')
         CLOSE (21, STATUS = 'KEEP')
 
      END DO
@@ -465,7 +465,7 @@ SUBROUTINE SAVE_BOUNDARY_PARTICLE_HITS_EMISSIONS
      historybo_filename = 'history_bo_NN.dat'
      historybo_filename(12:13) = convert_int_to_txt_string(k, 2)
 
-     OPEN (21, FILE = historybo_filename, POSITION = 'APPEND')
+     OPEN (21, FILE = dir_history//historybo_filename, POSITION = 'APPEND')
      WRITE (21, '(2x,i8,10(2x,i8))') &
           & T_cntr, &
           & whole_object(k)%electron_hit_count , &

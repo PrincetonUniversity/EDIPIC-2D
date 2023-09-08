@@ -1875,7 +1875,7 @@ SUBROUTINE SOLVE_EXTERNAL_CONTOUR
 !     dQ_full(1) = charge_of_object(1) + dQ_full(1)
      dQ_full = charge_of_object + dQ_full
 
-     OPEN (21, FILE = 'history_ext_circuit.dat', POSITION = 'APPEND')
+     OPEN (21, FILE = dir_history//'history_ext_circuit.dat', POSITION = 'APPEND')
      WRITE (21, '(2x,i9,8(2x,e14.7))') &
           & T_cntr, &                                                             ! 1
           & T_cntr * delta_t_s * 1.0d9, &                                         ! 2
