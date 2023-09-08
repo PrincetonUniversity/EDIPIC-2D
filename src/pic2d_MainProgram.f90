@@ -34,6 +34,12 @@ PROGRAM MainProg
   CALL MPI_COMM_RANK(MPI_COMM_WORLD, Rank_of_process, ierr)
   CALL MPI_COMM_SIZE(MPI_COMM_WORLD, N_of_processes, ierr)
 
+! Create "history_files" directory if it does not already exist
+  if (Rank_of_process == 0) then
+     call system('mkdir -p '//dir_history(1:13))
+  endif
+  CALL MPI_BARRIER(MPI_COMM_WORLD, ierr) 
+
   CALL SET_PHYSICAL_CONSTANTS
 
   CALL PrepareMaxwellDistribIntegral
