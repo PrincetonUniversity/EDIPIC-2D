@@ -466,12 +466,25 @@ SUBROUTINE PERFORM_ELECTRON_NEUTRAL_COLLISIONS
               END IF
            END DO
            indx_energy =              collision_e_neutral(n)%energy_segment_boundary_index(indx_segment-1) + &
-                       & (energy_eV - collision_e_neutral(n)%energy_segment_boundary_value(indx_segment-1)) / collision_e_neutral(n)%energy_segment_step(indx_segment)
+                  & INT( (energy_eV - collision_e_neutral(n)%energy_segment_boundary_value(indx_segment-1)) / collision_e_neutral(n)%energy_segment_step(indx_segment) )
+! limiter for safety
            indx_energy = MAX(0, MIN(indx_energy, collision_e_neutral(n)%N_of_energy_values-1))
-! double check
+! additional safety (new)
+           IF (energy_eV.LT.collision_e_neutral(n)%energy_eV(indx_energy)) indx_energy = indx_energy - 1
+           IF (energy_eV.GT.collision_e_neutral(n)%energy_eV(indx_energy+1)) indx_energy = indx_energy + 1
+           indx_energy = MAX(0, MIN(indx_energy, collision_e_neutral(n)%N_of_energy_values-1))
+! final check
            IF ((energy_eV.LT.collision_e_neutral(n)%energy_eV(indx_energy)).OR.(energy_eV.GT.collision_e_neutral(n)%energy_eV(indx_energy+1))) THEN
 ! error
-              PRINT '("Proc ",i4," error in PERFORM_ELECTRON_NEUTRAL_COLLISIONS")', Rank_of_process
+!              PRINT '("Proc ",i4," error in PERFORM_ELECTRON_NEUTRAL_COLLISIONS")', Rank_of_process
+! expanded error message (new)
+              PRINT '("Proc ",i4," error in PERFORM_ELECTRON_NEUTRAL_COLLISIONS: ",e10.3,2(1x,i6),2(1x,i10),5(1x,e10.3),2x,e12.5)', &
+                      & Rank_of_process, energy_eV, &
+                      & indx_segment, indx_energy, &
+                      & random_j, N_electrons, &
+                      & electron(random_j)%VX, electron(random_j)%VY, electron(random_j)%VZ, &
+                      & collision_e_neutral(n)%energy_eV(indx_energy), collision_e_neutral(n)%energy_eV(indx_energy+1), &
+                      & energy_eV-collision_e_neutral(n)%energy_eV(indx_energy)
               errcode=432
               CALL MPI_ABORT(MPI_COMM_WORLD,errcode,ierr)
            END IF
