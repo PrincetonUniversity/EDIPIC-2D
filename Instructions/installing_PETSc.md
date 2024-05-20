@@ -32,15 +32,15 @@ cd petsc-3.14.6
 ## Configuring PETSc
 
 The first thing to do before running `configure` is to decide where the final libraries and include files will be installed. Ideally you want this location to be accessible by the whole group of users who will be running EDIPIC-2D. This location/directory is the value of `--prefix` below. 
-Run the following configure command within the petsc distribution top directory. It is useful to put it in a shell script:
+Run the following configure command within the petsc distribution top directory after making sure to replace `<path_to_final_installation>` with a valid path location and `<compiler_name_and_version>` with a judicious name (for example `gcc12_mpich`). It is useful to put it in a shell script:
 
 ```
    ./configure --with-cc=mpicc --with-cxx=mpicxx --with-fc=mpif90 \
             COPTFLAGS='-O2' CXXOPTFLAGS='-O2' FOPTFLAGS='-O2' \
             --with-blaslapack-dir=$MKLROOT \
             --download-hypre \
-            --prefix=*path_to_final_installation*  \
-            PETSC_ARCH=*compiler_name_and_version*  \
+            --prefix=<path_to_final_installation>  \
+            PETSC_ARCH=<compiler_name_and_version>  \
             PETSC_DIR=$PWD
 ```
 
